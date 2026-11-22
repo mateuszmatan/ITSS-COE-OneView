@@ -103,13 +103,15 @@
       "ecosystems": [
         "maven",
         "npm",
-        "pypi"
+        "pypi",
+        "nuget"
       ],
       "goldenVersionTypes": [
         "recommended-non-breaking-with-dependencies",
         "recommended-non-breaking"
       ],
-      "verify": {"maxAttempts": 3,
+      "verify": {
+        "maxAttempts": 3,
         "timeoutMinutes": 20
       },
       "commitAuthorName": "DevSecOps GoldenFix",
@@ -127,9 +129,7 @@
       "appName": "payhub-gateway",
       "artifactName": "payhub-gateway.jar",
       "asoc": {
-        "url": "https://bbh.cloud.appscan.com",
-        "keyId": "bbh_5f5de4e6-4b91-3fd9-858f-06310c998acd",
-        "token": "payhub-appscan-key"
+        "url": "https://bbh.cloud.appscan.com"
       },
       "influx": {
         "url": "http://qcwsecopsmon1.testbbh.com:8086/api/v2/write?org=DevSecOps&bucket=DORA-metrics&precision=s",

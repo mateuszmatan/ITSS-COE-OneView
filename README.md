@@ -94,9 +94,26 @@ start-up. In the image the logs are written to the console and to `/application/
 ## How DSOEnhanced reads its configuration
 
 A Jenkinsfile with a key holds only that key. Before the stages start, the library sends
-`GET $DSO_PORTAL_URL/api/dso/config/<key>?format=json` from a Jenkins agent; `DSO_PORTAL_URL` is a global
+`GET $ONEVIEW_URL/api/dso/config/<key>?format=json` from a Jenkins agent; `ONEVIEW_URL` is a global
 environment variable of Jenkins, for example `https://oneview.apps.bbh.com`. Jenkins needs no database account and
-no other setting.
+no other setting. The agents that read OneView are those of the label in `ONEVIEW_AGENT` (`linux-agent` when it is
+not set).
+
+After its stages a run with a key posts its pipeline report to `$ONEVIEW_URL/api/dso/reports` with the key of its
+Jenkinsfile, once for each key of `pipelineKeys`, so every pipeline of a shared job gets the report of the run. The
+job needs no setting for it; the agent that ran the pipeline must reach OneView. A report that cannot be posted is
+one `[ONEVIEW] Failed to upload pipeline report to OneView` line in the console of the build and never changes its
+result. A `DSO_PIPELINE_KEY` or `PIPELINE_KEY` in the environment of a job wins over the keys of its Jenkinsfile: the
+report is then posted once, with that key. A run without a key posts a report only when it is given such a key;
+[chapter 14 of the guide](docs/documentation.md#execution-report-pipeline-reporthtml) has the details.
+
+The variable was `DSO_PORTAL_URL` while the portal had its working name, and the label variable `DSO_PORTAL_AGENT`.
+The library still reads the former names when the new one is not set or not usable (the report upload also reads
+`PORTAL_URL`), and the console of the build says how to rename them, so a Jenkins installation that sets only the
+former names builds as before. `ONEVIEW_URL` wins when both are set; it is written as
+`https://<host>[:<port>][/<path>]`, without a user, password, query or spaces. A job pinned to a release of the
+library from before the new names reads only the former ones: keep both variables set, with the same value, until
+no job uses such a release.
 
 A Jenkinsfile without a key makes the library read `devsecops_config.yaml`, else `config.yaml`, from the root of the
 repository instead; the product page downloads that file and offers that Jenkinsfile.

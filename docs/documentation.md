@@ -59,10 +59,11 @@ The portal does five things:
 ### How a pipeline gets its settings
 
 1. Jenkins starts the job. The Jenkinsfile calls the entry point of the pipeline type with the pipeline key.
-2. The library sends `GET $DSO_PORTAL_URL/api/dso/config/<key>?format=json` from the Jenkins agent.
+2. The library sends `GET $ONEVIEW_URL/api/dso/config/<key>?format=json` from the Jenkins agent. `ONEVIEW_URL` is the address of OneView that the Jenkins administrators set once, see [Jenkins jobs](#jenkins-jobs).
 3. The portal checks the key. It answers 200 with the settings, 403 `Pipeline key invalidated` or 404 `Unknown DevSecOps pipeline key`.
 4. The library runs the stages with these settings. It writes the results of the run to InfluxDB.
-5. The portal reads the results back for Pipeline Monitoring.
+5. After the stages the library posts the report of the run to `POST $ONEVIEW_URL/api/dso/reports` with the pipeline key, once for each key of the Jenkinsfile; see [Execution Report](#execution-report-pipeline-reporthtml).
+6. The portal reads the results back for Pipeline Monitoring and shows the report on the page of the pipeline.
 
 > [!NOTE]
 > The settings name Jenkins credentials IDs, never passwords or tokens. Secrets stay in the Jenkins credentials store.
@@ -933,6 +934,8 @@ The library takes the Jenkins agents of a run from the first key, so only pipeli
 
 Pipeline Monitoring shows the runs of a shared job under the service of the first key: the library reports every run with the monitoring project tag of that service. To see the runs on the other services too, give them the same Project tag (Monitoring section) and the shared job as the Jenkins job of their pipelines. With a shared tag, the portal matches the runs to a pipeline by its Jenkins job, so each pipeline of the group then shows the runs of the shared job.
 
+The report of a run does not depend on the tag: the library posts it to the portal once for each key of `pipelineKeys`, so the page of every pipeline of the shared job shows the report of the run. See [Execution Report](#execution-report-pipeline-reporthtml).
+
 The combined Jenkinsfile passes every key in `pipelineKeys`. The first key belongs to the primary service:
 
 ```groovy
@@ -1049,7 +1052,11 @@ devSecOpsPipeline(projectNames: 'gateway', agentNames: ['linux-agent'])
 - Each pipeline needs a Jenkins Pipeline job that reads the Jenkinsfile from the repository (Pipeline script from SCM).
 - The service template names the job, for example `DevSecOps/{CODE}/{service}-{type}` gives `DevSecOps/PAYHUB/gateway-full`.
 - While the service template names a job, the pipelines that one save starts for the services of a repository share one job and one Jenkinsfile with `pipelineKeys`. A new pipeline joins a job only when two or more pipelines of its type, repository and Jenkins agents run in it already. See [chapter 8](#8-shared-version-catalogs-and-the-combined-jenkinsfile).
-- Jenkins needs the global environment variable `DSO_PORTAL_URL`, for example `https://oneview.apps.bbh.com`.
+- Jenkins needs the global environment variable `ONEVIEW_URL`, for example `https://oneview.apps.bbh.com`. A Jenkins administrator sets it once under Manage Jenkins, System, Global properties, Environment variables. It is written as `https://<host>[:<port>][/<path>]`, without a user, password, query or spaces; a slash at its end is left out.
+- The agents that read OneView before the stages start are those of the label in the variable `ONEVIEW_AGENT`, `linux-agent` when it is not set. They run Linux or macOS. An agent that sets its own `ONEVIEW_URL` reads OneView at that address, which must have the same form.
+- The agents that run the pipelines must reach OneView too: after its stages a run with a key posts its report from the agent it ran on, see [Execution Report](#execution-report-pipeline-reporthtml). A job needs no setting for that.
+- `DSO_PORTAL_URL` and `DSO_PORTAL_AGENT` are the former names of the two variables. They still work: the library reads a former name while the new one is not set or cannot be used, and the console of the build says how to rename it. `ONEVIEW_URL` wins when both are set. No Jenkinsfile changes. [Troubleshooting](#the-console-of-a-build-names-dso_portal_url-or-dso_portal_agent) lists the lines.
+- A job whose Jenkinsfile pins a release of the library from before the new names, such as `@Library('DSOEnhanced@<older tag>')`, reads only `DSO_PORTAL_URL` and `DSO_PORTAL_AGENT`. Keep both variables of each pair set, with the same value, until no job uses such a release; meanwhile the current library says in each build that the former variable holds the same value and can be removed.
 
 ## 10. Import a devsecops_config.yaml and copy a service
 
@@ -1239,7 +1246,16 @@ The results of a pipeline are stored under the tags of the Monitoring section of
 
 ### Execution Report (pipeline-report.html)
 
-After each pipeline execution, the DevSecOps pipeline automatically sends the complete build status (build number, job, branch, commit, duration, stage tallies) and the full HTML content of `pipeline-report.html` to the portal via `POST /api/dso/reports`.
+After its stages a run that read its settings from the portal sends its build status (build number, job, result, branch, commit, duration, stage tallies), the full HTML content of `pipeline-report.html` and the settings the library auto-resolved to the portal via `POST $ONEVIEW_URL/api/dso/reports`. The job needs no setting for it: the run uses the key of its Jenkinsfile and the address in `ONEVIEW_URL`.
+
+- **One upload for each key.** A Jenkinsfile with `pipelineKeys` posts the report once for each key, in their order, so every pipeline of a shared job gets the report of the run. Each upload holds the report of the whole run.
+- **What the console shows.** `[ONEVIEW] Uploading pipeline report to <address>/api/dso/reports for job <job> build <number> with pipeline key <hint>`, then `[ONEVIEW] HTTP 201` followed by the answer of the portal, in which the key reads `(not shown)`. The hint is the first 8 characters of the key, `...` and its last 4; the whole key is never printed.
+- **Where it runs.** The upload runs on the agent that ran the pipeline, so that agent must reach the portal. It waits at most 10 seconds for the connection and 60 seconds for each upload.
+- **A failed upload never changes the result of the build.** It is one line, `[ONEVIEW] Failed to upload pipeline report to OneView for pipeline key <hint>: <reason>`, and the next key is still tried.
+- **A key in the environment of the job wins.** When the job sets `DSO_PIPELINE_KEY`, or `PIPELINE_KEY`, the report is posted once, with that key, and not for the keys of the Jenkinsfile. A job that sets it to a key of its own Jenkinsfile is told that it can be removed; for a Jenkinsfile with one key the line is `[ONEVIEW] DSO_PIPELINE_KEY holds the pipeline key of the Jenkinsfile (<hint>): the report is uploaded with the key of the Jenkinsfile without it, so it can be removed from the job`, and for one with several keys it says that the report is uploaded for that key only. Set as a global variable of Jenkins, the key would send the report of every job to one pipeline.
+- **A run without a key** (see [A Jenkinsfile without a key](#a-jenkinsfile-without-a-key)) posts a report only when it is given a pipeline key and an address. The key is read from `DSO_PIPELINE_KEY`, then `PIPELINE_KEY` of the job, then `oneview.pipelineKey` of its `devsecops_config.yaml`, then `portal.pipelineKey`, the former name of that setting. The address is read from `ONEVIEW_URL`, then `DSO_PORTAL_URL`, then `PORTAL_URL` of Jenkins, then `oneview.url` of the file, then `portal.url`: the variables of Jenkins come before the file, also under their former names. The portal has no field for the block `oneview:` and never writes it to a download: it is added to the file by hand. Without a key nothing is posted and the console says nothing about it.
+
+The portal stores the report with the pipeline whose active key it was posted with.
 
 The Pipeline Monitoring page embeds this report directly in an interactive card, displaying:
 - Complete visual stage flow, step tallies, and execution times.
@@ -2219,6 +2235,47 @@ The upgrades are in the shared pull request, but the comment that lists them fai
 
 - 403 `Pipeline key invalidated`: the key was invalidated. Issue a new key on the pipeline page and put it in the Jenkinsfile.
 - 404 `Unknown DevSecOps pipeline key`: the Jenkinsfile holds a key the portal never issued. Copy the Jenkinsfile again from the portal.
+
+### The console of a build names DSO_PORTAL_URL or DSO_PORTAL_AGENT
+
+`DSO_PORTAL_URL` and `DSO_PORTAL_AGENT` are the names the Jenkins variables had before `ONEVIEW_URL` and `ONEVIEW_AGENT`; the report upload also read `PORTAL_URL`. The library still reads them and says in the console what it did with them. A line about a name is printed once in a build, however often the name is read, and no line repeats a value that is not an address of the form the lines name. Only the messages of the last group stop the build.
+
+The build ran with the former variable:
+
+- `[ONEVIEW] DSO_PORTAL_URL is the former name of ONEVIEW_URL: it still works; rename it in Manage Jenkins > System > Global properties > Environment variables`: only the former variable is set. A Jenkins administrator adds `ONEVIEW_URL` with the same address, and removes `DSO_PORTAL_URL` once no job uses a release of the library from before the new names; see [Jenkins jobs](#jenkins-jobs). The same line names `DSO_PORTAL_AGENT` and `ONEVIEW_AGENT`, and for the report upload `PORTAL_URL` and `ONEVIEW_URL`.
+- `[ONEVIEW] ONEVIEW_URL is ignored because it is blank: DSO_PORTAL_URL, its former name, is used instead; correct it in Manage Jenkins > System > Global properties > Environment variables`: `ONEVIEW_URL` is set but empty. Give it the address or remove it. The same line names `ONEVIEW_AGENT` and `DSO_PORTAL_AGENT`.
+- `[ONEVIEW] ONEVIEW_URL is ignored because it is not an address of the form https://<host>[:<port>][/<path>], without a user, password, query or spaces: DSO_PORTAL_URL, its former name, is used instead; correct it in Manage Jenkins > System > Global properties > Environment variables`: correct `ONEVIEW_URL`.
+- `[ONEVIEW] DSO_PORTAL_URL is the former name of ONEVIEW_URL: its value still works for the report upload as before; under the name ONEVIEW_URL it must be written as https://<host>[:<port>][/<path>], without a user, password, query or spaces, in Manage Jenkins > System > Global properties > Environment variables`: the report upload prints it, in practice only in a run without a key, for a value that is not of that form, such as an address without `https://`. The report is uploaded to the same address as before. Do not copy the value to `ONEVIEW_URL` as it is: write it there in the form the line names. The same line names `PORTAL_URL`.
+- `[ONEVIEW] Uploading pipeline report to the address in DSO_PORTAL_URL (path /api/dso/reports) for job <job> build <number>`: the same case. The line names the variable instead of the address, because such a value may hold a password. The same line names `PORTAL_URL`.
+
+The build ran with the new variable:
+
+- `[ONEVIEW] DSO_PORTAL_URL is the former name of ONEVIEW_URL and holds the same value: it can be removed in Manage Jenkins > System > Global properties > Environment variables`: both are set to the same address. Remove `DSO_PORTAL_URL` once no job uses a release of the library from before the new names; until then the line is expected. The same line names `DSO_PORTAL_AGENT` and `ONEVIEW_AGENT`, and for the report upload `PORTAL_URL` and `ONEVIEW_URL`.
+- `[ONEVIEW] ONEVIEW_URL is used: DSO_PORTAL_URL, its former name, holds another value and is ignored`: the two hold different values and the build used `ONEVIEW_URL`. Check which address is the right one, then correct or remove `DSO_PORTAL_URL`: a job that uses an older release of the library still reads it. The same line names `DSO_PORTAL_AGENT` and `ONEVIEW_AGENT`, and for the report upload `PORTAL_URL` and `ONEVIEW_URL`.
+
+The report upload passed the variable over or found no address; the build goes on:
+
+- `[ONEVIEW] DSO_PORTAL_URL is ignored because it is blank: PORTAL_URL is used instead; correct it in Manage Jenkins > System > Global properties > Environment variables`: `DSO_PORTAL_URL` is set but empty, and the upload took the next name that holds an address, which the line names. Give the variable its address or remove it.
+- `[ONEVIEW] The pipeline report is not uploaded: ONEVIEW_URL, DSO_PORTAL_URL hold no address of OneView; a Jenkins administrator writes ONEVIEW_URL as https://<host>[:<port>][/<path>], without a user, password, query or spaces, in Manage Jenkins > System > Global properties > Environment variables`: the run has a pipeline key for the upload but no address. The line lists each variable that is set but empty and each new name whose value is not of that form; with one name it says `holds`.
+
+The build stops before its stages, because a run with a key cannot read its settings:
+
+- `[ONEVIEW] ONEVIEW_URL is not set: a Jenkins administrator sets it once to the address of OneView, for example https://oneview.apps.bbh.com, in Manage Jenkins > System > Global properties > Environment variables`: neither variable holds a value.
+- `[ONEVIEW] ONEVIEW_URL is not the address of OneView: a Jenkins administrator writes it as https://<host>[:<port>][/<path>], without a user, password, query or spaces`: `ONEVIEW_URL` holds a value that is not of that form, and `DSO_PORTAL_URL` is not set or empty.
+- `[ONEVIEW] ONEVIEW_URL is not set and DSO_PORTAL_URL, its former name, is not the address of OneView: a Jenkins administrator sets ONEVIEW_URL to https://<host>[:<port>][/<path>], without a user, password, query or spaces, in Manage Jenkins > System > Global properties > Environment variables`: `ONEVIEW_URL` is not set or empty, and the value of `DSO_PORTAL_URL` is not of that form.
+- `[ONEVIEW] ONEVIEW_URL is not the address of OneView, and neither is DSO_PORTAL_URL, its former name: a Jenkins administrator writes ONEVIEW_URL as https://<host>[:<port>][/<path>], without a user, password, query or spaces`: both are set and neither value is of that form.
+- `[ONEVIEW] Agent <agent> cannot read OneView because it runs Windows: set ONEVIEW_AGENT to a Linux or macOS label`: the label of the reading agents led to a Windows agent. The message names `ONEVIEW_AGENT` also when the label came from `DSO_PORTAL_AGENT`; give the variable that is set a label of Linux or macOS agents.
+
+The address is checked before an agent is taken and again on the agent that reads OneView, so the four messages about the address also stop a build whose reading agent sets a value of its own for one of the two variables.
+
+### The page of a pipeline says "No Pipeline Report Uploaded"
+
+The portal holds no report of the latest run of the pipeline. A run with the key of the pipeline in its Jenkinsfile posts it after its stages; see [Execution Report](#execution-report-pipeline-reporthtml). Look in the console of the last build, near its end:
+
+- `[ONEVIEW] Uploading pipeline report to <address>/api/dso/reports for job <job> build <number> with pipeline key <hint>` and `[ONEVIEW] HTTP 201`: the report reached the portal at that address. Check that it is the portal you are looking at and that the hint is the one of the key on the page of the pipeline. The portal does not refuse a report for its key: with a key that is not the active key of a pipeline (a `DSO_PIPELINE_KEY` of the job that was replaced or invalidated) the answer is still 201, and the report is stored with the pipeline only when its Jenkins job belongs to exactly one pipeline; otherwise the answer shows `"pipelineId":null` and no page shows the report.
+- `[ONEVIEW] Failed to upload pipeline report to OneView for pipeline key <hint>: <reason>`: the agent that ran the pipeline could not post the report; the build kept its result. Most often that agent does not reach the portal, or the portal did not answer within 60 seconds.
+- The upload line ends without `with pipeline key <hint>`: the job sets `DSO_PIPELINE_KEY` or `PIPELINE_KEY`, and the report went to the pipeline of that key only. Remove the variable from the job, and from the global properties of Jenkins if it is set there.
+- No `Uploading pipeline report` line: the job uses a release of the library from before the upload with the key of the Jenkinsfile, or its Jenkinsfile has no key.
 
 ### The import of a devsecops_config.yaml or config.yaml is refused
 

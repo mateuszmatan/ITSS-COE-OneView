@@ -48,7 +48,8 @@ public class PipelineReportPersistenceAdapter implements PipelineReportPort {
 
     @Override
     public Optional<Long> findPipelineIdByJobName(String jobName) {
-        return repository.findPipelineIdByJenkinsJob(jobName);
+        List<Long> pipelines = repository.findPipelineIdsByJenkinsJob(jobName);
+        return pipelines.size() == 1 ? Optional.of(pipelines.get(0)) : Optional.empty();
     }
 
     @Override

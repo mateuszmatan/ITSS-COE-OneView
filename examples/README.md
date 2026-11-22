@@ -1,9 +1,9 @@
 # Examples
 
-Jenkinsfiles, REST calls and a rendered configuration for ITSS COE OneView, and screenshots of the
-portal GUI. The API scripts run against a portal started as in [Running locally](../README.md#running-locally); the
-portal starts empty, so `api/create-product.sh` first adds the product the other scripts read, or the scripts take the
-products you added in the portal. Every pipeline key in these files is a placeholder: take the real one from the
+Jenkinsfiles, REST calls and a rendered configuration for ITSS COE OneView (short: OneView), and screenshots of
+its GUI. The API scripts run against a OneView started as in [Running locally](../README.md#running-locally); it
+starts empty, so `api/create-product.sh` first adds the product the other scripts read, or the scripts take the
+products you added in OneView. Every pipeline key in these files is a placeholder: take the real one from the
 product page, or from `api/pipeline-key.sh`.
 
 | File | What it shows |
@@ -20,7 +20,7 @@ product page, or from `api/pipeline-key.sh`.
 | [api/list-departments.sh](api/list-departments.sh) | the departments (Business Services in the GUI) with their product, service and pipeline counts |
 | [api/list-products.sh](api/list-products.sh) | the products, optionally filtered by a search text |
 | [api/create-product.sh](api/create-product.sh) with [api/new-product.json](api/new-product.json) | a new product with two services, as the Self-service wizard creates it, one of them with a Node.js frontend build |
-| [api/create-database-product.sh](api/create-database-product.sh) | the two products below, created with a Full pipeline for each service; the Library defaults must first allow their databases and name the Nexus repositories of the database packages |
+| [api/create-database-product.sh](api/create-database-product.sh) | the two products below, created with a Full pipeline for each service; the Library defaults must first allow their databases and name the Nexus repositories of the database packages. A product OneView refuses does not stop the other one |
 | [api/new-database-product.json](api/new-database-product.json) | the product `ORDERSDB` with one Liquibase service with database changes, `orders-db`: a Liquibase changelog, a test database with utPLSQL tests, RD and QC |
 | [api/new-mixed-product.json](api/new-mixed-product.json) | the product `ORDERSGRADLE`, one repository with a Gradle build and its Liquibase module: `orders-db` first, then the Gradle service `orders-app` with its Node.js frontend, which leaves `orders-db` out of its AppScan scope |
 | [api/product-pipelines.sh](api/product-pipelines.sh) | the services of a product with their pipelines and active keys |
@@ -39,9 +39,11 @@ Each file is the whole Jenkinsfile of one Jenkins job, in the form the Self-serv
 generate: the `@Library` line loads the shared library named in the library defaults (`platform.jenkinsLibrary`,
 `DevSecOpsJenkinsLibrary` by default), and the entry point of the pipeline type receives the pipeline key as a string.
 Nothing else is in the file: no `devsecops_config.yaml`, no credentials ID and no tool server. The library reads
-everything else from the portal by the key, at `DSO_PORTAL_URL`, as described in
-[How DSOEnhanced reads its configuration](../README.md#how-dsoenhanced-reads-its-configuration). During the cutover,
-pin the portal-integrated version in the `@Library` line and in the library defaults, for example
+everything else from OneView by the key, at the address in the Jenkins variable `ONEVIEW_URL` (for example
+`https://oneview.apps.bbh.com`), as described in
+[How DSOEnhanced reads its configuration](../README.md#how-dsoenhanced-reads-its-configuration). A Jenkins that
+still sets `DSO_PORTAL_URL`, the former name of the variable, runs these files unchanged. During the cutover,
+pin the version of the library with the portal in the `@Library` line and in the library defaults, for example
 `DevSecOpsJenkinsLibrary@main`.
 
 Save a file as `Jenkinsfile` in the top folder of the service's Bitbucket repository and point a Pipeline job (Pipeline
@@ -51,10 +53,10 @@ for example `DevSecOps/PAYHUB/gateway-full`.
 
 - `full-pipeline.Jenkinsfile` runs `devSecOpsPipeline`: build, scans, tests, deployment to RD and QC, and release.
 - `security-pipeline.Jenkinsfile` runs `devSecOpsSecurityPipeline`: build and security scans; when the pipeline names
-  an extended pipeline job in the portal, it starts that job.
+  an extended pipeline job in OneView, it starts that job.
 - `extended-pipeline.Jenkinsfile` runs `devSecOpsExtendedPipeline`: the deployment and tests that the security
   pipeline starts. It reads the security run's state, so the first extended run after the cutover needs one security
-  build made by the portal-integrated library.
+  build made by the library with the portal.
 - `sast-pipeline.Jenkinsfile` runs `devSecOpsSASTScanningPipeline`: an AppScan static scan of the sources only, with
   nothing built or deployed.
 - `nexus-iq-pipeline.Jenkinsfile` runs `devSecOpsNexusIqGoldenFixPipeline`: it checks out the sources, builds each
@@ -69,18 +71,24 @@ for example `DevSecOps/PAYHUB/gateway-full`.
   services": `pipelineKeys` lists the keys of the full pipelines of `gateway`, `ledger`, `notifications` and
   `mobile-app`, the primary service first. One run builds them all. Extended pipelines join such a run only when they
   name the same security pipeline.
+- `multi-service/orders-full.Jenkinsfile` is the same form for the two services of `ORDERSGRADLE`, which share one
+  repository and one Jenkins job: the product page shows it under "Show the Jenkinsfile", see
+  `screenshots/v19/08-admin-product-shared-jenkinsfile.png`.
 
 The keys stop working when they are invalidated or replaced: the next build of the job is refused with 403 and the
 Jenkinsfile needs the pipeline's new key.
 
 ## API scripts
 
-The scripts need bash, `curl` 7.76 or later and `jq`. Each one reads `PORTAL_URL` (default `http://localhost:8080`)
-and prints the answer through `jq` (YAML as it comes). When the portal refuses a request, the script prints the
-problem detail it sent and exits with a non-zero status.
+The scripts need bash, `curl` 7.76 or later and `jq`. Each one reads the address of OneView from `ONEVIEW_URL`
+(default `http://localhost:8080`; for a deployed OneView for example `https://oneview.apps.bbh.com`) and prints the
+answer through `jq` (YAML as it comes). `PORTAL_URL`, the former name of the variable, is read while `ONEVIEW_URL`
+is not set. A slash at the end of the address is left out, as the library does with the Jenkins variable, so
+`http://localhost:8080/` works too. When OneView refuses a request, the script prints the problem detail it sent and
+exits with a non-zero status.
 
 ```bash
-export PORTAL_URL=http://localhost:8080
+export ONEVIEW_URL=http://localhost:8080
 examples/api/list-departments.sh
 examples/api/create-product.sh
 examples/api/list-products.sh TRADEARCHIVE
@@ -102,14 +110,29 @@ examples/api/dso-config.sh "$KEY"
   GoldenFix finds that file by itself; listing it adds a run note when the file moves. The body carries the values the
   wizard fills in, including the Bitbucket repository, its credentials ID and the Nexus IQ application that the
   service template derives from the service name. The fields the wizard sends empty (`null`, `[]` or their defaults)
-  are left out, which the API reads the same way. Each service signs in to AppScan with its own key ID
-  (`appScan.keyId`), and each gets a full pipeline with an active key that runs on the Jenkins agents named in
-  `agentLabels`. A second run answers 409, because the product code is taken.
+  are left out, which the API reads the same way. A service names its AppScan application (`appScan.applicationId`)
+  and no AppScan API key, because the library signs in with the one key of the functional user. Each service gets a
+  full pipeline with an active key that runs on the Jenkins agents named in `agentLabels`. A second run answers 409,
+  because the product code is taken.
+- `create-database-product.sh [DEPARTMENT]` posts `new-database-product.json` and `new-mixed-product.json` the same
+  way. While the Library defaults allow no database, OneView answers 400 and names each JDBC URL; set the allowed
+  databases and the Nexus repositories of the database packages under Admin, Library defaults, Liquibase database
+  changes first. A refused product (400, or 409 when its code is taken) does not stop the other one, and the script
+  then exits with status 1.
 - `product-pipelines.sh PRODUCT_ID` calls `GET /api/products/{id}/pipelines` and shows each pipeline's ID, type,
   entry point, Jenkins job and active key.
 - `pipeline-key.sh CODE SERVICE [TYPE]` finds the product by its code and prints the active key of the service's
   pipeline of that type (`FULL` by default, `NEXUS_IQ` for the Nexus IQ GoldenFix pipeline), for use in the other
-  scripts.
+  scripts. When it has no key to print, it prints nothing, says why on the error output and exits with a status of
+  its own:
+  - 1: the pipeline has no active key. The message ends with the call that issues one, for example
+    `No active FULL pipeline key for archive-gui of TRADEARCHIVE: issue one with rotate-key.sh 2`.
+  - 2: the product has no such service, or the service has no pipeline of that type:
+    `No SAST pipeline for archive-api of TRADEARCHIVE`.
+  - 3: no product has the code: `No product with the code NOSUCH`. The code is matched as it is written.
+  - 4: OneView did not answer or refused the request; the error of `curl` and the problem detail are printed.
+  - 64: an argument is missing or the type is not one of `FULL`, `SECURITY`, `EXTENDED`, `SAST` and `NEXUS_IQ`; the
+    usage line is printed.
 - `rotate-key.sh PIPELINE_ID` calls `POST /api/pipelines/{id}/keys`. An active key is invalidated with the reason
   "Replaced by a new key"; on a pipeline whose key was invalidated this regenerates it.
 - `revoke-key.sh PIPELINE_ID REASON` calls `POST /api/pipelines/{id}/keys/revoke` with `{"reason": ...}`. The pipeline
@@ -117,22 +140,39 @@ examples/api/dso-config.sh "$KEY"
 - `dso-config.sh KEY` calls `GET /api/dso/config/{key}?format=json` and `GET /api/dso/config/{key}`, the requests the
   library sends, and records the key's last use. A revoked key answers 403, an unknown one 404.
 - `import-config.sh CONFIG_FILE [SERVICE_NAME]` posts the file to `POST /api/service-configs/import`, which stores
-  nothing, and shows each project with the notes on what the portal did not take over; `.services[].service` holds
-  the service in the shape `POST /api/products` takes. `SERVICE_NAME` names the service of a file that holds one
-  project without a `projects` map. Try it with
+  nothing, and shows the pipeline type and agents it read and each project with the notes on what OneView did not
+  take over; `.services[].service` of the answer holds the service in the shape `POST /api/products` takes.
+  `SERVICE_NAME` names the service of a file that holds one project without a `projects` map. Try it with
   `examples/api/import-config.sh examples/config/payhub-gateway-full.yaml`.
 - `monitoring.sh PRODUCT_ID PIPELINE_ID [RANGE]` calls `GET /api/monitoring/status`, `/products`,
   `/activity?range=`, `/products/{id}` and `/pipelines/{id}?range=` (`30d` by default) and shortens each answer;
   without `INFLUX_URL` the status says that the metrics store is not configured and the runs stay empty.
 
-`create-product.sh`, `rotate-key.sh` and `revoke-key.sh` change the portal's data. Rotating or revoking a key of a
-pipeline no Jenkins job uses changes nothing in Jenkins.
+`create-product.sh`, `create-database-product.sh`, `rotate-key.sh` and `revoke-key.sh` change the data of OneView.
+Rotating or revoking a key of a pipeline no Jenkins job uses changes nothing in Jenkins.
 
 ## Configuration sample
 
-`config/payhub-gateway-full.json` and `config/payhub-gateway-full.yaml` are what the library received for the full
+`config/payhub-gateway-full.json` and `config/payhub-gateway-full.yaml` are what the library receives for the full
 pipeline of the sample product Payments Hub, service `gateway`, generated with the two requests of `dso-config.sh`
-from a portal that held that product. The JSON is the same document as the YAML, pretty-printed; the key itself does not appear in either.
+from a OneView that held that product. The JSON is the same document as the YAML, pretty-printed; the key itself does not appear in either.
+Both were rendered again by OneView on 2026-11-22 and are byte for byte what it answers: the project carries no
+`asoc.keyId` and no `asoc.token`, because no service holds an AppScan API key, and `defaults.goldenFix.ecosystems`
+names `nuget`. To get the same product, post `.services[0].service` of
+`examples/api/import-config.sh examples/config/payhub-gateway-full.yaml` as the only service of a new product with
+the code `PAYHUB` to `POST /api/products?pipelineType=FULL`:
+
+```bash
+ONEVIEW_URL="${ONEVIEW_URL:-${PORTAL_URL:-http://localhost:8080}}"
+DEPARTMENT_ID=$(examples/api/list-departments.sh | jq '.[] | select(.name == "Fund Services") | .id')
+examples/api/import-config.sh examples/config/payhub-gateway-full.yaml \
+  | jq --argjson id "$DEPARTMENT_ID" '{code: "PAYHUB", name: "Payments Hub", departmentId: $id,
+        ownerTeam: "Payments Platform", services: [.services[0].service]}' \
+  | curl -sS --fail-with-body -X POST "${ONEVIEW_URL%/}/api/products?pipelineType=FULL" \
+      -H 'Content-Type: application/json' --data-binary @- \
+  | jq '{id, code, name, services: [.services[] | {id, name}]}'
+```
+
 The document has four parts: `pipeline` (type, entry point, product, the service in `projectNames` and the agent
 labels), `platform` and `defaults` (from the library defaults) and `projects.gateway` (the service's build, scans, tests,
 OpenShift targets, Bitbucket repository and InfluxDB tags). It names Jenkins credentials IDs, never their secrets.
@@ -142,12 +182,14 @@ OpenShift targets, Bitbucket repository and InfluxDB tags). It names Jenkins cre
 BOM `bom/pom.xml` in `goldenFix.versionCatalogs`. Its build is delivered to Nexus, so the document has no
 `deploy.openshift.rd.nexusDeliveryEnabled`; a service that is not delivered renders it as `false`.
 `platform.jenkinsUrl` is the Jenkins URL of the library defaults. Run `api/dso-config.sh` to see the configuration
-of the portal you run. The [user and administrator guide](../docs/documentation.md#20-field-reference-from-the-portal-to-devsecops_configyaml)
+of the OneView you run. The [user and administrator guide](../docs/documentation.md#20-field-reference-from-the-portal-to-devsecops_configyaml)
 lists every key with the field that sets it.
 
 `config/orders-db-full.json` and `config/orders-db-full.yaml` are the configuration of the full pipeline of the
 Liquibase service with database changes `orders-db` of `new-database-product.json`, with Library defaults that allow
-its databases and name the Nexus repositories of the database packages. `defaults.tools.liquibase`,
+its databases and name the Nexus repositories of the database packages, and with the Jenkins URL and the Node.js
+defaults of the Payments Hub sample. They are what OneView answers for the product `api/create-database-product.sh`
+creates. `defaults.tools.liquibase`,
 `defaults.tools.oracleJdbc`, `defaults.tools.utplsql` and `defaults.database` hold those Library defaults; they are
 rendered only while they are set. The project has `buildTool: liquibase` and a `database` block after its build
 settings: the changelog, a changelog parameter, the group ID of the package, and the three databases `test`, `rd` and
@@ -161,7 +203,7 @@ describes Liquibase services with and without database changes.
 
 ## Screenshots
 
-`screenshots/v1` to `screenshots/v18` hold screenshots of ITSS COE OneView UI across versions:
+`screenshots/v1` to `screenshots/v19` hold screenshots of the GUI across versions. `v1` to `v18` show the portal under its working name, DevSecOps Management Portal; `v19` shows it as ITSS COE OneView.
 - `v7` shows the departments.
 - `v8` shows the demo integrations with the charts of Product Management and Pipeline Monitoring.
 - `v10` shows the Self-service wizard and the Admin tabs of DevSecOps Management.
@@ -169,4 +211,14 @@ describes Liquibase services with and without database changes.
 - `v15` shows the Pipelines tab of a department filtered and sorted in its headers, the page of a pipeline with its key, settings, Jenkinsfile and recent runs, a pipeline with an invalidated key, the Self-service wizard with the defaults of the library and the service template, Pipeline Monitoring, and the Admin tabs with the pipeline form filled from the template and the Service template page itself.
 - `v16` shows step 2 of the Self-service wizard with the pipelines in their order and names: SAST (Static Application Security Tests) - HCL AppScan, OSA (Open Source Analysis) (NexusIQ with Golden Fix and Golden Pull Request), Security and Full.
 - `v18` shows Pipeline Monitoring reading a real InfluxDB: the overview with the delivery performance, a product and a pipeline over 30 days, and the pipeline page with the dashboard cards of two Grafana instances.
-
+- `v19` shows ITSS COE OneView under its new name, taken at 1440 by 900 from the application itself (the boot jar on a fresh H2 database) with the products the scripts of `api/` create: Trade Archive, Orders Database and Orders in Custody, and Payments Hub in Fund Services, read back from `config/payhub-gateway-full.yaml`. No InfluxDB was connected, so no pipeline has a run and the monitoring and pipeline pages say that run results are not available; `v18` shows them with InfluxDB. Each picture is the window as it is, so a page longer than the window ends at its lower edge (`05`, `07`, `09`), and the tables of `02` and `06` are wider than the page at every window size and scroll sideways.
+  - `01-pipeline-monitoring-area-switch.png`: the header with the name BBH ITSS COE OneView, the area switch (DevSecOps, QA, Agile) and the sections of the area DevSecOps, on Pipeline Monitoring with the pipelines by business service and the four products.
+  - `02-pipelines-of-the-business-service.png`: Pipelines, the five pipelines of Custody with their Jenkins jobs and key hints. The amber note above the table says that run results could not be loaded because InfluxDB is not configured: that is the state of this OneView, not a fault of the page. The column Jenkins job was widened by its header so that each job is on one line; the last column of the table, with the links "Configure service" and "Edit settings" of each row, is to the right of the picture and is reached by scrolling the table.
+  - `03-self-service-product.png` and `04-self-service-pipeline.png`: steps 1 and 2 of the Self-service wizard for Trade Archive, a product in the portal, with the four pipeline types.
+  - `05-owasp-samm.png`: OWASP SAMM, the maturity of BBH, the five business functions and the first business services; Fund Services goes on below the window.
+  - `06-action-history.png`: Action history with the products created, the Library defaults saved and the keys issued and invalidated through the API scripts; the first entry is "Initialize portal" of ITSS COE OneView. The details of that entry and the column Status go on to the right of the picture.
+  - `07-admin-products.png`: Admin, Products, by business service.
+  - `08-admin-product-shared-jenkinsfile.png`: the product Orders with "Jenkinsfile for several services", the form of `jenkins/multi-service/orders-full.Jenkinsfile`.
+  - `09-admin-library-defaults.png`: Admin, Library defaults, Tools and servers.
+  - `10-qa-metrics.png`: the area QA with the page QA Metrics and what is planned.
+  - `11-agile-maturity.png`: the area Agile with the page Agile Maturity and what is planned.
