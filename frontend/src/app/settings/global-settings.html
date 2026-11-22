@@ -22,11 +22,11 @@
   </header>
 
   @if (loading()) {
-    <dso-loading />
+    <ov-loading />
   }
 
   @if (loadError(); as error) {
-    <dso-load-error what="The library defaults" [error]="error" (retry)="load()" />
+    <ov-load-error what="The library defaults" [error]="error" (retry)="load()" />
   } @else if (settings()) {
     @if (conflict()) {
       <div class="banner danger conflict" role="alert">
@@ -82,7 +82,7 @@
 
             @if (section.fields; as fields) {
               <div class="form-fields">
-                <dso-fields [group]="group" [fields]="fields" />
+                <ov-fields [group]="group" [fields]="fields" />
               </div>
             }
 
@@ -93,7 +93,7 @@
                   <p>{{ block.note }}</p>
                 </header>
                 <div class="form-fields">
-                  <dso-fields [group]="group" [fields]="block.fields" />
+                  <ov-fields [group]="group" [fields]="block.fields" />
                 </div>
               </div>
             }
@@ -106,7 +106,7 @@
                       <div class="scanner">
                         <strong
                           >{{ scannerInfo[scanner].label }}
-                          <dso-help
+                          <ov-help
                             [label]="scannerInfo[scanner].label"
                             [text]="scannerInfo[scanner].help"
                         /></strong>
@@ -115,7 +115,7 @@
                           >{{ scannerInfo[scanner].path }}.maxCritical | maxHigh | maxMedium</code
                         >
                       </div>
-                      <dso-fields
+                      <ov-fields
                         [group]="form.controls.limits.controls[scanner]"
                         [fields]="limitFields"
                       />
@@ -128,19 +128,19 @@
                   <div class="span-12">
                     <span class="field-label"
                       >Scans the gate checks
-                      <dso-help
+                      <ov-help
                         label="Scans the gate checks"
                         text="The scans whose findings the gate compares with their security limits. A scan above its limits also turns its own stage orange, which blocks the release whether or not the scan is selected here."
                     /></span>
-                    <dso-toggle-group
+                    <ov-toggle-group
                       [formControl]="form.controls.releaseGate.controls.scanners"
                       multiple
                       aria-label="Scans the release gate checks"
                     >
                       @for (scanner of scanners; track scanner) {
-                        <button [dsoToggle]="scanner">{{ scannerInfo[scanner].label }}</button>
+                        <button [ovToggle]="scanner">{{ scannerInfo[scanner].label }}</button>
                       }
-                    </dso-toggle-group>
+                    </ov-toggle-group>
                     <span class="field-hint" [innerHTML]="gateHint()"></span>
                     @if (form.controls.releaseGate.controls.scanners.invalid) {
                       <span class="field-error">{{
@@ -148,13 +148,13 @@
                       }}</span>
                     }
                   </div>
-                  <dso-fields [group]="group" [fields]="releaseGateFields" />
+                  <ov-fields [group]="group" [fields]="releaseGateFields" />
                 </div>
               }
               @case ('goldenFix') {
                 <div class="form-fields">
-                  <dso-fields [group]="group" [fields]="goldenFixEnabled" />
-                  <dso-golden-fix-fields [group]="form.controls.goldenFix" [complete]="true" />
+                  <ov-fields [group]="group" [fields]="goldenFixEnabled" />
+                  <ov-golden-fix-fields [group]="form.controls.goldenFix" [complete]="true" />
                 </div>
               }
             }
@@ -182,7 +182,7 @@
           </button>
           <button type="submit" class="btn btn-primary" [disabled]="saving() || conflict()">
             @if (saving()) {
-              <dso-spinner />
+              <ov-spinner />
             }
             Save settings
           </button>

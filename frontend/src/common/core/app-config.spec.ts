@@ -14,13 +14,13 @@ import { Observable, firstValueFrom, of } from 'rxjs';
 import { ConfirmDialog } from '../shared/confirm-dialog';
 import { APP_NAME } from './app-name';
 import { appConfig } from './app-config';
-import { PortalTitleStrategy } from './title-strategy';
+import { OneViewTitleStrategy } from './title-strategy';
 import { HasUnsavedChanges, unsavedChangesGuard } from './unsaved-changes';
 
 @Component({ template: '' })
 class Blank {}
 
-describe('PortalTitleStrategy', () => {
+describe('OneViewTitleStrategy', () => {
   beforeEach(() => {
     TestBed.configureTestingModule({
       providers: [
@@ -28,7 +28,7 @@ describe('PortalTitleStrategy', () => {
           { path: 'titled', title: 'Edit product', component: Blank },
           { path: 'untitled', component: Blank },
         ]),
-        { provide: TitleStrategy, useClass: PortalTitleStrategy },
+        { provide: TitleStrategy, useClass: OneViewTitleStrategy },
         { provide: APP_NAME, useValue: 'Test Portal' },
       ],
     });
@@ -85,9 +85,9 @@ describe('appConfig', () => {
 
     expect(TestBed.inject(APP_NAME)).toBe('Test Portal');
     expect(TestBed.inject(Router).config).toEqual(routes);
-    expect(TestBed.inject(TitleStrategy)).toBeInstanceOf(PortalTitleStrategy);
+    expect(TestBed.inject(TitleStrategy)).toBeInstanceOf(OneViewTitleStrategy);
     expect(TestBed.inject(DEFAULT_DIALOG_CONFIG)).toEqual(
-      expect.objectContaining({ panelClass: 'dso-dialog' }),
+      expect.objectContaining({ panelClass: 'ov-dialog' }),
     );
     const svg = await firstValueFrom(TestBed.inject(SvgIconRegistryService).getSvgByName('badge')!);
     expect(svg?.tagName.toLowerCase()).toBe('svg');

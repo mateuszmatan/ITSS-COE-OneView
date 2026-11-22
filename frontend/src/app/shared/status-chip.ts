@@ -12,7 +12,7 @@ export const RUN_LOOK: Record<RunResult, { label: string; tone: string }> = {
 };
 
 @Component({
-  selector: 'dso-status-chip',
+  selector: 'ov-status-chip',
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `<span class="chip run" [class]="look().tone">{{ label() ?? look().label }}</span>`,
 })

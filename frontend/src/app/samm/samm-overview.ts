@@ -21,19 +21,19 @@ import {
 import { SAMM_MATURITY } from '../core/sections';
 import { FORM_FIELD } from '@common/ui/form-field';
 import { LoadError } from '@common/ui/load-error';
-import { DsoLoading } from '@common/ui/loading';
+import { OvLoading } from '@common/ui/loading';
 
 export type SammTab = 'overview' | 'applications';
 
 @Component({
-  selector: 'dso-samm-overview',
+  selector: 'ov-samm-overview',
   imports: [
     ReactiveFormsModule,
     RouterLink,
     DecimalPipe,
     DatePipe,
     FORM_FIELD,
-    DsoLoading,
+    OvLoading,
     LoadError,
   ],
   changeDetection: ChangeDetectionStrategy.OnPush,

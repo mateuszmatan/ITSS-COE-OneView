@@ -1,6 +1,6 @@
 # Examples
 
-Jenkinsfiles, REST calls and a rendered configuration for the DevSecOps Management Portal, and screenshots of the
+Jenkinsfiles, REST calls and a rendered configuration for ITSS COE OneView, and screenshots of the
 portal GUI. The API scripts run against a portal started as in [Running locally](../README.md#running-locally); the
 portal starts empty, so `api/create-product.sh` first adds the product the other scripts read, or the scripts take the
 products you added in the portal. Every pipeline key in these files is a placeholder: take the real one from the
@@ -161,7 +161,7 @@ describes Liquibase services with and without database changes.
 
 ## Screenshots
 
-`screenshots/v1` to `screenshots/v18` hold screenshots of the DevSecOps Management Portal UI across versions:
+`screenshots/v1` to `screenshots/v18` hold screenshots of ITSS COE OneView UI across versions:
 - `v7` shows the departments.
 - `v8` shows the demo integrations with the charts of Product Management and Pipeline Monitoring.
 - `v10` shows the Self-service wizard and the Admin tabs of DevSecOps Management.

@@ -1,6 +1,6 @@
 import org.springframework.boot.gradle.plugin.SpringBootPlugin
 
-description = 'DevSecOps Management Portal Backend Service'
+description = 'ITSS COE OneView Backend Service'
 
 apply plugin: 'java'
 apply plugin: 'groovy'
@@ -16,7 +16,7 @@ dependencyManagement {
 }
 
 base {
-    archivesName = 'dso-portal'
+    archivesName = 'oneview'
 }
 
 configurations {

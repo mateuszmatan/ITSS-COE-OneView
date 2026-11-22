@@ -1,6 +1,6 @@
 # DevSecOps: to-do list
 
-Open work for the DSOEnhanced library (branches `DSOEnhancedWithoutPortal` and `main`) and the DevSecOps Management Portal, after the review of the three sources on 2026-11-20. The same file is kept in all three sources. What was delivered is in `roadmap.md` and the changelogs; the overview for senior management is `docs/MANAGEMENT_OVERVIEW.md`.
+Open work for the DSOEnhanced library (branches `DSOEnhancedWithoutPortal` and `main`) and ITSS COE OneView, after the review of the three sources on 2026-11-20. The same file is kept in all three sources. What was delivered is in `roadmap.md` and the changelogs; the overview for senior management is `docs/MANAGEMENT_OVERVIEW.md`.
 
 Rules for every item: change `DSOEnhancedWithoutPortal` first, then `main` and the portal, so that the three stay consistent; keep `config.yaml`, `devsecops_config.yaml` and the `Jenkinsfile` backward compatible; a setting that is given wins, a wrong one falls back to the default with a log line, and the build fails only when the default fails as well.
 
@@ -12,6 +12,18 @@ Rules for every item: change `DSOEnhancedWithoutPortal` first, then `main` and t
 | 1.2 | **Portal sign-in.** BBH single sign-on, roles and an audit trail. | Portal | Until then every action is recorded as the default administrator and the portal must stay inside the test network. |
 | 1.4 | **Release delivery of the safe artifact (stage 12)** for Gradle, Maven, npm, pip and Liquibase. Today only the NuGet package of a .NET service is pushed; for the other build tools the snapshot of stage 6 stays the delivered artifact. | Library, both branches | The release must hold the artifact that passed the gate. |
 | 1.5 | **Continuous integration of the three sources.** A Jenkins job that runs `test/run-all.sh` of each library branch and the backend and front-end tests of the portal on every push. | All three | The suites are run by hand today. |
+
+## ITSS COE OneView: the three areas
+
+OneView joins the areas DevSecOps, QA and Agile. The area switch, the pages `/qa` and `/agile` and the packages `domain.qa`, `application.qa`, `domain.agile` and `application.agile` exist; the functions below are open and need their scope agreed first.
+
+| # | Item | Where | Why |
+|---|------|-------|-----|
+| O.1 | **QA metrics.** Agree the metrics (test results of the pipelines, coverage and the SonarQube quality gate, defects), their InfluxDB measurements and the Grafana dashboards; then the use cases, the InfluxDB and Grafana adapters, the REST API and the page. | Portal, area QA | The page of the area only names what is planned. |
+| O.2 | **Agile maturity.** Agree the maturity model (dimensions, levels, who assesses and how often); then the tables (`AGL_`), the use cases, the REST API and the page with the trend and the comparison of business services. | Portal, area Agile | The page of the area only names what is planned. |
+| O.3 | **SAMM charts in Grafana and InfluxDB.** Write the SAMM scores to InfluxDB as a time series and link their Grafana dashboard from the SAMM page. | Portal, area DevSecOps | SAMM is calculated at the moment of the request and has no history. |
+| O.4 | **The new name in the library.** `DSOEnhanced` names the portal DevSecOps Management Portal and its repository `DevSecOpsManagementPortal` in its documents and logs, and reads the Jenkins variable `DSO_PORTAL_URL`; rename the texts, and add `ONEVIEW_URL` with `DSO_PORTAL_URL` as the fallback. The shared files `TODO.md`, `docs/MANAGEMENT_OVERVIEW.md` and `docs/USER_GUIDE_PORTAL` then become the same again in the three sources. | Library, both branches | The three sources name the portal differently until then. |
+| O.5 | **Area of a section under its own address** (`/devsecops/...`), once the QA and Agile areas have more than one section. | Portal | The sections of DevSecOps keep their addresses today. |
 
 ## Priority 2: consistency of the three sources
 

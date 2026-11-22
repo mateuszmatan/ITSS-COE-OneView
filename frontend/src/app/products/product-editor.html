@@ -34,13 +34,13 @@
   </header>
 
   @if (loading()) {
-    <dso-loading />
+    <ov-loading />
   }
 
   @if (loadError(); as failure) {
-    <dso-load-error [what]="failure.what" [error]="failure.error" (retry)="load()">
+    <ov-load-error [what]="failure.what" [error]="failure.error" (retry)="load()">
       <a class="btn btn-link" [routerLink]="tab.path">Back to products</a>
-    </dso-load-error>
+    </ov-load-error>
   } @else if (!loading()) {
     <form [formGroup]="form" (ngSubmit)="save()" novalidate>
       <p class="required-note muted">Fields marked * are required.</p>
@@ -64,7 +64,7 @@
             <p>How the product appears in the portal, and who looks after it.</p>
           </header>
           <div class="form-fields">
-            <dso-fields [group]="form" [fields]="productFields()" />
+            <ov-fields [group]="form" [fields]="productFields()" />
           </div>
         </div>
       </section>
@@ -93,7 +93,7 @@
                 Copy values from existing service
               </button>
               <ng-template #copyMenu>
-                <div cdkMenu class="dropdown-menu dso-menu">
+                <div cdkMenu class="dropdown-menu ov-menu">
                   @for (source of copySources(); track source.service) {
                     <button
                       type="button"
@@ -107,7 +107,7 @@
                 </div>
               </ng-template>
             }
-            <dso-config-import [disabled]="blocked()" (imported)="importService($event)" />
+            <ov-config-import [disabled]="blocked()" (imported)="importService($event)" />
             <button
               type="button"
               class="btn btn-outline-primary"
@@ -124,7 +124,7 @@
                 <span>{{ blocker.name }}</span>
                 @if (blocker.missing.length) {
                   <span> (</span>
-                  <dso-missing-fields
+                  <ov-missing-fields
                     [missing]="blocker.missing"
                     (open)="reveal(blocker.fields, $event)"
                   />
@@ -137,7 +137,7 @@
         </header>
 
         @if (imported(); as notes) {
-          <dso-import-notes [imported]="notes" (closed)="imported.set(null)" />
+          <ov-import-notes [imported]="notes" (closed)="imported.set(null)" />
         }
 
         @if (services().length === 0) {
@@ -149,7 +149,7 @@
               you save.
             </p>
             <div class="empty-actions">
-              <dso-config-import (imported)="importService($event)" />
+              <ov-config-import (imported)="importService($event)" />
               <button type="button" class="btn btn-primary" (click)="addService()">
                 Add service
               </button>
@@ -162,14 +162,14 @@
               track service;
               let i = $index, first = $first, last = $last
             ) {
-              <dso-panel
-                #panel="dsoPanel"
+              <ov-panel
+                #panel="ovPanel"
                 class="service-panel"
                 [expanded]="expanded() === i"
                 (expandedChange)="panelToggled(i, $event)"
                 [class.has-errors]="showsErrors(service)"
               >
-                <dso-panel-header>
+                <ov-panel-header>
                   <span class="panel-title">
                     <span class="index">{{ i + 1 }}</span>
                     <span class="mono service-name">{{
@@ -196,12 +196,12 @@
                   <span class="panel-toggle" aria-hidden="true">{{
                     panel.expanded() ? 'Close' : 'Edit settings'
                   }}</span>
-                </dso-panel-header>
+                </ov-panel-header>
 
                 @if (orderNote(i); as note) {
                   <div class="banner" role="status">{{ note }}</div>
                 }
-                <dso-service-fields
+                <ov-service-fields
                   [form]="service"
                   [productCode]="form.controls.code.value"
                   [defaults]="settings()"
@@ -239,7 +239,7 @@
                     Remove service
                   </button>
                 </div>
-              </dso-panel>
+              </ov-panel>
             }
           </div>
         }
@@ -255,7 +255,7 @@
         <button type="button" class="btn btn-link" (click)="cancel()">Cancel</button>
         <button type="submit" class="btn btn-primary" [disabled]="saving()">
           @if (saving()) {
-            <dso-spinner />
+            <ov-spinner />
           }
           {{ product() ? 'Save changes' : 'Add product' }}
         </button>

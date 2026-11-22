@@ -3,7 +3,7 @@ import { RETRY } from '@common/core/errors';
 import { MonitoringStatus } from '../core/models';
 
 @Component({
-  selector: 'dso-metrics-banner',
+  selector: 'ov-metrics-banner',
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
     @if (status(); as s) {
@@ -38,7 +38,7 @@ import { MonitoringStatus } from '../core/models';
   `,
   styles: `
     .admin {
-      color: var(--dso-muted);
+      color: var(--ov-muted);
     }
   `,
 })

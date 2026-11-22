@@ -10,15 +10,15 @@ import { filled, max, text } from '@common/shared/form-controls';
 import { errorText } from '@common/shared/form-errors';
 import { DIALOG } from '@common/ui/dialog';
 import { FORM_FIELD } from '@common/ui/form-field';
-import { DsoSpinner } from '@common/ui/loading';
+import { OvSpinner } from '@common/ui/loading';
 
 @Component({
-  selector: 'dso-revoke-key-dialog',
-  imports: [ReactiveFormsModule, DIALOG, FORM_FIELD, DsoSpinner],
+  selector: 'ov-revoke-key-dialog',
+  imports: [ReactiveFormsModule, DIALOG, FORM_FIELD, OvSpinner],
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
     <div class="modal-header">
-      <h2 dsoDialogTitle>Invalidate the key of the pipeline {{ name }}?</h2>
+      <h2 ovDialogTitle>Invalidate the key of the pipeline {{ name }}?</h2>
     </div>
     <form [formGroup]="form" (ngSubmit)="revoke()" novalidate>
       <div class="modal-body">
@@ -30,33 +30,33 @@ import { DsoSpinner } from '@common/ui/loading';
             again; to let the pipeline run later, regenerate its key.
           </span>
         </div>
-        <dso-form-field
+        <ov-form-field
           class="full-width"
           help="Why the key may no longer be used. Jenkins writes the reason to the build log, so do not include the key or any other secret."
         >
-          <dso-label>Reason</dso-label>
+          <ov-label>Reason</ov-label>
           <textarea
-            dsoInput
+            ovInput
             formControlName="reason"
             required
             rows="3"
             placeholder="Service retired, key leaked in a build log, ..."
           ></textarea>
-          <dso-hint
+          <ov-hint
             >Kept in the key history and sent to Jenkins when the pipeline is refused its
-            settings</dso-hint
+            settings</ov-hint
           >
-          <dso-error>{{ errorText(reason) }}</dso-error>
-        </dso-form-field>
+          <ov-error>{{ errorText(reason) }}</ov-error>
+        </ov-form-field>
         @if (error(); as message) {
           <div class="banner" role="alert">{{ message }}</div>
         }
       </div>
       <div class="modal-footer">
-        <button type="button" class="btn btn-link" dsoDialogClose>Cancel</button>
+        <button type="button" class="btn btn-link" ovDialogClose>Cancel</button>
         <button type="submit" class="btn btn-danger" [disabled]="saving()">
           @if (saving()) {
-            <dso-spinner />
+            <ov-spinner />
           }
           Invalidate key
         </button>

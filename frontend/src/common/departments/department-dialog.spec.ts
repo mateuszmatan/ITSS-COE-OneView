@@ -46,7 +46,7 @@ describe('DepartmentDialog', () => {
     await render(null);
     expect(text(page().querySelector('h2'))).toBe('Add a business service');
     expect(text(page().querySelector('button[type=submit]'))).toBe('Add business service');
-    expect(text(page().querySelector('dso-hint'))).toBe(
+    expect(text(page().querySelector('ov-hint'))).toBe(
       'The name people know the business service by, for example Fund Services',
     );
     expect(unexplained(page())).toEqual([]);
@@ -71,7 +71,7 @@ describe('DepartmentDialog', () => {
     await submit('   ');
 
     http.expectNone('/api/departments');
-    expect(page().querySelector('dso-error')?.textContent).toBe('Required');
+    expect(page().querySelector('ov-error')?.textContent).toBe('Required');
   });
 
   it('renames a department with the version it was read at', async () => {

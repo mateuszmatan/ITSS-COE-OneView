@@ -12,7 +12,7 @@ const moment = new Intl.DateTimeFormat('en-GB', {
 });
 
 @Component({
-  selector: 'dso-dora-tiles',
+  selector: 'ov-dora-tiles',
   imports: [CountedPipe, DoraLevelBadge],
   changeDetection: ChangeDetectionStrategy.OnPush,
   host: { class: 'card' },
@@ -30,7 +30,7 @@ const moment = new Intl.DateTimeFormat('en-GB', {
         <div class="tile">
           <div class="tile-head">
             <span class="tile-title">{{ tile.title }}</span>
-            <dso-dora-level [level]="tile.level" />
+            <ov-dora-level [level]="tile.level" />
           </div>
           <div class="tile-meaning">{{ tile.meaning }}</div>
           <div class="tile-value">{{ tile.value }}</div>
@@ -51,11 +51,11 @@ const moment = new Intl.DateTimeFormat('en-GB', {
     .tiles {
       display: grid;
       grid-template-columns: repeat(4, minmax(0, 1fr));
-      border-top: 1px solid var(--dso-border);
+      border-top: 1px solid var(--ov-border);
     }
     .tile {
       padding: 8px 14px 4px;
-      border-left: 1px solid var(--dso-border);
+      border-left: 1px solid var(--ov-border);
     }
     .tile:first-child {
       padding-left: 0;
@@ -72,22 +72,22 @@ const moment = new Intl.DateTimeFormat('en-GB', {
       font-weight: 600;
     }
     .tile-meaning {
-      color: var(--dso-muted);
+      color: var(--ov-muted);
       font-size: 11.5px;
     }
     .tile-value {
       margin-top: 4px;
-      font-family: var(--dso-serif);
+      font-family: var(--ov-serif);
       font-size: 22px;
       font-weight: 500;
-      color: var(--dso-navy);
+      color: var(--ov-navy);
     }
     .tile-detail {
       font-size: 11.5px;
     }
     .tile-alert {
       margin-top: 4px;
-      color: var(--dso-danger);
+      color: var(--ov-danger);
       font-size: 11.5px;
       font-weight: 600;
     }
@@ -100,7 +100,7 @@ const moment = new Intl.DateTimeFormat('en-GB', {
         border-left: 0;
       }
       .tile:nth-child(n + 3) {
-        border-top: 1px solid var(--dso-border);
+        border-top: 1px solid var(--ov-border);
       }
     }
     @media (max-width: 560px) {
@@ -112,7 +112,7 @@ const moment = new Intl.DateTimeFormat('en-GB', {
         border-left: 0;
       }
       .tile:nth-child(n + 2) {
-        border-top: 1px solid var(--dso-border);
+        border-top: 1px solid var(--ov-border);
       }
     }
   `,

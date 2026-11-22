@@ -76,7 +76,7 @@ describe('GlobalSettingsPage', () => {
         !!text(section.querySelector('.section-head .section-help')),
       ]),
     ).toEqual([...page().querySelectorAll('.toc-item')].map((item) => [text(item), true]));
-    const hint = (label: string) => text(fieldOf(page(), label)?.querySelector('dso-hint'));
+    const hint = (label: string) => text(fieldOf(page(), label)?.querySelector('ov-hint'));
     expect(hint('Jenkins URL')).toBe(
       'The portal links the Jenkins job of each pipeline from it · platform.jenkinsUrl',
     );
@@ -84,7 +84,7 @@ describe('GlobalSettingsPage', () => {
     expect(hint('Result file')).toBe(
       'Kept with each build as proof of the check; the library reads only this name · releaseGate.stateFile',
     );
-    expect(page().querySelector(':not(.dso-help-trigger) > svg-icon')).toBeNull();
+    expect(page().querySelector(':not(.ov-help-trigger) > svg-icon')).toBeNull();
     expect(text(page().querySelector('.save-bar .saved'))).toMatch(/^Last saved .+ \(version 4\)$/);
     expect(form().controls.platform.controls.jenkinsUrl.value).toBe('https://jenkins.bbh.com');
     expect(settingsPage().hasUnsavedChanges()).toBe(false);
@@ -115,7 +115,7 @@ describe('GlobalSettingsPage', () => {
       'when the line coverage of a service is below the minimum',
     );
     expect(
-      helpOf(checkboxOf(page(), 'Also require the minimum line coverage').closest('dso-checkbox')!),
+      helpOf(checkboxOf(page(), 'Also require the minimum line coverage').closest('ov-checkbox')!),
     ).toContain(
       'Lists each service whose line coverage, the average of its coverage reports, is below the minimum',
     );
@@ -144,10 +144,10 @@ describe('GlobalSettingsPage', () => {
     );
     expect(text(block)).toContain('staticAnalysis.parallel');
     expect(text(block)).toContain('dynamicAnalysis.parallel');
-    expect(helpOf(staticBox.closest('dso-checkbox')!)).toBe(
+    expect(helpOf(staticBox.closest('ov-checkbox')!)).toBe(
       'Ticked, the full and security pipelines run the unit tests, Nexus IQ, SAST and SonarQube at the same time, as parallel branches of the Jenkins stage Static analysis. SAST compiles and queues its scans in a copy of the workspace, and SonarQube starts a service once its unit tests have written the coverage. The findings, the release gate and the metrics stay the same; the report shows how long the stages took one after another and in parallel. Unticked, the four stages run one after another, as before. A Windows agent always runs them one after another. The Jenkins environment variable DSO_STATIC_ANALYSIS_PARALLEL, when set to true or false, overrides this box. A Jenkinsfile without a key does not follow this box: it runs the stages at the same time unless DSO_STATIC_ANALYSIS_PARALLEL is false or a service of the run sets staticAnalysis.parallel: false in devsecops_config.yaml.',
     );
-    expect(helpOf(dynamicBox.closest('dso-checkbox')!)).toBe(
+    expect(helpOf(dynamicBox.closest('ov-checkbox')!)).toBe(
       'Ticked, the full and extended pipelines run the regression, smoke and performance tests and DAST at the same time, as parallel branches of the Jenkins stage Dynamic analysis. Each test stage keeps its own limit of jobs at the same time, and the results and the release gate stay the same. Unticked, they run one after another, as before. The Jenkins environment variable DSO_DYNAMIC_ANALYSIS_PARALLEL, when set to true or false, overrides this box. A Jenkinsfile without a key does not follow this box: it runs them at the same time unless DSO_DYNAMIC_ANALYSIS_PARALLEL is false or a service of the run sets dynamicAnalysis.parallel: false in devsecops_config.yaml.',
     );
     expect(staticBox.checked).toBe(true);
@@ -214,7 +214,7 @@ describe('GlobalSettingsPage', () => {
   it('offers the Node.js build defaults with the service defaults and sends a blank one as null', async () => {
     await load();
     const section = page().querySelector('#settings-serviceDefaults')!;
-    const hint = (label: string) => text(fieldOf(section, label)?.querySelector('dso-hint'));
+    const hint = (label: string) => text(fieldOf(section, label)?.querySelector('ov-hint'));
 
     expect(text(section.querySelector('.form-block h3'))).toBe('Node.js build');
     expect(hint('Node.js installation')).toBe('build.node.installationName');
@@ -243,7 +243,7 @@ describe('GlobalSettingsPage', () => {
   it('offers the plugin repositories of the BBH Nexus with the service defaults, refuses an address with a quote and sends an empty one as null', async () => {
     await load();
     const section = page().querySelector('#settings-serviceDefaults')!;
-    const hint = (label: string) => text(fieldOf(section, label)?.querySelector('dso-hint'));
+    const hint = (label: string) => text(fieldOf(section, label)?.querySelector('ov-hint'));
     const headings = [...section.querySelectorAll('.form-block h3')].map((h) => text(h));
     const c = form().controls.serviceDefaults.controls;
 
@@ -299,7 +299,7 @@ describe('GlobalSettingsPage', () => {
       'Allowed databases',
       'Nexus repositories of the database packages',
     ]);
-    expect(text(fieldOf(section, 'Allowed databases')?.querySelector('dso-hint'))).toBe(
+    expect(text(fieldOf(section, 'Allowed databases')?.querySelector('ov-hint'))).toBe(
       'database.allowedTargets',
     );
     expect(
@@ -424,7 +424,7 @@ describe('GlobalSettingsPage', () => {
   it('toggles the scanners the release gate checks and needs at least one', async () => {
     await load();
     const group = page().querySelector<HTMLElement>(
-      'dso-toggle-group[aria-label="Scans the release gate checks"]',
+      'ov-toggle-group[aria-label="Scans the release gate checks"]',
     )!;
     const toggles = () => [...group.querySelectorAll('button')];
     const pressed = () => toggles().map((toggle) => toggle.getAttribute('aria-pressed'));

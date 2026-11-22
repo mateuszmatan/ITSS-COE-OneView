@@ -50,7 +50,7 @@ import {
   optional,
   removeItem,
 } from '@common/shared/form-controls';
-import { DsoHelp } from '@common/ui/help';
+import { OvHelp } from '@common/ui/help';
 import { TOGGLES } from '@common/ui/toggle-group';
 import { BUILD_TOOLS, TOOL_HINTS, TOOL_LABELS } from '../shared/build-options';
 import { RepositoryKey } from '../shared/database-rules';
@@ -603,13 +603,13 @@ function invalidControls(control: AbstractControl): AbstractControl[] {
 }
 
 @Component({
-  selector: 'dso-service-fields',
+  selector: 'ov-service-fields',
   imports: [
     ReactiveFormsModule,
     SvgIconComponent,
     TOGGLES,
     AdvancedSettings,
-    DsoHelp,
+    OvHelp,
     Fields,
     GoldenFixFields,
     OpenShiftTargetFields,
@@ -775,7 +775,7 @@ export class ServiceFields {
         const target =
           shown.find(
             (candidate) =>
-              candidate.querySelector('dso-label')?.textContent?.trim() === field.label,
+              candidate.querySelector('ov-label')?.textContent?.trim() === field.label,
           ) ?? shown[0];
         target?.querySelector<HTMLElement>('input, select, textarea')?.focus();
       },

@@ -1,0 +1,129 @@
+package com.bbh.itss.coe.oneview.adapter.out.persistence;
+
+import com.bbh.itss.coe.oneview.adapter.RecordMapper;
+import com.bbh.itss.coe.oneview.adapter.out.persistence.ServiceEntity.GoldenFixPolicyEmbeddable;
+import com.bbh.itss.coe.oneview.domain.catalog.BuildTool;
+import com.bbh.itss.coe.oneview.domain.catalog.DeployTarget;
+import com.bbh.itss.coe.oneview.domain.settings.GlobalSettings;
+import com.bbh.itss.coe.oneview.domain.settings.GlobalSettingsValues;
+import com.bbh.itss.coe.oneview.domain.settings.Scanner;
+import jakarta.persistence.CollectionTable;
+import jakarta.persistence.Column;
+import jakarta.persistence.ElementCollection;
+import jakarta.persistence.Embeddable;
+import jakarta.persistence.Entity;
+import jakarta.persistence.Enumerated;
+import jakarta.persistence.JoinColumn;
+import jakarta.persistence.MapKeyColumn;
+import jakarta.persistence.MapKeyEnumerated;
+import jakarta.persistence.Table;
+import lombok.NoArgsConstructor;
+import org.hibernate.annotations.EmbeddedColumnNaming;
+
+import java.util.EnumMap;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
+
+import static jakarta.persistence.EnumType.STRING;
+import static jakarta.persistence.FetchType.EAGER;
+import static lombok.AccessLevel.PROTECTED;
+
+@Entity
+@Table(name = "DSO_GLOBAL_SETTINGS")
+@NoArgsConstructor(access = PROTECTED)
+public class GlobalSettingsEntity extends SingletonEntity {
+
+    private ValuesEmbeddable values;
+
+    @ElementCollection(fetch = EAGER)
+    @CollectionTable(name = "DSO_GLOBAL_SEVERITY_LIMIT", joinColumns = @JoinColumn(name = "SETTINGS_ID"))
+    @MapKeyEnumerated(STRING)
+    @MapKeyColumn(name = "SCANNER")
+    private Map<Scanner, SeverityLimitsEmbeddable> limits = new HashMap<>();
+
+    GlobalSettings toDomain() {
+        return new GlobalSettings(RecordMapper.map(GlobalSettingsValues.class, values, this), version(), updatedAt());
+    }
+
+    void apply(GlobalSettingsValues source) {
+        values = RecordMapper.map(source, ValuesEmbeddable.class);
+        Map<Scanner, SeverityLimitsEmbeddable> replacement = new EnumMap<>(Scanner.class);
+        source.limits().forEach((scanner, limit) -> replacement.put(scanner,
+                RecordMapper.map(limit, SeverityLimitsEmbeddable.class)));
+        replace(limits, replacement);
+    }
+
+    @Embeddable
+    public record ValuesEmbeddable(
+            PlatformSettingsEmbeddable platform,
+            DeploymentDefaultsEmbeddable deployment,
+            ScanSettingsEmbeddable scans,
+            @EmbeddedColumnNaming("RELEASE_GATE_%s") ReleaseGateSettingsEmbeddable releaseGate,
+            ServiceDefaultsEmbeddable serviceDefaults,
+            @EmbeddedColumnNaming("GOLDEN_FIX_%s") GoldenFixPolicyEmbeddable goldenFix,
+            @EmbeddedColumnNaming("DB_%s") DatabaseDefaultsEmbeddable database) {
+    }
+
+    @Embeddable
+    public record PlatformSettingsEmbeddable(String jenkinsUrl, String jenkinsLibrary, String asocUrl,
+            @Column(name = "APPSCAN_CLIENT_LINUX_URL") String appScanClientLinuxUrl,
+            @Column(name = "APPSCAN_CLIENT_WINDOWS_URL") String appScanClientWindowsUrl,
+            String proxyHost, Integer proxyPort, String proxyUser, String oisHost, String sonarServerUrl,
+            String sonarInstallationName, String nexusIqServerUrl, String nexusIqCredentialsId,
+            @Column(name = "NEXUS_SNAPSHOT_URL") String nexusSnapshotRepositoryUrl, String nexusSnapshotRepositoryId,
+            String influxWriteUrl, String influxCredentialsId, String iosBuildAgent,
+            String influxUrl, String influxOrg, String influxBucket, String influxToken,
+            String grafanaName, String grafanaDashboardUrl, String grafanaSecurityDashboardUrl,
+            @Column(name = "GRAFANA2_NAME") String grafana2Name,
+            @Column(name = "GRAFANA2_DASHBOARD_URL") String grafana2DashboardUrl,
+            @Column(name = "GRAFANA2_SECURITY_DASHBOARD_URL") String grafana2SecurityDashboardUrl) {
+    }
+
+    @Embeddable
+    public record DeploymentDefaultsEmbeddable(@Column(name = "UCD_SITE_NAME") String urbanCodeSiteName,
+            @Column(name = "UCD_DEPLOY_PROCESS") String urbanCodeDeployProcess, String rdHost, String qcHost,
+            String sshUser, String deployScript, String versionFile) {
+    }
+
+    @Embeddable
+    public record SeverityLimitsEmbeddable(Integer maxCritical, Integer maxHigh, Integer maxMedium) {
+    }
+
+    @Embeddable
+    public record ScanSettingsEmbeddable(
+            Integer coverageMinLine,
+            @Column(name = "SAST_PREPARE_TIMEOUT_MIN") Integer sastPrepareTimeoutMinutes,
+            @Column(name = "SAST_POLL_TIMEOUT_MIN") Integer sastPollTimeoutMinutes,
+            @Column(name = "SAST_POLL_INTERVAL_SEC") Integer sastPollIntervalSeconds,
+            @Column(name = "DAST_POLL_TIMEOUT_MIN") Integer dastPollTimeoutMinutes,
+            @Column(name = "DAST_POLL_INTERVAL_SEC") Integer dastPollIntervalSeconds,
+            @Column(name = "DAST_REPORT_TIMEOUT_MIN") Integer dastReportTimeoutMinutes,
+            @Column(name = "DAST_REPORT_INTERVAL_SEC") Integer dastReportIntervalSeconds,
+            Boolean sonarWaitForQualityGate,
+            @Column(name = "SONAR_QUALITY_GATE_TIMEOUT_MIN") Integer sonarQualityGateTimeoutMinutes,
+            Boolean parallelStaticAnalysis,
+            Boolean parallelDynamicAnalysis) {
+    }
+
+    @Embeddable
+    public record ReleaseGateSettingsEmbeddable(List<Scanner> scanners, Boolean requireCoverage, String stateFile) {
+    }
+
+    @Embeddable
+    public record ServiceDefaultsEmbeddable(
+            @Enumerated(STRING) @Column(name = "DEFAULT_BUILD_TOOL") BuildTool buildTool,
+            @Enumerated(STRING) @Column(name = "DEFAULT_DEPLOY_TARGET") DeployTarget deployTarget,
+            @Column(name = "DEFAULT_SOURCE_DIR") String sourceDir,
+            Integer testsMaxParallel, String nodeInstallationName, String npmRegistry, String npmrcCredentialsId,
+            Boolean pluginRepositoriesEnabled, String gradlePluginRepository, String mavenPluginRepository) {
+    }
+
+    @Embeddable
+    public record DatabaseDefaultsEmbeddable(String liquibaseHome, String liquibaseUrl, String liquibaseSha256,
+            Integer liquibaseJavaVersion, String oracleJdbcPath, String oracleJdbcUrl, String oracleJdbcSha256,
+            String utplsqlHome, String utplsqlUrl, String utplsqlSha256, List<String> allowedTargets,
+            String snapshotRepositoryId, String snapshotRepositoryUrl, String releaseRepositoryId,
+            String releaseRepositoryUrl) {
+    }
+}

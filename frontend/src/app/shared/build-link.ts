@@ -2,7 +2,7 @@ import { ChangeDetectionStrategy, Component, input } from '@angular/core';
 import { PipelineRun } from '../core/models';
 
 @Component({
-  selector: 'dso-build-link',
+  selector: 'ov-build-link',
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
     @let r = run();

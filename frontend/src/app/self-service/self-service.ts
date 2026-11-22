@@ -53,7 +53,7 @@ import { counted } from '@common/shared/formatting';
 import { agentLabels } from '../shared/build-options';
 import { ChoiceTiles } from '../shared/choice-tiles';
 import { FORM_FIELD } from '@common/ui/form-field';
-import { DsoLoading } from '@common/ui/loading';
+import { OvLoading } from '@common/ui/loading';
 import {
   NewProduct,
   WizardPipeline,
@@ -90,14 +90,14 @@ interface Onboarded {
 const STEPS = ['Product', 'Pipeline', 'Services', 'Review', 'Next steps'];
 
 @Component({
-  selector: 'dso-self-service',
+  selector: 'ov-self-service',
   imports: [
     ReactiveFormsModule,
     RouterLink,
     NgTemplateOutlet,
     ClipboardModule,
     FORM_FIELD,
-    DsoLoading,
+    OvLoading,
     ChoiceTiles,
   ],
   changeDetection: ChangeDetectionStrategy.OnPush,

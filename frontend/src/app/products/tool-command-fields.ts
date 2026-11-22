@@ -161,10 +161,10 @@ export function commandFields(
 }
 
 @Component({
-  selector: 'dso-tool-command-fields',
+  selector: 'ov-tool-command-fields',
   imports: [Fields],
   changeDetection: ChangeDetectionStrategy.Eager,
-  template: `<dso-fields [group]="group()" [fields]="fields()" />`,
+  template: `<ov-fields [group]="group()" [fields]="fields()" />`,
   styles: `
     :host {
       display: contents;

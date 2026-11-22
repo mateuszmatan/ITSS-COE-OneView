@@ -1,6 +1,6 @@
-# DevSecOps Management Portal - User and Administrator Guide
+# ITSS COE OneView - User and Administrator Guide
 
-This guide explains the BBH DevSecOps Management Portal to the people who use it. Product teams use it to set up the DevSecOps pipelines of their products. The DevSecOps team uses it to look after products, pipelines, keys and the settings every pipeline shares. No DevSecOps knowledge is needed to follow the step-by-step chapters.
+This guide explains BBH ITSS COE OneView to the people who use it. Product teams use it to set up the DevSecOps pipelines of their products. The DevSecOps team uses it to look after products, pipelines, keys and the settings every pipeline shares. No DevSecOps knowledge is needed to follow the step-by-step chapters.
 
 The guide is written in `docs/documentation.md`. The page `docs/documentation.html` is generated from it by the build (`gradle documentation`), and `gradle check` fails when the page is out of date. Developers find the build, the tests and the architecture in the [README](../README.md).
 
@@ -69,7 +69,15 @@ The portal does five things:
 
 ## 2. The pages of the portal
 
-The menu at the top has six entries.
+ITSS COE OneView joins three areas, and the switch next to its name at the top chooses one of them:
+
+| Area | What it holds |
+|------|---------------|
+| DevSecOps | The pipelines of the products, their monitoring with the charts of Grafana and InfluxDB, and the OWASP SAMM maturity. This guide describes this area. |
+| QA | QA Metrics: the quality assurance metrics of every product, with their charts in Grafana and InfluxDB. The page names what is planned; it shows no data yet. |
+| Agile | Agile Maturity: the agile maturity of teams and business services. The page names what is planned; it shows no data yet. |
+
+The menu at the top shows the entries of the chosen area. The area DevSecOps has six entries.
 
 | Menu | What you do there |
 |------|-------------------|
@@ -1041,7 +1049,7 @@ devSecOpsPipeline(projectNames: 'gateway', agentNames: ['linux-agent'])
 - Each pipeline needs a Jenkins Pipeline job that reads the Jenkinsfile from the repository (Pipeline script from SCM).
 - The service template names the job, for example `DevSecOps/{CODE}/{service}-{type}` gives `DevSecOps/PAYHUB/gateway-full`.
 - While the service template names a job, the pipelines that one save starts for the services of a repository share one job and one Jenkinsfile with `pipelineKeys`. A new pipeline joins a job only when two or more pipelines of its type, repository and Jenkins agents run in it already. See [chapter 8](#8-shared-version-catalogs-and-the-combined-jenkinsfile).
-- Jenkins needs the global environment variable `DSO_PORTAL_URL`, for example `https://dso-portal.apps.bbh.com`.
+- Jenkins needs the global environment variable `DSO_PORTAL_URL`, for example `https://oneview.apps.bbh.com`.
 
 ## 10. Import a devsecops_config.yaml and copy a service
 
@@ -1418,12 +1426,12 @@ The library leaves a Liquibase service with database changes alone: it resolves 
 ### Configuration by Deployment Mode
 
 #### 1. Version with Portal (main branch)
-- **Portal Wizard (One-Click Inspect)**: Click **Scan & Auto-fill** in the DevSecOps Management Portal after entering the Bitbucket repository URL and branch. The REST API reads the root folder of the branch and fills in the build tool, the build and unit test commands, the Node.js build switch, the deployment target and an empty SonarQube project key; every other field keeps its value. A service with database changes keeps all of them except the SonarQube project key.
+- **Portal Wizard (One-Click Inspect)**: Click **Scan & Auto-fill** in ITSS COE OneView after entering the Bitbucket repository URL and branch. The REST API reads the root folder of the branch and fills in the build tool, the build and unit test commands, the Node.js build switch, the deployment target and an empty SonarQube project key; every other field keeps its value. A service with database changes keeps all of them except the SonarQube project key.
 - **Pipeline Auto-Resolve (`autoResolveParameters: true`)**: If any fields are left blank, `RepoStackAutoResolver` auto-resolves them during Jenkins execution. Explicit fields always override auto-resolution. Of a Liquibase service with database changes it fills in only an empty SonarQube project key ([Auto-Resolved Parameters Reference](#auto-resolved-parameters-reference)).
 - **Jenkinsfile**:
 ```groovy
 @Library('DSOEnhanced@main') _
-devSecOpsPipeline(pipelineKey: '<key from DevSecOps portal>')
+devSecOpsPipeline(pipelineKey: '<key from OneView>')
 ```
 
 #### 2. Standalone Version without Portal (DSOEnhancedWithoutPortal)
@@ -1993,16 +2001,16 @@ The Portal monitoring block sets the portal itself and is not written to `devsec
 
 | Field | Portal setting |
 |-------|----------------|
-| InfluxDB read URL | `dso.influx.url` |
-| InfluxDB organization | `dso.influx.org` |
-| InfluxDB bucket | `dso.influx.bucket` |
-| InfluxDB read token | `dso.influx.token` |
-| Grafana instance name | `dso.grafana.instances[0].name` |
-| Grafana pipeline dashboard URL | `dso.grafana.instances[0].dashboard-url` |
-| Grafana security dashboard URL | `dso.grafana.instances[0].security-dashboard-url` |
-| Second Grafana instance name | `dso.grafana.instances[1].name` |
-| Second Grafana pipeline dashboard URL | `dso.grafana.instances[1].dashboard-url` |
-| Second Grafana security dashboard URL | `dso.grafana.instances[1].security-dashboard-url` |
+| InfluxDB read URL | `oneview.influx.url` |
+| InfluxDB organization | `oneview.influx.org` |
+| InfluxDB bucket | `oneview.influx.bucket` |
+| InfluxDB read token | `oneview.influx.token` |
+| Grafana instance name | `oneview.grafana.instances[0].name` |
+| Grafana pipeline dashboard URL | `oneview.grafana.instances[0].dashboard-url` |
+| Grafana security dashboard URL | `oneview.grafana.instances[0].security-dashboard-url` |
+| Second Grafana instance name | `oneview.grafana.instances[1].name` |
+| Second Grafana pipeline dashboard URL | `oneview.grafana.instances[1].dashboard-url` |
+| Second Grafana security dashboard URL | `oneview.grafana.instances[1].security-dashboard-url` |
 
 ### Headings with keys
 
@@ -2014,8 +2022,8 @@ Some headings of the service form name the section they write to: `deploy.vm.rd`
 
 | Environment | Database | How it starts |
 |-------------|----------|---------------|
-| A BBH laptop | H2 in Oracle mode, in the file `~/bbh-devsecops/dso-portal/dso-portal.mv.db` (`DSO_DATA_DIR` moves the folder) | `gradlew :backend:bootRun` or `java -jar backend/build/libs/dso-portal-<version>.jar` |
-| RD | Oracle | the `dso-portal` Deployment in OpenShift, profile `rd` |
+| A BBH laptop | H2 in Oracle mode, in the file `~/bbh-itss-coe/oneview/oneview.mv.db` (`ONEVIEW_DATA_DIR` moves the folder) | `gradlew :backend:bootRun` or `java -jar backend/build/libs/oneview-<version>.jar` |
+| RD | Oracle | the `oneview` Deployment in OpenShift, profile `rd` |
 | QC | Oracle | the same image, profile `qc` |
 | Production | Oracle | the same image, profile `prod` |
 
@@ -2027,7 +2035,7 @@ Liquibase updates the schema when the portal starts. The changesets are in `back
 
 1. Never change a changeset that a database has already applied. Liquibase refuses to start when its checksum changes.
 2. Add a new file `oracle/<next number>-<name>.sql` that starts with `--liquibase formatted sql`.
-3. Give each changeset the header `--changeset dso-portal:<id> dbms:oracle,h2` and a `--rollback` that undoes it.
+3. Give each changeset the header `--changeset oneview:<id> dbms:oracle,h2` and a `--rollback` that undoes it.
 4. Include the file in `db.changelog-master.yaml`.
 5. Keep names of constraints at 30 characters or fewer, as Oracle requires.
 6. Test the update, the rollback and the update again on H2, and on Oracle Free 23 when a container can run it.

@@ -1,6 +1,6 @@
-# DevSecOps Management Portal & DSOEnhanced – User Guide
+# ITSS COE OneView & DSOEnhanced – User Guide
 
-> **Comprehensive Guide for the Portal-Integrated Version (`DevSecOpsManagementPortal` + `DSOEnhanced` library on `main` branch).**
+> **Comprehensive Guide for the Portal-Integrated Version (`ITSS-COE-OneView` + `DSOEnhanced` library on `main` branch).**
 > Designed for non-technical users, Product Owners, business analysts, and engineers onboarding applications at Brown Brothers Harriman (BBH).
 
 ---
@@ -30,7 +30,7 @@
 
 ## 1. Overview and Architecture
 
-The DevSecOps Management Portal is the central management interface for BBH delivery pipelines.
+ITSS COE OneView is the central management interface for BBH delivery pipelines.
 
 ### Key Principles:
 - **No secrets in source code:** No API keys, passwords, or tokens are ever committed to Git repositories. Credentials reference secure Jenkins credentials store IDs.
@@ -374,7 +374,7 @@ Every pipeline execution streams performance and quality data to InfluxDB:
 
 ## 14. OWASP SAMM Software Assurance Maturity Model
 
-The DevSecOps Management Portal includes a dedicated **OWASP SAMM** section assessing software assurance maturity across all applications and business services.
+ITSS COE OneView includes a dedicated **OWASP SAMM** section assessing software assurance maturity across all applications and business services.
 
 ### Core Capabilities:
 - **Continuous Maturity Assessment:** SAMM v2.0 posture across 5 business functions (Governance, Design, Implementation, Verification, Operations) and 11 automated practices.
@@ -491,7 +491,7 @@ Direct feedback in developer pull requests accelerates remediation and prevents 
 ## 18. Deployment Modes and Configuration Guide
 
 ### Mode 1: With Portal (`main` branch)
-* **Configuration Source:** Centrally managed in DevSecOps Management Portal.
+* **Configuration Source:** Centrally managed in ITSS COE OneView.
 * **Onboarding:** Use **Scan & Auto-fill** in the service editor to auto-populate fields from Bitbucket: the build tool, the build and unit test commands, the Node.js build switch, the deployment target and an empty SonarQube project key. A service with database changes keeps all of them except the SonarQube project key.
 * **Pipeline Execution:** Application repository requires only a single-line `Jenkinsfile`:
   ```groovy

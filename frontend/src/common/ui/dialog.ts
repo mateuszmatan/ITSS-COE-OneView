@@ -3,21 +3,21 @@ import { Directive, OnDestroy, OnInit, Provider, inject, input } from '@angular/
 import { uniqueId } from './form-field';
 
 @Directive({
-  selector: '[dsoDialogClose]',
+  selector: '[ovDialogClose]',
   host: { '(click)': 'ref?.close(result())' },
 })
 export class DialogClose {
-  readonly result = input<unknown>(undefined, { alias: 'dsoDialogClose' });
+  readonly result = input<unknown>(undefined, { alias: 'ovDialogClose' });
 
   protected readonly ref = inject(DialogRef, { optional: true });
 }
 
 @Directive({
-  selector: '[dsoDialogTitle]',
+  selector: '[ovDialogTitle]',
   host: { class: 'modal-title', '[id]': 'id' },
 })
 export class DialogTitle implements OnInit, OnDestroy {
-  protected readonly id = uniqueId('dso-dialog-title');
+  protected readonly id = uniqueId('ov-dialog-title');
   private readonly container = inject(DialogRef, { optional: true })?.containerInstance as
     { _addAriaLabelledBy?(id: string): void; _removeAriaLabelledBy?(id: string): void } | undefined;
 
@@ -37,7 +37,7 @@ export function provideDialogs(): Provider {
     provide: DEFAULT_DIALOG_CONFIG,
     useValue: {
       ...new DialogConfig(),
-      panelClass: 'dso-dialog',
+      panelClass: 'ov-dialog',
       maxWidth: '92vw',
       maxHeight: '90vh',
       autoFocus: 'first-tabbable',

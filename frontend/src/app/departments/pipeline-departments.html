@@ -1,6 +1,6 @@
-<dso-departments-admin [usage]="usage" [cells]="cells()" (loaded)="departments.set($event)" />
+<ov-departments-admin [usage]="usage" [cells]="cells()" (loaded)="departments.set($event)" />
 
-<ng-template dsoCell="pipelines" let-department>
+<ng-template ovCell="pipelines" let-department>
   @if (department.pipelineCount === 0) {
     <span class="muted">None yet</span>
   } @else {
@@ -30,6 +30,6 @@
       product. A pipeline whose key was invalidated is refused its settings and stops until a new
       key is issued.
     </p>
-    <dso-bar-chart [rows]="chart()" />
+    <ov-bar-chart [rows]="chart()" />
   </section>
 }

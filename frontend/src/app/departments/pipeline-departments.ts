@@ -1,7 +1,7 @@
 import { ChangeDetectionStrategy, Component, computed, signal, viewChildren } from '@angular/core';
 import { DepartmentUsage, DepartmentsAdmin } from '@common/admin/departments-admin';
 import { counted } from '@common/shared/formatting';
-import { DsoCell } from '@common/ui/grid';
+import { OvCell } from '@common/ui/grid';
 import { Department } from '../core/models';
 import { invalidatedKeys } from '../products/pipeline-tally';
 import { BarChart, BarRow } from '../shared/bar-chart';
@@ -27,15 +27,15 @@ export const DEPARTMENT_USAGE: DepartmentUsage<Department> = {
 };
 
 @Component({
-  selector: 'dso-pipeline-departments',
-  imports: [DepartmentsAdmin, DsoCell, BarChart],
+  selector: 'ov-pipeline-departments',
+  imports: [DepartmentsAdmin, OvCell, BarChart],
   changeDetection: ChangeDetectionStrategy.OnPush,
   templateUrl: './pipeline-departments.html',
   styleUrl: './pipeline-departments.scss',
 })
 export class PipelineDepartments {
   protected readonly usage = DEPARTMENT_USAGE;
-  protected readonly cells = viewChildren<DsoCell<Department>>(DsoCell);
+  protected readonly cells = viewChildren<OvCell<Department>>(OvCell);
   protected readonly departments = signal<readonly Department[]>([]);
   protected readonly chart = computed<BarRow[]>(() =>
     this.departments().map((department) => ({

@@ -351,12 +351,12 @@ describe('ServiceDialog', () => {
     await fixture.whenStable();
     const select = selectOf(page(), 'Copy values from');
 
-    expect(page().querySelector('dso-import-notes')).not.toBeNull();
+    expect(page().querySelector('ov-import-notes')).not.toBeNull();
 
     choose(select, 'gui');
     await fixture.whenStable();
 
-    expect(page().querySelector('dso-import-notes')).toBeNull();
+    expect(page().querySelector('ov-import-notes')).toBeNull();
     expect(form().controls.build.controls.javaPath.value).toBe('/usr/lib/jvm/java-17-openjdk');
 
     choose(select, 'No service');
@@ -411,7 +411,7 @@ describe('ServiceDialog', () => {
     expect(form().controls.id.value).toBeNull();
     expect(form().controls.build.controls.javaPath.value).toBe('/usr/lib/jvm/java-17-openjdk');
     expect(agents.value).toBe('docker-agent');
-    const notes = page().querySelector('dso-import-notes')!;
+    const notes = page().querySelector('ov-import-notes')!;
     expect(text(notes.querySelector('strong'))).toBe('gateway was imported from config.yaml.');
     expect(text(notes.querySelector('h5'))).toBe('Not imported');
     expect(text(notes.querySelector('li'))).toBe('tools.sonar.foo: The portal has no such setting');

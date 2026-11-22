@@ -2,19 +2,24 @@ import { Component } from '@angular/core';
 import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { Router, provideRouter } from '@angular/router';
 import { APP_NAME } from '../core/app-name';
-import { PortalSection } from '../core/sections';
+import { OneViewArea, OneViewSection } from '../core/sections';
 import { text } from '../testing/dom';
 import { AppShell } from './app-shell';
 
 @Component({ template: '' })
 class Blank {}
 
-const section = (path: string, label: string): PortalSection => ({
+const section = (path: string, label: string): OneViewSection => ({
   path,
   label,
   heading: `Heading of ${label}`,
   description: `What ${label} is for`,
 });
+
+const AREAS: OneViewArea[] = [
+  { key: 'sales', label: 'Sales', sections: [section('/orders', 'Orders'), section('/admin', 'Admin')] },
+  { key: 'quality', label: 'Quality', sections: [section('/quality', 'Metrics')] },
+];
 
 describe('AppShell', () => {
   let fixture: ComponentFixture<AppShell>;
@@ -28,10 +33,7 @@ describe('AppShell', () => {
       ],
     });
     fixture = TestBed.createComponent(AppShell);
-    fixture.componentRef.setInput('sections', [
-      section('/orders', 'Orders'),
-      section('/admin', 'Admin'),
-    ]);
+    fixture.componentRef.setInput('areas', AREAS);
     await fixture.whenStable();
   });
 
@@ -62,6 +64,42 @@ describe('AppShell', () => {
     await fixture.whenStable();
 
     expect(active()).toEqual(['Orders']);
+  });
+
+  const areas = () => [...page().querySelectorAll<HTMLAnchorElement>('nav.areas a')];
+  const activeAreas = () =>
+    areas()
+      .filter((link) => link.classList.contains('active'))
+      .map(text);
+
+  it('links every area to its first section and starts in the first area', () => {
+    expect(areas().map(text)).toEqual(['Sales', 'Quality']);
+    expect(areas().map((link) => link.getAttribute('href'))).toEqual(['/orders', '/quality']);
+    expect(activeAreas()).toEqual(['Sales']);
+  });
+
+  it('shows the sections of the area the current page belongs to', async () => {
+    await TestBed.inject(Router).navigateByUrl('/quality');
+    await fixture.whenStable();
+
+    expect(activeAreas()).toEqual(['Quality']);
+    expect(areas()[1].getAttribute('aria-current')).toBe('true');
+    expect(links().map(text)).toEqual(['Metrics']);
+    expect(active()).toEqual(['Metrics']);
+
+    await TestBed.inject(Router).navigateByUrl('/admin/products?page=2');
+    await fixture.whenStable();
+
+    expect(activeAreas()).toEqual(['Sales']);
+    expect(links().map(text)).toEqual(['Orders', 'Admin']);
+  });
+
+  it('has no area switch when there is one area only', async () => {
+    fixture.componentRef.setInput('areas', AREAS.slice(0, 1));
+    await fixture.whenStable();
+
+    expect(page().querySelector('nav.areas')).toBeNull();
+    expect(links().map(text)).toEqual(['Orders', 'Admin']);
   });
 
   it('shows the signed-in user only once it is known', async () => {

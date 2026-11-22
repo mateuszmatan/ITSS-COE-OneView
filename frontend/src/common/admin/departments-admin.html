@@ -13,11 +13,11 @@
   <p class="section-help">{{ help() }}</p>
 
   @if (departments.isLoading()) {
-    <dso-loading />
+    <ov-loading />
   }
 
   @if (departments.error(); as error) {
-    <dso-load-error what="The business services" [error]="error" (retry)="departments.reload()" />
+    <ov-load-error what="The business services" [error]="error" (retry)="departments.reload()" />
   } @else if (departments.hasValue()) {
     @if (empty()) {
       <div class="empty-state">
@@ -26,17 +26,17 @@
         <button type="button" class="btn btn-primary" (click)="add()">Add business service</button>
       </div>
     } @else {
-      <dso-grid
+      <ov-grid
         label="Business Services"
         [rows]="departments.value()"
         [columns]="columns()"
         [rowId]="departmentId"
         [templates]="cells()"
       >
-        <ng-template dsoCell="name" let-department>
+        <ng-template ovCell="name" let-department>
           <span class="name">{{ department.name }}</span>
         </ng-template>
-        <ng-template dsoCell="actions" let-department>
+        <ng-template ovCell="actions" let-department>
           @let reason = deleteHint(department);
           <span class="actions">
             <button
@@ -66,7 +66,7 @@
             </span>
           </span>
         </ng-template>
-      </dso-grid>
+      </ov-grid>
     }
   }
 </section>

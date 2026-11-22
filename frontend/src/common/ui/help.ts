@@ -24,7 +24,7 @@ const HOVER_GRACE_MS = 150;
 
 /** The label of the form field or check box around the icon, without its config key chips. */
 function fieldLabel(host: HTMLElement): string {
-  const label = host.closest('.dso-form-field, .dso-checkbox')?.querySelector('label');
+  const label = host.closest('.ov-form-field, .ov-checkbox')?.querySelector('label');
   const copy = label?.cloneNode(true) as HTMLElement | undefined;
   copy?.querySelectorAll('code').forEach((code) => code.remove());
   return (copy?.textContent ?? '')
@@ -39,15 +39,15 @@ function fieldLabel(host: HTMLElement): string {
  * it belongs to: the label input, or else the label of the surrounding form field or check box.
  */
 @Component({
-  selector: 'dso-help',
+  selector: 'ov-help',
   imports: [CdkConnectedOverlay, CdkOverlayOrigin, SvgIconComponent],
   changeDetection: ChangeDetectionStrategy.OnPush,
-  host: { class: 'dso-help' },
+  host: { class: 'ov-help' },
   template: `
     <button
       #trigger
       type="button"
-      class="dso-help-trigger"
+      class="ov-help-trigger"
       aria-label="More information"
       cdkOverlayOrigin
       #origin="cdkOverlayOrigin"
@@ -63,13 +63,13 @@ function fieldLabel(host: HTMLElement): string {
       [cdkConnectedOverlayPositions]="positions"
       (detach)="hide()"
     >
-      <div class="dso-help-popover" role="tooltip" (mouseenter)="show()" (mouseleave)="leave()">
+      <div class="ov-help-popover" role="tooltip" (mouseenter)="show()" (mouseleave)="leave()">
         {{ text() }}
       </div>
     </ng-template>
   `,
 })
-export class DsoHelp {
+export class OvHelp {
   readonly text = input.required<string>();
   readonly label = input<string>();
 

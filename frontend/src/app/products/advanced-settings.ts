@@ -3,29 +3,29 @@ import { AbstractControl } from '@angular/forms';
 import { PANEL } from '@common/ui/panel';
 
 @Component({
-  selector: 'dso-advanced-settings',
+  selector: 'ov-advanced-settings',
   imports: [PANEL],
   changeDetection: ChangeDetectionStrategy.Eager,
   host: { class: 'span-12' },
   template: `
-    <dso-panel
-      #panel="dsoPanel"
+    <ov-panel
+      #panel="ovPanel"
       class="advanced"
       [expanded]="open() || attention()"
       (expandedChange)="open.set($event)"
       [class.has-errors]="attention()"
     >
-      <dso-panel-header>
+      <ov-panel-header>
         <span class="advanced-title">Advanced settings</span>
         <span class="panel-description">{{ summary() }}</span>
         <span class="panel-toggle" aria-hidden="true">{{
           panel.expanded() ? 'Hide' : 'Show'
         }}</span>
-      </dso-panel-header>
+      </ov-panel-header>
       <div class="form-fields">
         <ng-content />
       </div>
-    </dso-panel>
+    </ov-panel>
   `,
   styles: `
     :host {

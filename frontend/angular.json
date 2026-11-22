@@ -16,7 +16,7 @@
       },
       "root": "",
       "sourceRoot": "src",
-      "prefix": "dso",
+      "prefix": "ov",
       "architect": {
         "build": {
           "builder": "@angular/build:application",

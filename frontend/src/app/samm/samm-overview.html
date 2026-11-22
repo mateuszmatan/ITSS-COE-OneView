@@ -37,10 +37,10 @@
 
   @if (overview.isLoading()) {
     <div class="loading-state">
-      <dso-loading label="Calculating OWASP SAMM maturity posture across BBH applications..." />
+      <ov-loading label="Calculating OWASP SAMM maturity posture across BBH applications..." />
     </div>
   } @else if (overview.error(); as error) {
-    <dso-load-error what="The OWASP SAMM overview" [error]="error" (retry)="overview.reload()" />
+    <ov-load-error what="The OWASP SAMM overview" [error]="error" (retry)="overview.reload()" />
   } @else if (overview.value(); as data) {
 
     @if (activeTab() === 'overview') {

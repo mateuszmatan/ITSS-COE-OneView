@@ -1,6 +1,6 @@
 import { ChangeDetectionStrategy, Component, Signal, effect, input, signal } from '@angular/core';
 import { AbstractControl, FormControl, ReactiveFormsModule, Validators } from '@angular/forms';
-import { DsoCheckbox } from '../ui/checkbox';
+import { OvCheckbox } from '../ui/checkbox';
 import { FORM_FIELD } from '../ui/form-field';
 import { filled } from './form-controls';
 import { errorText } from './form-errors';
@@ -101,28 +101,28 @@ export function formRevision(form: () => AbstractControl): Signal<number> {
 }
 
 @Component({
-  selector: 'dso-fields',
-  imports: [ReactiveFormsModule, DsoCheckbox, FORM_FIELD],
+  selector: 'ov-fields',
+  imports: [ReactiveFormsModule, OvCheckbox, FORM_FIELD],
   changeDetection: ChangeDetectionStrategy.Eager,
   template: `
     @for (field of fields(); track field.key) {
       @let control = controlOf(field);
       @let mandatory = required(control);
       @if (field.kind === 'check') {
-        <dso-checkbox [class]="span(field, 12)" [formControl]="control" [help]="field.help">
+        <ov-checkbox [class]="span(field, 12)" [formControl]="control" [help]="field.help">
           <span [innerHTML]="label(field)"></span>
-        </dso-checkbox>
+        </ov-checkbox>
       } @else {
-        <dso-form-field
+        <ov-form-field
           [class]="span(field, 6)"
           [class.read-only]="field.readonly"
           [help]="field.help"
         >
-          <dso-label>{{ field.label }}</dso-label>
+          <ov-label>{{ field.label }}</ov-label>
           @switch (field.kind) {
             @case ('area') {
               <textarea
-                dsoInput
+                ovInput
                 rows="2"
                 spellcheck="false"
                 [formControl]="control"
@@ -134,7 +134,7 @@ export function formRevision(form: () => AbstractControl): Signal<number> {
             @case ('select') {
               @if (field.multiple) {
                 <select
-                  dsoInput
+                  ovInput
                   multiple
                   [formControl]="control"
                   [attr.required]="mandatory || null"
@@ -144,7 +144,7 @@ export function formRevision(form: () => AbstractControl): Signal<number> {
                   }
                 </select>
               } @else {
-                <select dsoInput [formControl]="control" [attr.required]="mandatory || null">
+                <select ovInput [formControl]="control" [attr.required]="mandatory || null">
                   @for (option of field.options; track option.label) {
                     <option [ngValue]="option.value">{{ option.label }}</option>
                   }
@@ -153,7 +153,7 @@ export function formRevision(form: () => AbstractControl): Signal<number> {
             }
             @case ('number') {
               <input
-                dsoInput
+                ovInput
                 type="number"
                 [formControl]="control"
                 [attr.required]="mandatory || null"
@@ -164,7 +164,7 @@ export function formRevision(form: () => AbstractControl): Signal<number> {
             }
             @default {
               <input
-                dsoInput
+                ovInput
                 autocomplete="off"
                 [formControl]="control"
                 [attr.required]="mandatory || null"
@@ -177,10 +177,10 @@ export function formRevision(form: () => AbstractControl): Signal<number> {
             }
           }
           @if (field.code || field.hint) {
-            <dso-hint><span [innerHTML]="hint(field)"></span></dso-hint>
+            <ov-hint><span [innerHTML]="hint(field)"></span></ov-hint>
           }
-          <dso-error>{{ errorText(control, field.error) }}</dso-error>
-        </dso-form-field>
+          <ov-error>{{ errorText(control, field.error) }}</ov-error>
+        </ov-form-field>
       }
     }
   `,
@@ -190,7 +190,7 @@ export function formRevision(form: () => AbstractControl): Signal<number> {
     }
 
     select[multiple] option:checked {
-      background: linear-gradient(var(--dso-navy), var(--dso-navy));
+      background: linear-gradient(var(--ov-navy), var(--ov-navy));
       color: #fff;
     }
   `,

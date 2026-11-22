@@ -16,7 +16,7 @@ import { SvgIconRegistryService, provideAngularSvgIcon } from 'angular-svg-icon'
 import { registerIcons } from '../ui/design-system';
 import { provideDialogs } from '../ui/dialog';
 import { APP_NAME } from './app-name';
-import { PortalTitleStrategy } from './title-strategy';
+import { OneViewTitleStrategy } from './title-strategy';
 
 export function appConfig(name: string, routes: Routes): ApplicationConfig {
   return {
@@ -29,7 +29,7 @@ export function appConfig(name: string, routes: Routes): ApplicationConfig {
         withComponentInputBinding(),
         withInMemoryScrolling({ scrollPositionRestoration: 'enabled' }),
       ),
-      { provide: TitleStrategy, useClass: PortalTitleStrategy },
+      { provide: TitleStrategy, useClass: OneViewTitleStrategy },
       provideAngularSvgIcon(),
       provideDialogs(),
       provideAppInitializer(() => registerIcons(inject(SvgIconRegistryService))),

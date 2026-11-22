@@ -1,7 +1,7 @@
 <section class="card toolbar">
   <div class="toolbar-row">
     <input
-      dsoInput
+      ovInput
       class="search"
       [formControl]="search"
       placeholder="Search by name, code, team, business service or description"
@@ -21,11 +21,11 @@
 </section>
 
 @if (products.isLoading() || departments.isLoading()) {
-  <dso-loading />
+  <ov-loading />
 }
 
 @if (products.error() ?? departments.error(); as error) {
-  <dso-load-error what="The product list" [error]="error" (retry)="reload()" />
+  <ov-load-error what="The product list" [error]="error" (retry)="reload()" />
 } @else if (groups(); as shown) {
   @if (empty()) {
     <section class="card empty-state">
@@ -66,7 +66,7 @@
           }
         </p>
       } @else {
-        <dso-grid
+        <ov-grid
           [label]="'Products of ' + group.name"
           [rows]="group.products"
           [columns]="columns"
@@ -74,7 +74,7 @@
           [rowClass]="clickable"
           (rowClick)="open($event)"
         >
-          <ng-template dsoCell="product" let-product>
+          <ng-template ovCell="product" let-product>
             <div>
               <div class="product">
                 <a class="name quiet-link" [routerLink]="adminProduct(product.id)">{{
@@ -87,7 +87,7 @@
               }
             </div>
           </ng-template>
-          <ng-template dsoCell="pipelines" let-product>
+          <ng-template ovCell="pipelines" let-product>
             <span
               class="pipelines"
               [class.muted]="!product.pipelineCount"
@@ -95,7 +95,7 @@
               >{{ pipelineTally(product.pipelineCount, product.activePipelineCount) }}</span
             >
           </ng-template>
-        </dso-grid>
+        </ov-grid>
       }
     </section>
   }

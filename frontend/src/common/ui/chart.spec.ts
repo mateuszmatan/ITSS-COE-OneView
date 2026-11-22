@@ -2,12 +2,12 @@ import { ChangeDetectionStrategy, Component } from '@angular/core';
 import { TestBed } from '@angular/core/testing';
 import { chartOptions } from '../testing/highcharts';
 import { plainText } from '../shared/formatting';
-import { DsoChart, withPlainText } from './chart';
+import { OvChart, withPlainText } from './chart';
 
 @Component({
-  imports: [DsoChart],
+  imports: [OvChart],
   changeDetection: ChangeDetectionStrategy.OnPush,
-  template: `<dso-chart [options]="options" label="Runs per department" />`,
+  template: `<ov-chart [options]="options" label="Runs per department" />`,
 })
 class Host {
   readonly options = {
@@ -16,7 +16,7 @@ class Host {
   };
 }
 
-describe('DsoChart', () => {
+describe('OvChart', () => {
   it('turns markup in user text into plain text before Highcharts reads it', () => {
     expect(plainText(`<img src=x onerror="alert('x')"> & more`)).toBe(
       '&lt;img src=x onerror=&quot;alert(&#39;x&#39;)&quot;&gt; &amp; more',
@@ -27,7 +27,7 @@ describe('DsoChart', () => {
     const fixture = TestBed.createComponent(Host);
     await fixture.whenStable();
 
-    const options = chartOptions(fixture.nativeElement.querySelector('dso-chart'));
+    const options = chartOptions(fixture.nativeElement.querySelector('ov-chart'));
     expect(options.xAxis.categories).toEqual([
       '&lt;a href=&quot;javascript:alert(1)&quot;&gt;Custody&lt;/a&gt;',
       'R&amp;D',

@@ -30,6 +30,6 @@ dependencyResolutionManagement {
   }
 }
 
-rootProject.name = 'DevSecOpsManagementPortal'
+rootProject.name = 'ITSS-COE-OneView'
 
 include 'frontend', 'backend'

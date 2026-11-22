@@ -20,11 +20,11 @@
   line-height: 1.35;
 
   .stage-problems {
-    color: var(--dso-warning);
+    color: var(--ov-warning);
     font-weight: 600;
 
     &.failing {
-      color: var(--dso-danger);
+      color: var(--ov-danger);
     }
   }
 }

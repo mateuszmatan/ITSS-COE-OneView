@@ -22,7 +22,7 @@ import { RUN_LOOK, StatusChip } from '../shared/status-chip';
 import { FORM_FIELD } from '@common/ui/form-field';
 import { GRID, GridColumn } from '@common/ui/grid';
 import { LoadError } from '@common/ui/load-error';
-import { DsoLoading } from '@common/ui/loading';
+import { OvLoading } from '@common/ui/loading';
 import { PipelineActions } from './pipeline-actions';
 import { KEY_MEANING } from './pipeline-texts';
 import { DepartmentsApi } from '@common/core/api';
@@ -75,13 +75,13 @@ export function matches(row: PipelineHealth, filters: PipelineFilters): boolean 
 }
 
 @Component({
-  selector: 'dso-pipeline-list',
+  selector: 'ov-pipeline-list',
   imports: [
     ReactiveFormsModule,
     RouterLink,
     FORM_FIELD,
     GRID,
-    DsoLoading,
+    OvLoading,
     LoadError,
     MetricsBanner,
     StatusChip,
@@ -101,25 +101,25 @@ export function matches(row: PipelineHealth, filters: PipelineFilters): boolean 
         </div>
       </header>
       <section class="card toolbar">
-        <dso-form-field
+        <ov-form-field
           class="department"
           help="The business service whose pipelines you look after. Self-service preselects it for a new product."
         >
-          <dso-label>Your business service</dso-label>
-          <select dsoInput [formControl]="department">
+          <ov-label>Your business service</ov-label>
+          <select ovInput [formControl]="department">
             <option [ngValue]="null" disabled>Choose your business service</option>
             @for (department of departmentList(); track department.id) {
               <option [ngValue]="department.id">{{ department.name }}</option>
             }
           </select>
-          <dso-hint
+          <ov-hint
             >Only the pipelines of this business service are listed. This browser remembers your
-            choice.</dso-hint
+            choice.</ov-hint
           >
-        </dso-form-field>
+        </ov-form-field>
       </section>
       @if (departments.error(); as error) {
-        <dso-load-error
+        <ov-load-error
           what="The business services"
           [error]="error"
           (retry)="departments.reload()"
@@ -132,13 +132,13 @@ export function matches(row: PipelineHealth, filters: PipelineFilters): boolean 
         </section>
       } @else {
         @if (pipelines.isLoading()) {
-          <dso-loading />
+          <ov-loading />
         }
         @if (pipelines.error(); as error) {
-          <dso-load-error what="The pipelines" [error]="error" (retry)="pipelines.reload()" />
+          <ov-load-error what="The pipelines" [error]="error" (retry)="pipelines.reload()" />
         }
         @if (pipelines.hasValue()) {
-          <dso-metrics-banner [metricsError]="pipelines.value().metricsError" />
+          <ov-metrics-banner [metricsError]="pipelines.value().metricsError" />
           @if (all().length) {
             <section class="card list">
               <header class="card-header">
@@ -149,7 +149,7 @@ export function matches(row: PipelineHealth, filters: PipelineFilters): boolean 
                 Pipeline key: {{ keyMeaning }}. Only its first and last characters are shown here;
                 Invalidated means the pipeline is refused its settings until a new key is issued.
               </p>
-              <dso-grid
+              <ov-grid
                 label="Pipelines"
                 empty="No pipeline matches the filters."
                 [rows]="rows()"
@@ -158,26 +158,26 @@ export function matches(row: PipelineHealth, filters: PipelineFilters): boolean 
                 [rowClass]="rowClass"
                 (rowClick)="open($event.pipeline)"
               >
-                <ng-template dsoCell="service" let-row>
+                <ng-template ovCell="service" let-row>
                   <a class="mono quiet-link" [routerLink]="pipelineLink(row.pipeline.id)">{{
                     row.pipeline.serviceName
                   }}</a>
                 </ng-template>
-                <ng-template dsoCell="product" let-row>
+                <ng-template ovCell="product" let-row>
                   {{ row.pipeline.productName }}
                   <span class="muted mono">{{ row.pipeline.productCode }}</span>
                 </ng-template>
-                <ng-template dsoCell="key" let-row>
+                <ng-template ovCell="key" let-row>
                   @if (row.pipeline.activeKey; as key) {
                     <span class="mono">{{ key.hint }}</span>
                   } @else {
                     <span class="chip danger">Invalidated</span>
                   }
                 </ng-template>
-                <ng-template dsoCell="status" let-row>
-                  <dso-status-chip [status]="row.status" />
+                <ng-template ovCell="status" let-row>
+                  <ov-status-chip [status]="row.status" />
                 </ng-template>
-                <ng-template dsoCell="actions" let-row>
+                <ng-template ovCell="actions" let-row>
                   <div class="row-actions">
                     <button
                       type="button"
@@ -197,7 +197,7 @@ export function matches(row: PipelineHealth, filters: PipelineFilters): boolean 
                     </button>
                   </div>
                 </ng-template>
-              </dso-grid>
+              </ov-grid>
             </section>
           } @else {
             <div class="card empty-state">

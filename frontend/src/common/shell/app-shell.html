@@ -4,8 +4,21 @@
       <a class="brand" routerLink="/">
         <span class="brand-name"><strong>BBH</strong> {{ name }}</span>
       </a>
+      @if (areas().length > 1) {
+        <nav class="areas" aria-label="Areas">
+          @for (item of areas(); track item.key) {
+            <a
+              class="area-link"
+              [class.active]="item === area()"
+              [attr.aria-current]="item === area() ? 'true' : null"
+              [routerLink]="item.sections[0].path"
+              >{{ item.label }}</a
+            >
+          }
+        </nav>
+      }
       <nav class="menu" aria-label="Main">
-        @for (section of sections(); track section.path) {
+        @for (section of area().sections; track section.path) {
           <a
             class="menu-link"
             [routerLink]="section.path"

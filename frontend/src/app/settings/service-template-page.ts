@@ -38,7 +38,7 @@ import {
 import { agentLabels } from '../shared/build-options';
 import { FieldProblem } from '@common/core/models';
 import { LoadError } from '@common/ui/load-error';
-import { DsoLoading, DsoSpinner } from '@common/ui/loading';
+import { OvLoading, OvSpinner } from '@common/ui/loading';
 
 const JOB_PATTERN = /^(?!.*\.\.)[A-Za-z0-9._ /{}-]*$/;
 const NEXUS_IQ_PATTERN = /^[A-Za-z0-9._{}-]*$/;
@@ -232,8 +232,8 @@ const EXAMPLES: { key: TemplateKey; label: string }[] = [
 ];
 
 @Component({
-  selector: 'dso-service-template-page',
-  imports: [ReactiveFormsModule, DsoLoading, DsoSpinner, LoadError, Fields, RelativeTimePipe],
+  selector: 'ov-service-template-page',
+  imports: [ReactiveFormsModule, OvLoading, OvSpinner, LoadError, Fields, RelativeTimePipe],
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
     <header class="tab-header">
@@ -245,11 +245,11 @@ const EXAMPLES: { key: TemplateKey; label: string }[] = [
     </header>
 
     @if (loading()) {
-      <dso-loading />
+      <ov-loading />
     }
 
     @if (loadError(); as error) {
-      <dso-load-error what="The service template" [error]="error" (retry)="load()" />
+      <ov-load-error what="The service template" [error]="error" (retry)="load()" />
     } @else if (template(); as t) {
       @if (conflict()) {
         <div class="banner danger conflict" role="alert">
@@ -283,7 +283,7 @@ const EXAMPLES: { key: TemplateKey; label: string }[] = [
                   <p class="section-help">{{ section.note }}</p>
                 </header>
                 <div class="form-fields">
-                  <dso-fields [group]="form" [fields]="section.fields" />
+                  <ov-fields [group]="form" [fields]="section.fields" />
                 </div>
               </section>
             }
@@ -339,7 +339,7 @@ const EXAMPLES: { key: TemplateKey; label: string }[] = [
           </button>
           <button type="submit" class="btn btn-primary" [disabled]="saving() || conflict()">
             @if (saving()) {
-              <dso-spinner />
+              <ov-spinner />
             }
             Save template
           </button>
@@ -355,7 +355,7 @@ const EXAMPLES: { key: TemplateKey; label: string }[] = [
     .meta {
       margin: 0;
       max-width: 900px;
-      color: var(--dso-muted);
+      color: var(--ov-muted);
       font-size: 12px;
     }
 
@@ -373,7 +373,7 @@ const EXAMPLES: { key: TemplateKey; label: string }[] = [
 
     .section-head {
       padding-bottom: 8px;
-      border-bottom: 1px solid var(--dso-border);
+      border-bottom: 1px solid var(--ov-border);
 
       h2 {
         margin: 0 0 2px;
@@ -393,7 +393,7 @@ const EXAMPLES: { key: TemplateKey; label: string }[] = [
       position: sticky;
       top: 64px;
       padding-bottom: 12px;
-      border-left: 3px solid var(--dso-navy);
+      border-left: 3px solid var(--ov-navy);
 
       .pairs {
         flex-direction: column;
@@ -407,14 +407,14 @@ const EXAMPLES: { key: TemplateKey; label: string }[] = [
 
         dd {
           font-size: 12.5px;
-          color: var(--dso-navy);
+          color: var(--ov-navy);
         }
       }
 
       h3 {
         margin: 0 0 2px;
         padding-top: 10px;
-        border-top: 1px solid var(--dso-border);
+        border-top: 1px solid var(--ov-border);
         font-size: 14px;
         font-weight: 600;
       }

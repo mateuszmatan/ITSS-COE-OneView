@@ -1,6 +1,6 @@
 @let f = form();
 <div class="form-fields">
-  <dso-fields [group]="f.controls.urbanCode" [fields]="settingsFields()" />
+  <ov-fields [group]="f.controls.urbanCode" [fields]="settingsFields()" />
 </div>
 
 <section class="list-section">
@@ -8,7 +8,7 @@
     <h4>
       Applications <span class="count">{{ applications().length }}</span>
     </h4>
-    <dso-help
+    <ov-help
       label="UrbanCode Deploy applications"
       text="For each application that covers DV, ordered by Order, the Full pipeline publishes the components as new versions and starts the deployment process."
     />
@@ -44,7 +44,7 @@
         </button>
       </div>
       <div class="form-fields">
-        <dso-fields [group]="application" [fields]="applicationFields" />
+        <ov-fields [group]="application" [fields]="applicationFields" />
       </div>
 
       <h5 class="sub-heading">Components <code>components</code></h5>
@@ -65,7 +65,7 @@
             Remove
           </button>
           <div class="form-fields">
-            <dso-fields [group]="component" [fields]="componentFields" />
+            <ov-fields [group]="component" [fields]="componentFields" />
           </div>
         </div>
       } @empty {

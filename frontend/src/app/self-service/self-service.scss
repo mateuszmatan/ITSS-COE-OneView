@@ -1,13 +1,13 @@
 .required-note {
   margin: -6px 0 0;
-  color: var(--dso-muted);
+  color: var(--ov-muted);
   font-size: 12px;
 }
 
 .prepare {
   padding: 8px 12px;
-  border-left: 3px solid var(--dso-navy);
-  background: var(--dso-info-bg);
+  border-left: 3px solid var(--ov-navy);
+  background: var(--ov-info-bg);
 }
 
 .today {
@@ -30,7 +30,7 @@
 
   p {
     margin: 0;
-    color: var(--dso-muted);
+    color: var(--ov-muted);
   }
 }
 
@@ -40,7 +40,7 @@
 
 .review-list {
   padding: 0;
-  border-top: 1px solid var(--dso-border);
+  border-top: 1px solid var(--ov-border);
   list-style: none;
 
   li {
@@ -48,12 +48,12 @@
     grid-template-columns: minmax(120px, 180px) minmax(0, 1fr);
     gap: 2px 16px;
     padding: 6px 0;
-    border-bottom: 1px solid var(--dso-border);
+    border-bottom: 1px solid var(--ov-border);
     font-size: 12.5px;
   }
 
   .removed .review-text {
-    color: var(--dso-danger);
+    color: var(--ov-danger);
   }
 
   .tag {
@@ -80,7 +80,7 @@
 .jenkinsfile-missing {
   margin: 0;
   padding: 0 10px 8px;
-  color: var(--dso-muted);
+  color: var(--ov-muted);
 }
 
 .job-names {

@@ -9,15 +9,15 @@ import { FORM_FIELD } from './form-field';
   imports: [ReactiveFormsModule, FORM_FIELD, Fields],
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
-    <dso-form-field help="The team that looks after the product.">
-      <dso-label>Owner team</dso-label>
-      <input dsoInput [formControl]="group.controls.team" />
-    </dso-form-field>
-    <dso-form-field>
-      <dso-label>Plain</dso-label>
-      <input dsoInput [formControl]="group.controls.plain" />
-    </dso-form-field>
-    <dso-fields [group]="group" [fields]="fields" />
+    <ov-form-field help="The team that looks after the product.">
+      <ov-label>Owner team</ov-label>
+      <input ovInput [formControl]="group.controls.team" />
+    </ov-form-field>
+    <ov-form-field>
+      <ov-label>Plain</ov-label>
+      <input ovInput [formControl]="group.controls.plain" />
+    </ov-form-field>
+    <ov-fields [group]="group" [fields]="fields" />
   `,
 })
 class Host {
@@ -33,7 +33,7 @@ class Host {
   ];
 }
 
-describe('DsoHelp', () => {
+describe('OvHelp', () => {
   let fixture: ComponentFixture<Host>;
 
   beforeEach(async () => {
@@ -42,8 +42,8 @@ describe('DsoHelp', () => {
   });
 
   const page = () => fixture.nativeElement as HTMLElement;
-  const trigger = (root: ParentNode) => root.querySelector<HTMLButtonElement>('.dso-help-trigger')!;
-  const popover = () => document.querySelector<HTMLElement>('.dso-help-popover');
+  const trigger = (root: ParentNode) => root.querySelector<HTMLButtonElement>('.ov-help-trigger')!;
+  const popover = () => document.querySelector<HTMLElement>('.ov-help-popover');
 
   async function fire(element: HTMLElement, type: string) {
     element.dispatchEvent(new Event(type));
@@ -64,8 +64,8 @@ describe('DsoHelp', () => {
   it('puts an info icon after the label of the fields that have help, and none on the others', () => {
     const field = fieldOf(page(), 'Owner team')!;
 
-    expect(field.querySelector('.form-label-row .form-label + dso-help')).not.toBeNull();
-    expect(fieldOf(page(), 'Plain')!.querySelector('dso-help')).toBeNull();
+    expect(field.querySelector('.form-label-row .form-label + ov-help')).not.toBeNull();
+    expect(fieldOf(page(), 'Plain')!.querySelector('ov-help')).toBeNull();
     expect(text(field.querySelector('label'))).toBe('Owner team');
     expect(popover()).toBeNull();
   });
@@ -75,7 +75,7 @@ describe('DsoHelp', () => {
 
     expect(button.type).toBe('button');
     expect(button.getAttribute('aria-label')).toBe('More information about Owner team');
-    expect(trigger(page().querySelector('dso-checkbox')!).getAttribute('aria-label')).toBe(
+    expect(trigger(page().querySelector('ov-checkbox')!).getAttribute('aria-label')).toBe(
       'More information about Write metrics',
     );
     expect(helpOf(fieldOf(page(), 'Owner team')!)).toBe('The team that looks after the product.');
@@ -149,11 +149,11 @@ describe('DsoHelp', () => {
     expect(popover()).toBeNull();
   });
 
-  it('renders the help of fields and check boxes listed for dso-fields the same way', () => {
-    const box = page().querySelector('dso-checkbox')!;
+  it('renders the help of fields and check boxes listed for ov-fields the same way', () => {
+    const box = page().querySelector('ov-checkbox')!;
 
     expect(helpOf(fieldOf(page(), 'Service name')!)).toBe('Used in the job names.');
-    expect(box.querySelector('.form-check-label + dso-help')).not.toBeNull();
+    expect(box.querySelector('.form-check-label + ov-help')).not.toBeNull();
     expect(helpOf(box)).toBe('Sends the results.');
     expect(text(box.querySelector('label'))).toBe('Write metrics (influx.enabled)');
   });

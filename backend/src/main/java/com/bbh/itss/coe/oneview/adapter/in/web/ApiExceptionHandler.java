@@ -1,0 +1,148 @@
+package com.bbh.itss.coe.oneview.adapter.in.web;
+
+import com.bbh.itss.coe.oneview.domain.shared.InvalidRequestException;
+import com.bbh.itss.coe.oneview.domain.shared.InvalidRequestException.FieldProblem;
+import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.TypeMismatchException;
+import org.springframework.dao.DataIntegrityViolationException;
+import org.springframework.dao.OptimisticLockingFailureException;
+import org.springframework.http.HttpHeaders;
+import org.springframework.http.HttpStatus;
+import org.springframework.http.HttpStatusCode;
+import org.springframework.http.ProblemDetail;
+import org.springframework.http.ResponseEntity;
+import org.springframework.http.converter.HttpMessageNotReadableException;
+import org.springframework.web.bind.MethodArgumentNotValidException;
+import org.springframework.web.bind.annotation.ExceptionHandler;
+import org.springframework.web.bind.annotation.RestControllerAdvice;
+import org.springframework.web.context.request.WebRequest;
+import org.springframework.web.method.annotation.MethodArgumentTypeMismatchException;
+import org.springframework.web.servlet.mvc.method.annotation.ResponseEntityExceptionHandler;
+
+import java.io.UncheckedIOException;
+import java.util.List;
+import java.util.NoSuchElementException;
+
+import static com.bbh.itss.coe.oneview.domain.shared.Failures.STALE_VERSION;
+import static org.springframework.http.HttpStatus.BAD_REQUEST;
+import static org.springframework.http.HttpStatus.CONFLICT;
+import static org.springframework.http.HttpStatus.INTERNAL_SERVER_ERROR;
+import static org.springframework.http.HttpStatus.NOT_FOUND;
+import static org.springframework.http.HttpStatus.SERVICE_UNAVAILABLE;
+import static org.springframework.http.ProblemDetail.forStatusAndDetail;
+
+@Slf4j
+@RestControllerAdvice
+public class ApiExceptionHandler extends ResponseEntityExceptionHandler {
+
+    private static final String CONSTRAINT_VIOLATED =
+            "The change violates a database constraint, most likely a duplicate name or key.";
+    private static final String UNEXPECTED = "The portal could not handle the request. The failure is in the portal's log.";
+    private static final List<Class<? extends RuntimeException>> TOLD_AS_IS = List.of(NoSuchElementException.class,
+            IllegalStateException.class, UncheckedIOException.class, InvalidRequestException.class);
+
+    /** The reason the API gives for a failed change, also recorded in the Action History: never the portal's internals. */
+    static String reason(RuntimeException e) {
+        if (e instanceof OptimisticLockingFailureException) {
+            return STALE_VERSION;
+        }
+        if (e instanceof DataIntegrityViolationException) {
+            return CONSTRAINT_VIOLATED;
+        }
+        return TOLD_AS_IS.stream().anyMatch(type -> type.isInstance(e)) ? e.getMessage() : UNEXPECTED;
+    }
+
+    @ExceptionHandler(NoSuchElementException.class)
+    ProblemDetail notFound(NoSuchElementException e) {
+        return problem(NOT_FOUND, "Not found", e.getMessage());
+    }
+
+    @ExceptionHandler(IllegalStateException.class)
+    ProblemDetail conflict(IllegalStateException e) {
+        return problem(CONFLICT, "Conflict", e.getMessage());
+    }
+
+    @ExceptionHandler(OptimisticLockingFailureException.class)
+    ProblemDetail staleData(OptimisticLockingFailureException e) {
+        return problem(CONFLICT, "Conflict", STALE_VERSION);
+    }
+
+    @ExceptionHandler(DataIntegrityViolationException.class)
+    ProblemDetail integrity(DataIntegrityViolationException e) {
+        return problem(CONFLICT, "Conflict", CONSTRAINT_VIOLATED);
+    }
+
+    @ExceptionHandler(UncheckedIOException.class)
+    ProblemDetail unavailable(UncheckedIOException e) {
+        return problem(SERVICE_UNAVAILABLE, "Service Unavailable", e.getMessage());
+    }
+
+    @ExceptionHandler(InvalidRequestException.class)
+    ProblemDetail invalid(InvalidRequestException e) {
+        ProblemDetail detail = problem(BAD_REQUEST, "Validation failed", e.getMessage());
+        detail.setProperty("errors", e.problems());
+        return detail;
+    }
+
+    @ExceptionHandler(Exception.class)
+    ProblemDetail unexpected(Exception e) {
+        log.error("The portal could not serve a request", e);
+        return problem(INTERNAL_SERVER_ERROR, "Request failed", UNEXPECTED);
+    }
+
+    @Override
+    protected ResponseEntity<Object> handleHttpMessageNotReadable(HttpMessageNotReadableException e,
+                                                                  HttpHeaders headers, HttpStatusCode status,
+                                                                  WebRequest request) {
+        MalformedBody body = MalformedBody.of(e);
+        ProblemDetail detail = problem(BAD_REQUEST, "Malformed request", body.detail());
+        if (!body.problems().isEmpty()) {
+            detail.setProperty("errors", body.problems());
+        }
+        return handleExceptionInternal(e, detail, headers, BAD_REQUEST, request);
+    }
+
+    @Override
+    protected ResponseEntity<Object> handleMethodArgumentNotValid(MethodArgumentNotValidException e,
+                                                                  HttpHeaders headers, HttpStatusCode status,
+                                                                  WebRequest request) {
+        ProblemDetail detail = invalid(new InvalidRequestException(e.getBindingResult().getFieldErrors().stream()
+                .map(error -> new FieldProblem(error.getField(), error.getDefaultMessage()))
+                .toList()));
+        return handleExceptionInternal(e, detail, headers, BAD_REQUEST, request);
+    }
+
+    @Override
+    protected ResponseEntity<Object> handleTypeMismatch(TypeMismatchException e, HttpHeaders headers,
+                                                        HttpStatusCode status, WebRequest request) {
+        ProblemDetail detail = problem(BAD_REQUEST, "Malformed request",
+                "The value given for " + nameOf(e) + " is not one this endpoint can read.");
+        return handleExceptionInternal(e, detail, headers, BAD_REQUEST, request);
+    }
+
+    @Override
+    protected ResponseEntity<Object> handleExceptionInternal(Exception e, Object body, HttpHeaders headers,
+                                                             HttpStatusCode status, WebRequest request) {
+        ResponseEntity<Object> response = super.handleExceptionInternal(e, body, headers, status, request);
+        if (response != null && response.getBody() instanceof ProblemDetail detail && detail.getTitle() == null) {
+            HttpStatus resolved = HttpStatus.resolve(status.value());
+            detail.setTitle(resolved == null ? "Request failed" : resolved.getReasonPhrase());
+        }
+        return response;
+    }
+
+    private static String nameOf(TypeMismatchException e) {
+        String name = e instanceof MethodArgumentTypeMismatchException mismatch ? mismatch.getName()
+                : e.getPropertyName();
+        return name == null ? "a value of this request" : "'" + name + "'";
+    }
+
+    static ProblemDetail problem(HttpStatus status, String title, String message) {
+        if (status != INTERNAL_SERVER_ERROR) {
+            log.warn("{} {}: {}", status.value(), title, message);
+        }
+        ProblemDetail detail = forStatusAndDetail(status, message);
+        detail.setTitle(title);
+        return detail;
+    }
+}

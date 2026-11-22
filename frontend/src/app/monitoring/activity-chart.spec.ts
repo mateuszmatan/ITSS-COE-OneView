@@ -10,7 +10,7 @@ describe('ActivityChart', () => {
     fixture = TestBed.createComponent(ActivityChart);
   });
 
-  const chart = () => (fixture.nativeElement as HTMLElement).querySelector('dso-chart')!;
+  const chart = () => (fixture.nativeElement as HTMLElement).querySelector('ov-chart')!;
   const options = () => chartOptions(chart());
   const series = (name: string) =>
     options().series.find((entry: { name: string }) => entry.name === name).data;

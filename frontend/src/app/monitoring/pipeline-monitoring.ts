@@ -21,9 +21,9 @@ import {
   TIME_ZONE_NOTE,
 } from '@common/shared/formatting';
 import { StatusChip } from '../shared/status-chip';
-import { DsoHelp } from '@common/ui/help';
+import { OvHelp } from '@common/ui/help';
 import { LoadError } from '@common/ui/load-error';
-import { DsoLoading } from '@common/ui/loading';
+import { OvLoading } from '@common/ui/loading';
 import { TOGGLES } from '@common/ui/toggle-group';
 import { ActivityChart } from './activity-chart';
 import { DoraTiles } from './dora-tiles';
@@ -37,12 +37,12 @@ const RANGES = ['7d', '30d', '90d', '180d'].map((value) => ({
 }));
 
 @Component({
-  selector: 'dso-pipeline-monitoring',
+  selector: 'ov-pipeline-monitoring',
   imports: [
     DatePipe,
     RouterLink,
-    DsoHelp,
-    DsoLoading,
+    OvHelp,
+    OvLoading,
     LoadError,
     TOGGLES,
     ActivityChart,

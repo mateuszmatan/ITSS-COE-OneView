@@ -11,7 +11,7 @@ export interface MissingField {
 
 /** The fields that need input, each a link that opens its section and puts the cursor in it. */
 @Component({
-  selector: 'dso-missing-fields',
+  selector: 'ov-missing-fields',
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
     @for (field of missing(); track field.control; let last = $last) {

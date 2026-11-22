@@ -4,14 +4,14 @@ Status of 2026-11-20. Prepared by the DevSecOps team, ITSS COE.
 
 ## 1. What it is, in one paragraph
 
-DevSecOps at BBH is one standard way to build, test, scan, deliver and deploy software. A project adds a short configuration to its repository, or fills in a form in the DevSecOps Management Portal, and every build then runs the same sequence of quality and security steps in Jenkins, without anyone starting them by hand. The result of every build is one report that says whether the release may go on, and why.
+DevSecOps at BBH is one standard way to build, test, scan, deliver and deploy software. A project adds a short configuration to its repository, or fills in a form in ITSS COE OneView, and every build then runs the same sequence of quality and security steps in Jenkins, without anyone starting them by hand. The result of every build is one report that says whether the release may go on, and why.
 
 It consists of two products that are developed together:
 
 | Product | What it is | Who uses it |
 |---------|------------|-------------|
 | **DSOEnhanced** | The Jenkins shared library that runs the pipeline. It exists in two versions that behave the same: one that reads its settings from files in the repository (*without portal*), and one that reads them from the portal (*with portal*). | Every project team, through its Jenkins jobs |
-| **DevSecOps Management Portal** | A web application in which the settings of products and services, and the BBH-wide defaults (Global Settings), are kept, checked and handed to the pipeline. | Project teams and the DevSecOps team |
+| **ITSS COE OneView** | A web application in which the settings of products and services, and the BBH-wide defaults (Global Settings), are kept, checked and handed to the pipeline. | Project teams and the DevSecOps team |
 
 ## 2. What a build does
 

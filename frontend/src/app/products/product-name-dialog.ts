@@ -18,12 +18,12 @@ export interface NamedProduct {
 }
 
 @Component({
-  selector: 'dso-product-name-dialog',
+  selector: 'ov-product-name-dialog',
   imports: [ReactiveFormsModule, DIALOG, FORM_FIELD],
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
     <div class="modal-header">
-      <h2 dsoDialogTitle>Add product</h2>
+      <h2 ovDialogTitle>Add product</h2>
     </div>
     <form [formGroup]="form" (ngSubmit)="next()" novalidate>
       <div class="modal-body">
@@ -31,29 +31,29 @@ export interface NamedProduct {
           Start with the business service the product belongs to and its name. The portal makes the
           product's code from the name; you can change it on the next page.
         </p>
-        <dso-form-field
+        <ov-form-field
           class="full-width"
           help="The business service the product belongs to. The portal groups products by it."
         >
-          <dso-label>Business Service</dso-label>
-          <select dsoInput formControlName="departmentId">
+          <ov-label>Business Service</ov-label>
+          <select ovInput formControlName="departmentId">
             @for (department of data.departments; track department.id) {
               <option [ngValue]="department.id">{{ department.name }}</option>
             }
           </select>
-          <dso-error>{{ errorText(form.controls.departmentId) }}</dso-error>
-        </dso-form-field>
-        <dso-form-field
+          <ov-error>{{ errorText(form.controls.departmentId) }}</ov-error>
+        </ov-form-field>
+        <ov-form-field
           class="full-width"
           help="The full name of the product as the portal shows it. No other product may use it."
         >
-          <dso-label>Product name</dso-label>
-          <input dsoInput formControlName="name" placeholder="CertScanner" required />
-          <dso-error>{{ errorText(name) }}</dso-error>
-        </dso-form-field>
+          <ov-label>Product name</ov-label>
+          <input ovInput formControlName="name" placeholder="CertScanner" required />
+          <ov-error>{{ errorText(name) }}</ov-error>
+        </ov-form-field>
       </div>
       <div class="modal-footer">
-        <button type="button" class="btn btn-link" dsoDialogClose>Cancel</button>
+        <button type="button" class="btn btn-link" ovDialogClose>Cancel</button>
         <button type="submit" class="btn btn-primary">Continue</button>
       </div>
     </form>

@@ -71,17 +71,17 @@ function shown(value: unknown): string {
 }
 
 @Component({
-  selector: 'dso-golden-fix-fields',
+  selector: 'ov-golden-fix-fields',
   imports: [Fields],
   changeDetection: ChangeDetectionStrategy.Eager,
   template: `
     @let g = group();
-    <dso-fields [group]="g" [fields]="policyFields()" />
+    <ov-fields [group]="g" [fields]="policyFields()" />
     <h5 class="sub-heading span-12">Verification build</h5>
-    <dso-fields [group]="g" [fields]="verifyFields()" />
-    <dso-fields [group]="g" [fields]="commandFields()" />
+    <ov-fields [group]="g" [fields]="verifyFields()" />
+    <ov-fields [group]="g" [fields]="commandFields()" />
     <h5 class="sub-heading span-12">Commits</h5>
-    <dso-fields [group]="g" [fields]="commitFields()" />
+    <ov-fields [group]="g" [fields]="commitFields()" />
   `,
   styles: `
     :host {

@@ -100,7 +100,7 @@ describe('PipelinePage', () => {
     await fixture.whenStable();
   }
 
-  const chip = () => text(page().querySelector('.title dso-status-chip'));
+  const chip = () => text(page().querySelector('.title ov-status-chip'));
 
   const fact = (label: string) =>
     [...page().querySelectorAll('.rows > div')]
@@ -115,7 +115,7 @@ describe('PipelinePage', () => {
     );
     expect(text(page().querySelector('h1'))).toBe('gui · Full pipeline');
     expect(text(page().querySelector('.last-run .muted'))).toBe('Last run');
-    expect(text(page().querySelector('.last-run dso-status-chip'))).toBe('Passed');
+    expect(text(page().querySelector('.last-run ov-status-chip'))).toBe('Passed');
     expect(text(page().querySelector('.page-description'))).toBe(
       'The automated build, test and security checks Jenkins runs for gui, a service of CertScanner CERT.',
     );
@@ -170,10 +170,10 @@ describe('PipelinePage', () => {
     expect(page().querySelector('.banner.danger')).toBeNull();
 
     await openMore();
-    const product = document.querySelector<HTMLAnchorElement>('.dso-menu a.dropdown-item')!;
+    const product = document.querySelector<HTMLAnchorElement>('.ov-menu a.dropdown-item')!;
     expect(text(product)).toBe('Open CertScanner in Admin');
     expect(product.getAttribute('href')).toBe('/admin/products/1');
-    expect([...document.querySelectorAll('.dso-menu button')].map(text)).toEqual([
+    expect([...document.querySelectorAll('.ov-menu button')].map(text)).toEqual([
       'Configure service',
       'Settings sent to Jenkins (devsecops_config.yaml format)',
       'Key history',
@@ -274,7 +274,7 @@ describe('PipelinePage', () => {
     expect(text(page().querySelector('.small-empty p'))).toBe(
       'Runs show here once Jenkins runs this pipeline with its Jenkinsfile.',
     );
-    expect(text(page().querySelector('dso-metrics-banner'))).toContain('InfluxDB timed out');
+    expect(text(page().querySelector('ov-metrics-banner'))).toContain('InfluxDB timed out');
   });
 
   it('shows the runs as loading, says why they could not be loaded and tries again', async () => {
@@ -284,7 +284,7 @@ describe('PipelinePage', () => {
     await products();
     fixture.detectChanges();
 
-    expect(page().querySelector('.runs dso-loading')).not.toBeNull();
+    expect(page().querySelector('.runs ov-loading')).not.toBeNull();
     expect(page().querySelector('.runs .small-empty')).toBeNull();
 
     http
@@ -296,7 +296,7 @@ describe('PipelinePage', () => {
       'The latest runs could not be loaded. The portal could not complete the request (error 502 Bad Gateway). Try again in a moment; if it keeps failing, tell the portal administrator.',
     );
     expect(page().querySelector('.runs .small-empty')).toBeNull();
-    expect(page().querySelector('.runs dso-loading')).toBeNull();
+    expect(page().querySelector('.runs ov-loading')).toBeNull();
 
     buttonOf(page().querySelector('.runs')!, 'Try again').click();
     await reloadedMonitoring();

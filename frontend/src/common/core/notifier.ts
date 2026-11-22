@@ -34,7 +34,7 @@ export class Notifier {
     this.dismiss();
     const shown = this.overlay.create({
       positionStrategy: this.overlay.position().global().centerHorizontally().bottom('24px'),
-      panelClass: 'dso-toast-pane',
+      panelClass: 'ov-toast-pane',
     });
     const toast = shown.attach(new ComponentPortal(Toast));
     toast.setInput('message', message);

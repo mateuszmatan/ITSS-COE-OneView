@@ -58,7 +58,7 @@ describe('PipelineDialog', () => {
     await fixture.whenStable();
   };
   const labels = () =>
-    [...page().querySelectorAll('dso-label')].map((label) => label.textContent?.trim());
+    [...page().querySelectorAll('ov-label')].map((label) => label.textContent?.trim());
   const every = () =>
     servicePipelines({
       pipelines: (['FULL', 'SECURITY', 'EXTENDED', 'SAST', 'NEXUS_IQ'] as const).map(
@@ -89,7 +89,7 @@ describe('PipelineDialog', () => {
       "The new pipeline of gui gets its own pipeline key: the secret code the service's Jenkins job uses to fetch its settings from this portal.",
     );
     expect(inputOf(page(), 'Jenkins agents').value).toBe('linux-agent');
-    expect(page().querySelector('dso-hint')?.textContent).toContain(
+    expect(page().querySelector('ov-hint')?.textContent).toContain(
       'Build, scans, tests, deployment and release',
     );
     expect(labels()).not.toContain('Extended pipeline job');
@@ -156,7 +156,7 @@ describe('PipelineDialog', () => {
       description: 'Release build',
       version: 3,
     });
-    expect(page().querySelector('dso-spinner')).not.toBeNull();
+    expect(page().querySelector('ov-spinner')).not.toBeNull();
     await submit();
     http.expectNone({ method: 'PUT', url: '/api/pipelines/100' });
 
@@ -185,7 +185,7 @@ describe('PipelineDialog', () => {
     );
     expect(inputOf(page(), 'Jenkins job').value).toBe('DevSecOps/CERT/gui-full-v2');
     expect(inputOf(page(), 'Description').value).toBe('');
-    expect(page().querySelector('dso-spinner')).toBeNull();
+    expect(page().querySelector('ov-spinner')).toBeNull();
     expect(close).not.toHaveBeenCalled();
 
     await type('Description', 'Release build');
@@ -229,7 +229,7 @@ describe('PipelineDialog', () => {
 
     expect(dialog()['types'].map((type) => type.label)).toEqual(['Nexus IQ GoldenFix']);
     expect(form().controls.type.value).toBe('NEXUS_IQ');
-    expect(page().querySelector('dso-hint')?.textContent).toContain(
+    expect(page().querySelector('ov-hint')?.textContent).toContain(
       "GoldenFix opens a pull request with safe versions in the service's Bitbucket repository",
     );
     expect(labels()).toEqual(['Pipeline type', 'Jenkins agents', 'Jenkins job', 'Description']);
@@ -260,7 +260,7 @@ describe('PipelineDialog', () => {
     await submit();
 
     http.expectNone('/api/services/10/pipelines');
-    const errors = [...page().querySelectorAll('dso-error')].map((e) => e.textContent?.trim());
+    const errors = [...page().querySelectorAll('ov-error')].map((e) => e.textContent?.trim());
     expect(errors).toContain(`At most 100 characters per label: ${'x'.repeat(101)}`);
     expect(errors).toContain(
       'A job path such as DevSecOps/CERT/backend-api-full, or an http or https URL',
@@ -289,7 +289,7 @@ describe('PipelineDialog', () => {
       server: 'is used by the full pipeline of api',
     });
     expect(page().querySelector('[role=alert]')?.textContent).toBe('the service was deleted');
-    expect(page().querySelector('dso-spinner')).toBeNull();
+    expect(page().querySelector('ov-spinner')).toBeNull();
     expect(close).not.toHaveBeenCalled();
   });
 

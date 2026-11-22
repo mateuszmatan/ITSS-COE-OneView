@@ -35,7 +35,7 @@
   align-items: baseline;
   gap: 2px 12px;
   padding: 8px 12px;
-  border-bottom: 1px solid var(--dso-border);
+  border-bottom: 1px solid var(--ov-border);
 
   h2 {
     margin: 0;
@@ -44,7 +44,7 @@
 }
 
 .tally {
-  color: var(--dso-muted);
+  color: var(--ov-muted);
   font-size: 12px;
 }
 
@@ -85,5 +85,5 @@
 }
 
 .pipelines.revoked {
-  color: var(--dso-danger);
+  color: var(--ov-danger);
 }

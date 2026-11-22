@@ -158,11 +158,11 @@ describe('PipelineMonitoringPage', () => {
     await load();
 
     expect(text('.toolbar .period-label')).toBe('Period');
-    expect(page().querySelector('dso-toggle-group')?.getAttribute('aria-labelledby')).toBe(
+    expect(page().querySelector('ov-toggle-group')?.getAttribute('aria-labelledby')).toBe(
       'period-label',
     );
     expect(
-      [...page().querySelectorAll('dso-toggle-group button')].map((button) =>
+      [...page().querySelectorAll('ov-toggle-group button')].map((button) =>
         button.textContent?.trim(),
       ),
     ).toEqual(['7 days', '30 days', '90 days', '180 days']);
@@ -194,19 +194,19 @@ describe('PipelineMonitoringPage', () => {
     const refresh = page().querySelector<HTMLButtonElement>(
       'button[aria-label="Refresh the pipeline metrics"]',
     )!;
-    expect(page().querySelector('dso-loading')).toBeNull();
+    expect(page().querySelector('ov-loading')).toBeNull();
 
     refresh.click();
     TestBed.tick();
 
-    expect(page().querySelector('dso-loading')).not.toBeNull();
+    expect(page().querySelector('ov-loading')).not.toBeNull();
     expect(refresh.disabled).toBe(true);
     http
       .expectOne('/api/monitoring/pipelines/100?range=30d')
       .flush(pipelineMonitoring({ dora: doraSummary({ deployments: 13 }) }));
     await fixture.whenStable();
 
-    expect(page().querySelector('dso-loading')).toBeNull();
+    expect(page().querySelector('ov-loading')).toBeNull();
     expect(refresh.disabled).toBe(false);
   });
 

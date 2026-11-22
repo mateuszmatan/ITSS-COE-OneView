@@ -82,7 +82,7 @@ describe('KeyHistoryDialog', () => {
     expect(page().querySelector('.banner .banner-text')?.textContent).toBe(
       'The key history could not be loaded. Pipeline 100 was not found',
     );
-    expect(page().querySelector('dso-grid')).toBeNull();
+    expect(page().querySelector('ov-grid')).toBeNull();
   });
 
   it('offers to regenerate the key of a pipeline whose key was invalidated', async () => {

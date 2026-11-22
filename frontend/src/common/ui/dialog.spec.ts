@@ -8,19 +8,19 @@ import { FORM_FIELD } from './form-field';
 @Component({
   imports: [DIALOG],
   changeDetection: ChangeDetectionStrategy.OnPush,
-  template: `<h2 dsoDialogTitle>Delete the pipeline?</h2>
-    <button [dsoDialogClose]="true">Delete pipeline</button>`,
+  template: `<h2 ovDialogTitle>Delete the pipeline?</h2>
+    <button [ovDialogClose]="true">Delete pipeline</button>`,
 })
 class Question {}
 
 @Component({
   imports: [DIALOG, FORM_FIELD],
   changeDetection: ChangeDetectionStrategy.OnPush,
-  template: `<h2 dsoDialogTitle>Add product</h2>
-    <dso-form-field help="The full name of the product.">
-      <dso-label>Name</dso-label>
-      <input dsoInput />
-    </dso-form-field>`,
+  template: `<h2 ovDialogTitle>Add product</h2>
+    <ov-form-field help="The full name of the product.">
+      <ov-label>Name</ov-label>
+      <input ovInput />
+    </ov-form-field>`,
 })
 class NameForm {}
 
@@ -51,7 +51,7 @@ describe('provideDialogs', () => {
   it('opens modal dialogs over a backdrop that close when the reader navigates away', () => {
     expect(ref.config.hasBackdrop).toBe(true);
     expect(ref.config.closeOnNavigation).toBe(true);
-    expect(ref.config.panelClass).toBe('dso-dialog');
+    expect(ref.config.panelClass).toBe('ov-dialog');
     expect(ref.overlayRef.backdropElement).not.toBeNull();
     expect(pane().querySelector('[role="dialog"]')).not.toBeNull();
   });
@@ -71,6 +71,6 @@ describe('provideDialogs', () => {
     await new Promise((resolve) => setTimeout(resolve));
 
     expect(document.activeElement).toBe(form.overlayRef.overlayElement.querySelector('input'));
-    expect(document.querySelector('.dso-help-popover')).toBeNull();
+    expect(document.querySelector('.ov-help-popover')).toBeNull();
   });
 });

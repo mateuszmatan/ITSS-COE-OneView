@@ -160,7 +160,7 @@ describe('ConfigImport', () => {
     expect(fileInput().getAttribute('aria-label')).toBe(
       'devsecops_config.yaml or config.yaml to import',
     );
-    expect(help.tagName).toBe('DSO-HELP');
+    expect(help.tagName).toBe('OV-HELP');
     expect(help.querySelector('button')!.getAttribute('aria-label')).toBe(
       'More information about Import devsecops_config.yaml',
     );

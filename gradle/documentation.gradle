@@ -48,7 +48,7 @@ hr { border: none; border-top: 1px solid #e2e8f0; margin: 18px 0; }
 @media (max-width: 720px) { .toc ul { columns: 1; } .section { padding: 16px; } }
 '''
 
-    static final String FOOTER = 'DevSecOps Management Portal'
+    static final String FOOTER = 'ITSS COE OneView'
 
     /** Alert, its callout class and its label. The callout without a class is the amber warning. */
     static final Map<String, List<String>> ALERTS = [

@@ -11,12 +11,12 @@ import { DIALOG } from '../ui/dialog';
 import { FORM_FIELD } from '../ui/form-field';
 
 @Component({
-  selector: 'dso-department-dialog',
+  selector: 'ov-department-dialog',
   imports: [ReactiveFormsModule, DIALOG, FORM_FIELD],
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
     <div class="modal-header">
-      <h2 dsoDialogTitle>
+      <h2 ovDialogTitle>
         {{ department ? 'Rename ' + department.name : 'Add a business service' }}
       </h2>
     </div>
@@ -28,29 +28,27 @@ import { FORM_FIELD } from '../ui/form-field';
             service stay as they are.
           </p>
         }
-        <dso-form-field
+        <ov-form-field
           class="full-width"
           help="The name products are grouped under in the portal. No other business service may use it, in any letter case."
         >
-          <dso-label>Name</dso-label>
+          <ov-label>Name</ov-label>
           <input
-            dsoInput
+            ovInput
             formControlName="name"
             placeholder="Fund Services"
             autocomplete="off"
             required
           />
-          <dso-hint
-            >The name people know the business service by, for example Fund Services</dso-hint
-          >
-          <dso-error>{{ errorText(name) }}</dso-error>
-        </dso-form-field>
+          <ov-hint>The name people know the business service by, for example Fund Services</ov-hint>
+          <ov-error>{{ errorText(name) }}</ov-error>
+        </ov-form-field>
         @if (error(); as message) {
           <div class="banner" role="alert">{{ message }}</div>
         }
       </div>
       <div class="modal-footer">
-        <button type="button" class="btn btn-link" dsoDialogClose>Cancel</button>
+        <button type="button" class="btn btn-link" ovDialogClose>Cancel</button>
         <button type="submit" class="btn btn-primary" [disabled]="saving()">
           {{ department ? 'Rename business service' : 'Add business service' }}
         </button>
@@ -63,7 +61,7 @@ import { FORM_FIELD } from '../ui/form-field';
     }
     .intro {
       margin: 0 0 10px;
-      color: var(--dso-muted);
+      color: var(--ov-muted);
     }
     .banner {
       margin: 8px 0 0;

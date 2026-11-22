@@ -129,6 +129,6 @@ describe('ServiceConfigDialog', () => {
     expect(text(page().querySelector('.banner'))).toBe(
       'The service of this pipeline is no longer part of CertScanner.',
     );
-    expect(page().querySelector('dso-service-fields')).toBeNull();
+    expect(page().querySelector('ov-service-fields')).toBeNull();
   });
 });

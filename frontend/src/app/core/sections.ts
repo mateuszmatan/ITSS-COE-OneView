@@ -1,6 +1,6 @@
-import { AdminArea, PortalSection, PortalTab } from '@common/core/sections';
+import { AdminArea, OneViewArea, OneViewSection, OneViewTab } from '@common/core/sections';
 
-export const PIPELINES: PortalSection = {
+export const PIPELINES: OneViewSection = {
   path: '/pipelines',
   label: 'Pipelines',
   heading: 'DevSecOps Pipelines',
@@ -8,7 +8,7 @@ export const PIPELINES: PortalSection = {
     "Every automated build, test and security pipeline of your business service's products. Open one to see its key, its Jenkinsfile and its latest runs.",
 };
 
-export const SELF_SERVICE: PortalSection = {
+export const SELF_SERVICE: OneViewSection = {
   path: '/self-service',
   label: 'Self-service',
   heading: 'DevSecOps Self-service',
@@ -16,7 +16,7 @@ export const SELF_SERVICE: PortalSection = {
     'Set up the DevSecOps pipelines of your product, or change them, in five guided steps. No DevSecOps knowledge needed.',
 };
 
-export const MONITORING: PortalSection = {
+export const MONITORING: OneViewSection = {
   path: '/monitoring',
   label: 'Pipeline Monitoring',
   heading: 'DevSecOps Pipeline Monitoring',
@@ -24,7 +24,7 @@ export const MONITORING: PortalSection = {
     'How the pipelines of every product are doing: whether their latest runs passed, and how often and how safely changes reach production.',
 };
 
-export const SAMM_MATURITY: PortalSection = {
+export const SAMM_MATURITY: OneViewSection = {
   path: '/samm',
   label: 'OWASP SAMM',
   heading: 'DevSecOps OWASP SAMM',
@@ -32,7 +32,7 @@ export const SAMM_MATURITY: PortalSection = {
     'Software Assurance Maturity Model (OWASP SAMM v2.0) across BBH applications and business services. Continuous security posture scoring derived from pipeline health and verification gates.',
 };
 
-export const ACTION_HISTORY: PortalSection = {
+export const ACTION_HISTORY: OneViewSection = {
   path: '/history',
   label: 'Action history',
   heading: 'DevSecOps Action History',
@@ -40,7 +40,7 @@ export const ACTION_HISTORY: PortalSection = {
     'History and audit log of all operations in the portal: who, when, what was done and the result.',
 };
 
-export const ADMIN: PortalSection = {
+export const ADMIN: OneViewSection = {
   path: '/admin',
   label: 'Admin',
   heading: 'DevSecOps Admin',
@@ -48,7 +48,7 @@ export const ADMIN: PortalSection = {
     'Set up the portal for everyone: business services, products and their services, what a new service gets, and the settings every pipeline shares.',
 };
 
-export const SECTIONS: readonly PortalSection[] = [
+export const SECTIONS: readonly OneViewSection[] = [
   PIPELINES,
   SELF_SERVICE,
   MONITORING,
@@ -57,13 +57,35 @@ export const SECTIONS: readonly PortalSection[] = [
   ADMIN,
 ];
 
-export const ADMIN_DEPARTMENTS: PortalTab = {
+export const QA_METRICS: OneViewSection = {
+  path: '/qa',
+  label: 'QA Metrics',
+  heading: 'QA Metrics',
+  description:
+    'Quality assurance of every product: the results of its tests, its code quality and its defects, with their trends in Grafana from InfluxDB.',
+};
+
+export const AGILE_MATURITY: OneViewSection = {
+  path: '/agile',
+  label: 'Agile Maturity',
+  heading: 'Agile Maturity',
+  description:
+    'How mature the agile way of working of every business service and its teams is, and how it changes over time.',
+};
+
+export const DEVSECOPS: OneViewArea = { key: 'devsecops', label: 'DevSecOps', sections: SECTIONS };
+export const QA: OneViewArea = { key: 'qa', label: 'QA', sections: [QA_METRICS] };
+export const AGILE: OneViewArea = { key: 'agile', label: 'Agile', sections: [AGILE_MATURITY] };
+
+export const AREAS: readonly OneViewArea[] = [DEVSECOPS, QA, AGILE];
+
+export const ADMIN_DEPARTMENTS: OneViewTab = {
   path: '/admin/departments',
   label: 'Business Services',
 };
-export const ADMIN_PRODUCTS: PortalTab = { path: '/admin/products', label: 'Products' };
-export const ADMIN_TEMPLATE: PortalTab = { path: '/admin/template', label: 'Service template' };
-export const ADMIN_SETTINGS: PortalTab = { path: '/admin/settings', label: 'Library defaults' };
+export const ADMIN_PRODUCTS: OneViewTab = { path: '/admin/products', label: 'Products' };
+export const ADMIN_TEMPLATE: OneViewTab = { path: '/admin/template', label: 'Service template' };
+export const ADMIN_SETTINGS: OneViewTab = { path: '/admin/settings', label: 'Library defaults' };
 
 export const DEVSECOPS_ADMIN: AdminArea = {
   section: ADMIN,
