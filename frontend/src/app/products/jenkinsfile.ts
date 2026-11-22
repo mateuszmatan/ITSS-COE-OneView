@@ -1,0 +1,158 @@
+import { BuildTool, DEFAULT_JENKINS_LIBRARY, Pipeline, PipelineType } from '../core/models';
+
+/** The pipeline types whose Nexus IQ stage runs GoldenFix. */
+const GOLDEN_FIX_TYPES: readonly PipelineType[] = ['FULL', 'SECURITY', 'NEXUS_IQ'];
+
+/**
+ * The Jenkinsfile of the pipelines: with their keys or, without a key, with their services and the
+ * Jenkins agents of the first one.
+ */
+export function jenkinsfile(
+  pipelines: readonly Pipeline[],
+  library: string | null | undefined,
+  keyless = false,
+): string {
+  const name = library?.trim() || DEFAULT_JENKINS_LIBRARY;
+  const call = (keyless ? keylessArguments : keyArguments)(pipelines);
+  return `@Library('${name}') _\n\n${pipelines[0].entryPoint}(${call})\n`;
+}
+
+function keyArguments(pipelines: readonly Pipeline[]): string {
+  const keys = pipelines.map(
+    (pipeline) => `'${pipeline.activeKey?.value ?? '<issue a new key first>'}'`,
+  );
+  return keys.length === 1
+    ? `pipelineKey: ${keys[0]}`
+    : `pipelineKeys: [\n${keys.map((key) => `    ${key},`).join('\n')}\n]`;
+}
+
+function keylessArguments(pipelines: readonly Pipeline[]): string {
+  const [first] = pipelines;
+  return (
+    `projectNames: '${pipelines.map((p) => p.serviceName).join(',')}', ` +
+    `agentNames: [${first.agentLabels.map((label) => `'${label}'`).join(', ')}]` +
+    (first.type === 'EXTENDED' && first.securityPipelineJob
+      ? `, securityPipeline: '${first.securityPipelineJob}'`
+      : '')
+  );
+}
+
+/**
+ * Groups the items, in their order, whose active pipelines of one type share a Bitbucket
+ * repository, their Jenkins agents and their Jenkins job: one Jenkinsfile with all their keys
+ * runs them in that job, on the agents of the first key. Every other item is a group of its own.
+ * Not keyed, for a Jenkinsfile without a key, the pipelines join whatever the state of their key.
+ */
+export function byRepository<T>(
+  items: readonly T[],
+  repository: (item: T) => string | null | undefined,
+  pipeline: (item: T) => Pipeline | null,
+  keyed = true,
+): T[][] {
+  const groups = new Map<unknown, T[]>();
+  for (const item of items) {
+    const run = pipeline(item);
+    const key = (run && (run.activeKey || !keyed) && jobKey(repository(item), run)) || item;
+    groups.set(key, [...(groups.get(key) ?? []), item]);
+  }
+  return [...groups.values()];
+}
+
+/** What the pipelines of one shared Jenkinsfile have in common, or '' when a pipeline can share none. */
+function jobKey(repository: string | null | undefined, run: Pipeline): string {
+  const url = repositoryKey(repository);
+  const job = run.jenkinsJob?.trim().toLowerCase();
+  return url && job
+    ? [url, job, run.type, run.securityPipelineJob, run.extendedPipelineJob, agents(run)].join()
+    : '';
+}
+
+/** A repository URL as it names one repository, whatever its case, .git ending or trailing slash. */
+export function repositoryKey(url: string | null | undefined): string {
+  return (
+    url
+      ?.trim()
+      .replace(/(\.git)?\/*$/, '')
+      .toLowerCase() ?? ''
+  );
+}
+
+export interface OrderedService {
+  name: string;
+  tool: BuildTool;
+  repositoryUrl: string | null | undefined;
+}
+
+export const RUN_IN_ORDER =
+  'the services of one repository run in their order, so the database changes reach RD before the application that needs them';
+
+/**
+ * The Gradle or Maven service of the same repository that a Liquibase service comes after, or null: its
+ * database changes must come first.
+ */
+export function buildBefore(services: readonly OrderedService[], index: number): string | null {
+  const service = services[index];
+  const key = repositoryKey(service?.repositoryUrl);
+  if ((service?.tool !== 'LIQUIBASE' && service?.tool !== 'SQL') || !key) {
+    return null;
+  }
+  const build = services
+    .slice(0, index)
+    .find(
+      (other) =>
+        (other.tool === 'GRADLE' || other.tool === 'MAVEN') &&
+        repositoryKey(other.repositoryUrl) === key,
+    );
+  return build?.name ?? null;
+}
+
+/** The Jenkins agents of a pipeline, in a stable order. */
+export function agents(pipeline: Pipeline): string {
+  return [...pipeline.agentLabels].sort().join(',');
+}
+
+/** The pipelines that share one Jenkinsfile with the given one, in their order; only itself when none does. */
+export function repositoryGroup(
+  pipeline: Pipeline,
+  all: readonly Pipeline[],
+  repository: (pipeline: Pipeline) => string | null | undefined,
+): Pipeline[] {
+  const current = all.some((other) => other.id === pipeline.id)
+    ? all.map((other) => (other.id === pipeline.id ? pipeline : other))
+    : [...all, pipeline];
+  return byRepository(current, repository, (other) => other).find((group) =>
+    group.includes(pipeline),
+  )!;
+}
+
+/** The other active pipelines that share one Jenkinsfile with the given one, its key active or not. */
+export function sharingWith(
+  pipeline: Pipeline,
+  all: readonly Pipeline[],
+  repository: (pipeline: Pipeline) => string | null | undefined,
+): Pipeline[] {
+  const key = jobKey(repository(pipeline), pipeline);
+  return all.filter(
+    (other) =>
+      key &&
+      other.id !== pipeline.id &&
+      other.activeKey &&
+      jobKey(repository(other), other) === key,
+  );
+}
+
+/** Where Pipeline Monitoring shows the runs of a Jenkins job that several services share. */
+export function sharedRunsNote(firstService: string): string {
+  return (
+    `Pipeline Monitoring shows the runs of the shared job under ${firstService}, the service of ` +
+    'the first key. To see them on the other services too, give them the same Project tag ' +
+    '(Monitoring section) and the shared job as the Jenkins job of their pipelines.'
+  );
+}
+
+/** Why the services of one Jenkinsfile share one Jenkins job, or '' for pipelines without GoldenFix. */
+export function sharedJobReason(type: PipelineType): string {
+  return GOLDEN_FIX_TYPES.includes(type)
+    ? ': one GoldenFix pull request then covers all the services of the job'
+    : '';
+}

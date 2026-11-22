@@ -1,0 +1,513 @@
+{
+  "code": "CERTNEXT",
+  "name": "CertScanner Next",
+  "description": "The next generation of the certificate scanner",
+  "ownerTeam": "Technology Architecture",
+  "contactEmail": "ta-team@bbh.com",
+  "departmentId": 3,
+  "agentLabels": [
+    "linux-agent",
+    "docker"
+  ],
+  "version": null,
+  "services": [
+    {
+      "id": null,
+      "name": "gui",
+      "description": "Angular front end",
+      "build": {
+        "tool": "GRADLE",
+        "sourceDir": ".",
+        "javaPath": null,
+        "autoSetup": true,
+        "buildPath": "build/libs/*.jar",
+        "command": {
+          "tasks": [
+            "clean",
+            "build"
+          ],
+          "flags": [],
+          "directory": null,
+          "mavenHome": null,
+          "environment": [],
+          "label": null,
+          "returnStdout": false
+        }
+      },
+      "nodeBuild": {
+        "enabled": false,
+        "directory": null,
+        "commands": [],
+        "installationName": null,
+        "nodePath": null,
+        "environment": [],
+        "registry": null,
+        "npmrcCredentialsId": null,
+        "timeoutMinutes": null,
+        "nexusIqScan": null
+      },
+      "unitTests": {
+        "command": {
+          "tasks": [],
+          "flags": [],
+          "directory": null,
+          "mavenHome": null,
+          "environment": [],
+          "label": null,
+          "returnStdout": false
+        },
+        "resultPattern": null,
+        "rootDir": null,
+        "reportOutDir": null,
+        "allowEmptyResults": false,
+        "coverageReportPath": null,
+        "cypressEnabled": false,
+        "cypressCommand": null,
+        "cypressReportsDir": null
+      },
+      "tests": {
+        "maxParallel": null,
+        "smokeMaxParallel": null,
+        "regressionMaxParallel": null,
+        "performanceMaxParallel": null,
+        "smokeRequired": true,
+        "regressionRequired": true,
+        "performanceRequired": true,
+        "smokePollIntervalSec": null,
+        "regressionPollIntervalSec": null,
+        "performancePollIntervalSec": null
+      },
+      "testJobs": [],
+      "deployment": {
+        "target": "VM",
+        "appName": null,
+        "artifactName": null,
+        "baseArtifactName": null,
+        "nexusDeliveryDisabled": false
+      },
+      "delivery": {
+        "tasks": [],
+        "flags": [],
+        "directory": null,
+        "mavenHome": null,
+        "environment": [],
+        "label": null,
+        "returnStdout": false
+      },
+      "nexusDelivery": {
+        "artifacts": [],
+        "group": null,
+        "artifact": null,
+        "repositoryUrl": null,
+        "allowInsecureProtocol": false,
+        "pull": {
+          "tasks": [],
+          "flags": [],
+          "directory": null,
+          "mavenHome": null,
+          "environment": [],
+          "label": null,
+          "returnStdout": false
+        },
+        "pullArtifacts": [],
+        "pullOutputDirectory": null
+      },
+      "urbanCode": {
+        "siteName": null,
+        "deployProcess": null,
+        "skipWait": false,
+        "deployWithSnapshot": true,
+        "updateSnapshotComponents": false,
+        "includeOnlyDeployVersions": true,
+        "deployOnlyChanged": false,
+        "deployDescription": null,
+        "requestProperties": null
+      },
+      "urbanCodeApplications": [
+        {
+          "applicationName": "CERT-GUI",
+          "order": null,
+          "environments": [],
+          "snapshotName": null,
+          "siteName": null,
+          "deployProcess": null,
+          "skipWait": null,
+          "deployWithSnapshot": null,
+          "updateSnapshotComponents": null,
+          "includeOnlyDeployVersions": null,
+          "deployOnlyChanged": null,
+          "deployDescription": null,
+          "description": null,
+          "requestProperties": null,
+          "components": [
+            {
+              "componentName": "CERT-GUI-app",
+              "baseDir": "build/libs",
+              "fileIncludePatterns": "*.jar",
+              "fileExcludePatterns": null,
+              "versionPrefix": null,
+              "version": null,
+              "incrementalVersion": true,
+              "extensions": null,
+              "charset": null,
+              "pushDescription": null,
+              "versionProperties": null,
+              "versionDescription": null
+            }
+          ]
+        }
+      ],
+      "sshTargets": {},
+      "openShiftTargets": {},
+      "appScan": {
+        "applicationId": "7d1f3a52-9c4b-4e8a-b2d6-0f5e1c9a8b31",
+        "includedDirs": [],
+        "excludedDirs": [],
+        "compile": true,
+        "sourceCodeOnly": false,
+        "useConfigFile": false,
+        "insecureTls": false,
+        "clientPath": null,
+        "compileCommand": {
+          "tasks": [],
+          "flags": [],
+          "directory": null,
+          "mavenHome": null,
+          "environment": [],
+          "label": null,
+          "returnStdout": false
+        },
+        "dastEnabled": false,
+        "dastTargetUrl": null,
+        "dastPresenceId": null,
+        "scanName": null
+      },
+      "sonar": {
+        "projectName": null,
+        "projectKey": null,
+        "installationName": null,
+        "credentialsId": null,
+        "authTokenCredentialsId": null,
+        "badgeToken": null,
+        "addBadges": false,
+        "fullBadges": false,
+        "command": {
+          "tasks": [],
+          "flags": [],
+          "directory": null,
+          "mavenHome": null,
+          "environment": [],
+          "label": null,
+          "returnStdout": false
+        },
+        "serverUrl": null,
+        "badgeCredentialsId": null
+      },
+      "nexusIq": {
+        "serverUrl": null,
+        "credentialsId": null
+      },
+      "nexusIqApplications": [
+        {
+          "application": "certnext-gui",
+          "scanPatterns": [
+            "**/build/libs/*.jar"
+          ],
+          "stage": "build",
+          "failOnNetworkError": false
+        }
+      ],
+      "scm": {
+        "repositoryUrl": "https://bitbucket.bbh.com/projects/CERTNEXT/repos/certnext-gui",
+        "credentialsId": "bitbucket-http-credentials",
+        "authType": "BASIC",
+        "type": null,
+        "targetBranch": null,
+        "cloneUrl": null,
+        "reviewers": [],
+        "apiUrl": null,
+        "workspace": null,
+        "projectKey": null,
+        "repoSlug": null
+      },
+      "goldenFix": {
+        "enabled": null,
+        "minThreatLevel": null,
+        "ecosystems": [],
+        "goldenVersionTypes": [],
+        "excludeDirs": [],
+        "verifyMaxAttempts": null,
+        "verifyTimeoutMinutes": null,
+        "verifyMavenCommand": null,
+        "verifyGradleCommand": null,
+        "verifyNpmCommand": null,
+        "verifyPipCommand": null,
+        "verifyPubCommand": null,
+        "verifyNugetCommand": null,
+        "commitAuthorName": null,
+        "commitAuthorEmail": null,
+        "timeZone": null
+      },
+      "versionCatalogs": [],
+      "versionCatalogRepo": null,
+      "metrics": {
+        "enabled": true,
+        "influxProject": null,
+        "influxEnv": "test",
+        "influxUrl": null,
+        "influxCredentialsId": null
+      },
+      "flutter": null
+    },
+    {
+      "id": null,
+      "name": "backend-api",
+      "description": null,
+      "build": {
+        "tool": "MAVEN",
+        "sourceDir": ".",
+        "javaPath": null,
+        "autoSetup": true,
+        "buildPath": "target/*.jar",
+        "command": {
+          "tasks": [
+            "clean",
+            "verify"
+          ],
+          "flags": [],
+          "directory": null,
+          "mavenHome": null,
+          "environment": [],
+          "label": null,
+          "returnStdout": false
+        }
+      },
+      "nodeBuild": {
+        "enabled": false,
+        "directory": null,
+        "commands": [],
+        "installationName": null,
+        "nodePath": null,
+        "environment": [],
+        "registry": null,
+        "npmrcCredentialsId": null,
+        "timeoutMinutes": null,
+        "nexusIqScan": null
+      },
+      "unitTests": {
+        "command": {
+          "tasks": [],
+          "flags": [],
+          "directory": null,
+          "mavenHome": null,
+          "environment": [],
+          "label": null,
+          "returnStdout": false
+        },
+        "resultPattern": null,
+        "rootDir": null,
+        "reportOutDir": null,
+        "allowEmptyResults": false,
+        "coverageReportPath": null,
+        "cypressEnabled": false,
+        "cypressCommand": null,
+        "cypressReportsDir": null
+      },
+      "tests": {
+        "maxParallel": null,
+        "smokeMaxParallel": null,
+        "regressionMaxParallel": null,
+        "performanceMaxParallel": null,
+        "smokeRequired": true,
+        "regressionRequired": true,
+        "performanceRequired": true,
+        "smokePollIntervalSec": null,
+        "regressionPollIntervalSec": null,
+        "performancePollIntervalSec": null
+      },
+      "testJobs": [],
+      "deployment": {
+        "target": "VM",
+        "appName": null,
+        "artifactName": null,
+        "baseArtifactName": null,
+        "nexusDeliveryDisabled": false
+      },
+      "delivery": {
+        "tasks": [
+          "deploy"
+        ],
+        "flags": [],
+        "directory": null,
+        "mavenHome": null,
+        "environment": [],
+        "label": null,
+        "returnStdout": false
+      },
+      "nexusDelivery": {
+        "artifacts": [],
+        "group": null,
+        "artifact": null,
+        "repositoryUrl": null,
+        "allowInsecureProtocol": false,
+        "pull": {
+          "tasks": [],
+          "flags": [],
+          "directory": null,
+          "mavenHome": null,
+          "environment": [],
+          "label": null,
+          "returnStdout": false
+        },
+        "pullArtifacts": [],
+        "pullOutputDirectory": null
+      },
+      "urbanCode": {
+        "siteName": null,
+        "deployProcess": null,
+        "skipWait": false,
+        "deployWithSnapshot": true,
+        "updateSnapshotComponents": false,
+        "includeOnlyDeployVersions": true,
+        "deployOnlyChanged": false,
+        "deployDescription": null,
+        "requestProperties": null
+      },
+      "urbanCodeApplications": [
+        {
+          "applicationName": "CERT-API",
+          "order": null,
+          "environments": [],
+          "snapshotName": null,
+          "siteName": null,
+          "deployProcess": null,
+          "skipWait": null,
+          "deployWithSnapshot": null,
+          "updateSnapshotComponents": null,
+          "includeOnlyDeployVersions": null,
+          "deployOnlyChanged": null,
+          "deployDescription": null,
+          "description": null,
+          "requestProperties": null,
+          "components": [
+            {
+              "componentName": "CERT-API-app",
+              "baseDir": "target",
+              "fileIncludePatterns": "*.jar",
+              "fileExcludePatterns": null,
+              "versionPrefix": null,
+              "version": null,
+              "incrementalVersion": true,
+              "extensions": null,
+              "charset": null,
+              "pushDescription": null,
+              "versionProperties": null,
+              "versionDescription": null
+            }
+          ]
+        }
+      ],
+      "sshTargets": {},
+      "openShiftTargets": {},
+      "appScan": {
+        "applicationId": "7d1f3a52-9c4b-4e8a-b2d6-0f5e1c9a8b32",
+        "includedDirs": [],
+        "excludedDirs": [],
+        "compile": true,
+        "sourceCodeOnly": false,
+        "useConfigFile": false,
+        "insecureTls": false,
+        "clientPath": null,
+        "compileCommand": {
+          "tasks": [],
+          "flags": [],
+          "directory": null,
+          "mavenHome": null,
+          "environment": [],
+          "label": null,
+          "returnStdout": false
+        },
+        "dastEnabled": false,
+        "dastTargetUrl": null,
+        "dastPresenceId": null,
+        "scanName": null
+      },
+      "sonar": {
+        "projectName": null,
+        "projectKey": null,
+        "installationName": null,
+        "credentialsId": null,
+        "authTokenCredentialsId": null,
+        "badgeToken": null,
+        "addBadges": false,
+        "fullBadges": false,
+        "command": {
+          "tasks": [],
+          "flags": [],
+          "directory": null,
+          "mavenHome": null,
+          "environment": [],
+          "label": null,
+          "returnStdout": false
+        },
+        "serverUrl": null,
+        "badgeCredentialsId": null
+      },
+      "nexusIq": {
+        "serverUrl": null,
+        "credentialsId": null
+      },
+      "nexusIqApplications": [
+        {
+          "application": "certnext-backend-api",
+          "scanPatterns": [
+            "**/target/*.jar"
+          ],
+          "stage": "build",
+          "failOnNetworkError": false
+        }
+      ],
+      "scm": {
+        "repositoryUrl": "https://bitbucket.bbh.com/projects/CERTNEXT/repos/certnext-backend-api",
+        "credentialsId": "bitbucket-http-credentials",
+        "authType": "BASIC",
+        "type": null,
+        "targetBranch": null,
+        "cloneUrl": null,
+        "reviewers": [],
+        "apiUrl": null,
+        "workspace": null,
+        "projectKey": null,
+        "repoSlug": null
+      },
+      "goldenFix": {
+        "enabled": null,
+        "minThreatLevel": null,
+        "ecosystems": [],
+        "goldenVersionTypes": [],
+        "excludeDirs": [],
+        "verifyMaxAttempts": null,
+        "verifyTimeoutMinutes": null,
+        "verifyMavenCommand": null,
+        "verifyGradleCommand": null,
+        "verifyNpmCommand": null,
+        "verifyPipCommand": null,
+        "verifyPubCommand": null,
+        "verifyNugetCommand": null,
+        "commitAuthorName": null,
+        "commitAuthorEmail": null,
+        "timeZone": null
+      },
+      "versionCatalogs": [],
+      "versionCatalogRepo": null,
+      "metrics": {
+        "enabled": true,
+        "influxProject": null,
+        "influxEnv": "test",
+        "influxUrl": null,
+        "influxCredentialsId": null
+      },
+      "flutter": null
+    }
+  ]
+}

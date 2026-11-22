@@ -1,0 +1,283 @@
+import { ChangeDetectionStrategy, Component, computed, inject, signal } from '@angular/core';
+import { takeUntilDestroyed, toSignal } from '@angular/core/rxjs-interop';
+import { DIALOG_DATA, DialogRef } from '@angular/cdk/dialog';
+import { HttpErrorResponse } from '@angular/common/http';
+import { FormControl, FormGroup, ReactiveFormsModule, Validators } from '@angular/forms';
+import { EMPTY, Observable, catchError, finalize, ignoreElements, of, tap, throwError } from 'rxjs';
+import { PipelinesApi, ServiceTemplateApi } from '../core/api';
+import { errorMessage, fieldProblems } from '@common/core/errors';
+import {
+  PIPELINE_TYPES,
+  Pipeline,
+  PipelineRequest,
+  PipelineType,
+  ServicePipelines,
+  ServiceTemplate,
+} from '../core/models';
+import { KEY_MEANING, pipelineName } from '../pipelines/pipeline-texts';
+import { Field, Fields, area, choice, mono } from '@common/shared/fields';
+import {
+  applyFieldProblems,
+  commaItems,
+  joinWords,
+  max,
+  setEnabled,
+  text,
+} from '@common/shared/form-controls';
+import { agentLabels } from '../shared/build-options';
+import { fillTemplate } from '../shared/service-template';
+import { DIALOG } from '@common/ui/dialog';
+import { DsoSpinner } from '@common/ui/loading';
+
+export interface PipelineDialogData {
+  service: Pick<ServicePipelines, 'serviceId' | 'serviceName' | 'pipelines'>;
+  productCode?: string;
+  pipeline?: Pipeline;
+}
+
+export const JENKINS_JOB = /^(https?:\/\/\S+|[^\s:?#][^:?#]*)$/;
+export const JOB_PATH = /^(?!.*\.\.)[A-Za-z0-9._ /-]+$/;
+const JOB_PATH_ERROR = "A job path such as DevSecOps/CERT/backend-api-extended, without '..'";
+const STALE =
+  'Not saved: someone else changed the settings of this pipeline after you opened them. ' +
+  'The form now shows their settings: make your change again, then save.';
+
+function settingsOf(pipeline: Pipeline | undefined) {
+  return {
+    agentLabels: joinWords(pipeline?.agentLabels ?? ['linux-agent'], ', '),
+    jenkinsJob: pipeline?.jenkinsJob ?? '',
+    extendedPipelineJob: pipeline?.extendedPipelineJob ?? '',
+    securityPipelineJob: pipeline?.securityPipelineJob ?? '',
+    description: pipeline?.description ?? '',
+  };
+}
+
+@Component({
+  selector: 'dso-pipeline-dialog',
+  imports: [ReactiveFormsModule, DIALOG, DsoSpinner, Fields],
+  changeDetection: ChangeDetectionStrategy.OnPush,
+  templateUrl: './pipeline-dialog.html',
+  styleUrl: './pipeline-dialog.scss',
+})
+export class PipelineDialog {
+  protected readonly data = inject<PipelineDialogData>(DIALOG_DATA);
+  private readonly dialogRef = inject<DialogRef<Pipeline, PipelineDialog>>(DialogRef);
+  private readonly api = inject(PipelinesApi);
+
+  protected readonly editing = this.data.pipeline !== undefined;
+  protected readonly title = this.data.pipeline
+    ? `Settings of the pipeline ${pipelineName(this.data.pipeline)}`
+    : `Add a pipeline to ${this.data.service.serviceName}`;
+  protected readonly keyMeaning = KEY_MEANING;
+  protected readonly types = PIPELINE_TYPES.filter(
+    (type) =>
+      type.value === this.data.pipeline?.type ||
+      !this.data.service.pipelines.some((p) => p.type === type.value),
+  );
+
+  private readonly stored = settingsOf(this.data.pipeline);
+  private version = this.data.pipeline?.version ?? null;
+
+  protected readonly form = new FormGroup({
+    type: new FormControl<PipelineType>(
+      { value: this.data.pipeline?.type ?? this.types[0]?.value ?? 'FULL', disabled: this.editing },
+      { nonNullable: true },
+    ),
+    agentLabels: agentLabels(this.stored.agentLabels),
+    jenkinsJob: text(this.stored.jenkinsJob, Validators.pattern(JENKINS_JOB), max(1000)),
+    extendedPipelineJob: text(
+      this.stored.extendedPipelineJob,
+      Validators.pattern(JOB_PATH),
+      max(500),
+    ),
+    securityPipelineJob: text(
+      this.stored.securityPipelineJob,
+      Validators.pattern(JOB_PATH),
+      max(500),
+    ),
+    description: text(this.stored.description, max(1000)),
+  });
+
+  private readonly type = toSignal(this.form.controls.type.valueChanges, {
+    initialValue: this.form.controls.type.value,
+  });
+  protected readonly selectedType = computed(() =>
+    PIPELINE_TYPES.find((type) => type.value === this.type()),
+  );
+  protected readonly saving = signal(false);
+
+  protected readonly error = signal<string | null>(null);
+
+  protected readonly fields = computed<Field[]>(() => {
+    const type = this.selectedType();
+    const job = (
+      key: string,
+      label: string,
+      code: string,
+      example: string,
+      hint: string,
+      help: string,
+    ) => mono(key, label, code, 12, { placeholder: example, hint, help, error: JOB_PATH_ERROR });
+    return [
+      choice('type', 'Pipeline type', this.types, '', 12, {
+        hint: type?.description ?? '',
+        help: 'Sets the library entry point the Jenkinsfile calls, and with it the stages that run. A service has at most one pipeline of each type.',
+      }),
+      mono('agentLabels', 'Jenkins agents', 'pipeline.agentNames', 12, {
+        placeholder: 'linux-agent, linux && docker',
+        hint: 'separated by commas; the first is the default',
+        help: 'Jenkins agent labels or label expressions the pipeline may run on. A run uses the one chosen in its AGENT_NAME parameter.',
+      }),
+      {
+        ...job(
+          'jenkinsJob',
+          'Jenkins job',
+          '',
+          'DevSecOps/CERT/backend-api-full',
+          'Where the pipeline runs in Jenkins: the path of its job, which the portal links under the ' +
+            'Jenkins URL on the Library defaults page, or the full address of the job',
+          'The portal links the pipeline and its runs to this job. When several pipelines write metrics with the same project tag, it also tells their runs apart.',
+        ),
+        error: 'A job path such as DevSecOps/CERT/backend-api-full, or an http or https URL',
+      },
+      ...(type?.value === 'SECURITY'
+        ? [
+            job(
+              'extendedPipelineJob',
+              'Extended pipeline job',
+              'jenkins.pipeline.extendedPipeline',
+              'CERT/backend-api-extended',
+              'Optional. The Extended pipeline this pipeline starts after its scans',
+              'Started when a run succeeds or is unstable and its RUN_EXTENDED_PIPELINE parameter is ticked, on the same AGENT_NAME. The Security pipeline does not wait for it.',
+            ),
+          ]
+        : []),
+      ...(type?.value === 'EXTENDED'
+        ? [
+            job(
+              'securityPipelineJob',
+              'Security pipeline job',
+              'pipeline.securityPipeline',
+              'CERT/backend-api-security',
+              'The Security pipeline whose build this pipeline deploys and tests',
+              'The Extended pipeline takes the build tags and the release gate result from the last successful build of this job.',
+            ),
+          ]
+        : []),
+      area('description', 'Description', '', 12, {
+        placeholder: 'Nightly security scan of the develop branch',
+        hint: "Optional. Shown on the pipeline's page.",
+        help: 'A note for the people who run or look after the pipeline, such as its purpose or schedule. It is not part of the configuration Jenkins receives.',
+      }),
+    ];
+  });
+
+  private template: ServiceTemplate | null = null;
+
+  constructor() {
+    const sync = (type: PipelineType) => {
+      setEnabled(this.form.controls.extendedPipelineJob, type === 'SECURITY');
+      setEnabled(this.form.controls.securityPipelineJob, type === 'EXTENDED');
+      this.prefill();
+    };
+    this.form.controls.type.valueChanges.subscribe(sync);
+    sync(this.form.controls.type.value);
+    if (!this.editing) {
+      inject(ServiceTemplateApi)
+        .get()
+        .pipe(
+          catchError(() => of(null)),
+          takeUntilDestroyed(),
+        )
+        .subscribe((template) => {
+          this.template = template;
+          this.prefill();
+        });
+    }
+  }
+
+  private prefill(): void {
+    const { agentLabels, jenkinsJob, type } = this.form.controls;
+    const template = this.template;
+    if (!template) {
+      return;
+    }
+    if (!agentLabels.dirty && template.agentLabels.length) {
+      agentLabels.setValue(joinWords(template.agentLabels, ', '));
+    }
+    if (!jenkinsJob.dirty && this.data.productCode) {
+      jenkinsJob.setValue(
+        fillTemplate(
+          template.jenkinsJob,
+          this.data.productCode,
+          this.data.service.serviceName,
+          type.value,
+        ),
+      );
+    }
+  }
+
+  protected save(): void {
+    this.form.markAllAsTouched();
+    if (this.form.invalid || this.saving()) {
+      return;
+    }
+    const value = this.form.getRawValue();
+    const request: PipelineRequest = {
+      type: value.type,
+      agentLabels: commaItems(value.agentLabels),
+      extendedPipelineJob:
+        value.type === 'SECURITY' ? value.extendedPipelineJob.trim() || null : null,
+      securityPipelineJob:
+        value.type === 'EXTENDED' ? value.securityPipelineJob.trim() || null : null,
+      jenkinsJob: value.jenkinsJob.trim() || null,
+      description: value.description.trim() || null,
+      version: this.version,
+    };
+    const pipeline = this.data.pipeline;
+    this.saving.set(true);
+    this.error.set(null);
+    (pipeline
+      ? this.api.update(pipeline.id, request)
+      : this.api.create(this.data.service.serviceId, request)
+    )
+      .pipe(
+        catchError((error) =>
+          pipeline && error instanceof HttpErrorResponse && error.status === 409
+            ? this.reload(pipeline.id)
+            : throwError(() => error),
+        ),
+        finalize(() => this.saving.set(false)),
+      )
+      .subscribe({
+        next: (saved) => this.dialogRef.close(saved),
+        error: (error) => {
+          const problems = fieldProblems(error);
+          const unmatched = applyFieldProblems(this.form, problems);
+          this.error.set(
+            problems.length
+              ? unmatched.map((problem) => problem.message).join('; ') || null
+              : errorMessage(error),
+          );
+        },
+      });
+  }
+
+  private reload(id: number): Observable<never> {
+    return this.api.get(id).pipe(
+      tap((current) => {
+        this.version = current.version;
+        this.form.reset(settingsOf(current));
+        this.error.set(STALE);
+      }),
+      catchError((error) => {
+        this.error.set(
+          'Not saved: someone else changed the settings of this pipeline after you opened them, ' +
+            `and the current settings could not be loaded. ${errorMessage(error)}`,
+        );
+        return EMPTY;
+      }),
+      ignoreElements(),
+    );
+  }
+}

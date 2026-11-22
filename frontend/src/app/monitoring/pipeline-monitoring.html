@@ -1,0 +1,219 @@
+<div class="page">
+  <nav class="breadcrumb" aria-label="Breadcrumb">
+    <a [routerLink]="section.path">{{ section.heading }}</a>
+    <span class="sep" aria-hidden="true">/</span>
+    @if (data(); as d) {
+      <a [routerLink]="monitoringProduct(d.pipeline.productId)">{{ d.pipeline.productName }}</a>
+      <span class="sep" aria-hidden="true">/</span>
+      <span>{{ d.pipeline.serviceName }} · {{ typeLabel(d.pipeline.type) }}</span>
+    } @else {
+      <span>Pipeline</span>
+    }
+  </nav>
+
+  @if (resource.error(); as error) {
+    <dso-load-error what="The pipeline" [error]="error" (retry)="resource.reload()">
+      <a class="btn btn-link" [routerLink]="section.path">Back to monitoring</a>
+    </dso-load-error>
+  } @else if (data(); as d) {
+    <header class="page-header">
+      <div>
+        <div class="title row-wrap">
+          <h1>
+            <span class="mono">{{ d.pipeline.serviceName }}</span> ·
+            {{ typeLabel(d.pipeline.type) }} pipeline
+          </h1>
+          <dso-status-chip [status]="d.status" />
+        </div>
+        <p class="page-description">
+          How this pipeline of {{ d.pipeline.productName }} is doing: its latest run, how often and
+          how safely it delivers changes, and its runs in the chosen period.
+        </p>
+        <p class="tags small">
+          Monitoring tags (the names this pipeline's results are stored under):
+          <span class="mono">project={{ d.pipeline.influxProjectTag }}</span
+          >,
+          <span class="mono">env={{ d.pipeline.influxEnv }}</span>
+        </p>
+      </div>
+      <div class="actions">
+        <a class="btn btn-outline-primary" [routerLink]="pipelinePage(d.pipeline.id)"
+          >Manage pipeline</a
+        >
+        <a class="btn btn-outline-primary samm" [routerLink]="['/samm']" [queryParams]="{ pipelineId: d.pipeline.id }"
+          >OWASP SAMM Scorecard</a
+        >
+        @if (d.pipeline.jenkinsJobUrl; as job) {
+          <a
+            class="btn btn-outline-primary jenkins"
+            [href]="job"
+            target="_blank"
+            rel="noopener"
+            [attr.title]="d.pipeline.jenkinsJob"
+            >Open in Jenkins</a
+          >
+        }
+      </div>
+    </header>
+
+    @if (!d.pipeline.activeKey) {
+      <div class="banner">
+        The key of this pipeline is invalidated, so the pipeline is refused its settings and stops
+        until a new key is issued under Manage pipeline. Its earlier runs are still shown.
+      </div>
+    }
+    <dso-metrics-banner [metricsError]="d.metricsError" />
+
+    <div class="toolbar">
+      <span class="period-label" id="period-label">Period</span>
+      <dso-help
+        label="Period"
+        text="How far back the DORA metrics, the runs per day, the recent runs and the Grafana dashboards of this page reach."
+      />
+      <dso-toggle-group
+        [value]="selectedRange()"
+        (valueChange)="selectRange($any($event))"
+        aria-labelledby="period-label"
+      >
+        @for (range of ranges; track range.value) {
+          <button [dsoToggle]="range.value">{{ range.label }}</button>
+        }
+      </dso-toggle-group>
+      <button
+        type="button"
+        class="btn btn-outline-primary"
+        (click)="resource.reload()"
+        [disabled]="resource.isLoading()"
+        aria-label="Refresh the pipeline metrics"
+      >
+        Refresh
+      </button>
+      <span class="muted zone">{{ timeZoneNote }}</span>
+    </div>
+    @if (resource.isLoading()) {
+      <dso-loading class="loading" />
+    }
+
+    <dso-dora-tiles [dora]="d.dora" />
+
+    <div class="split">
+      <section class="card activity">
+        <header class="card-header">
+          <h2>Runs per day</h2>
+          <span class="muted"
+            >{{ d.dora.runs | counted: 'run' }} · average duration
+            {{ d.dora.averageDurationSeconds | duration }}</span
+          >
+        </header>
+        <dso-activity-chart [daily]="d.dora.daily" />
+      </section>
+
+      <section class="card last-run">
+        <header class="card-header"><h2>Latest run</h2></header>
+        @if (d.lastRun; as run) {
+          <dl class="rows">
+            <dt>Result</dt>
+            <dd><dso-status-chip [status]="run.result" /></dd>
+            <dt>Finished</dt>
+            <dd>{{ run.time | date: 'd MMM y, HH:mm' }} · {{ run.time | relative }}</dd>
+            <dt>Build</dt>
+            <dd>
+              <dso-build-link [run]="run" />
+            </dd>
+            <dt>Branch</dt>
+            <dd class="mono">{{ run.branch ?? '–' }}</dd>
+            <dt>Commit</dt>
+            <dd class="mono">{{ run.commit ? run.commit.slice(0, 10) : '–' }}</dd>
+            <dt>Duration</dt>
+            <dd>{{ run.durationSeconds | duration }}</dd>
+            @if (run.stagesTotal) {
+              <dt>Stages</dt>
+              <dd>
+                <div class="stage-bar" aria-hidden="true">
+                  <span class="swatch passed" [style.flex-grow]="stagesPassed(run)"></span>
+                  <span class="swatch warned" [style.flex-grow]="run.warned ?? 0"></span>
+                  <span
+                    class="swatch failed"
+                    [style.flex-grow]="(run.failed ?? 0) + (run.blocked ?? 0)"
+                  ></span>
+                  <span class="swatch skipped" [style.flex-grow]="run.skipped ?? 0"></span>
+                </div>
+                <div class="small">{{ stageSummary(run) }}</div>
+              </dd>
+            }
+          </dl>
+        } @else {
+          <div class="empty-state small-empty">
+            <p>
+              No run reported yet. Runs appear here once the pipeline has run and reported them.
+            </p>
+          </div>
+        }
+      </section>
+    </div>
+
+    <section class="card pipeline-report">
+      <header class="card-header">
+        <h2>Pipeline Report</h2>
+        <a
+          class="text-link"
+          [href]="reportHtmlUrl(d.lastRun?.build)"
+          target="_blank"
+          rel="noopener"
+          >Open in new tab</a
+        >
+      </header>
+      <p class="section-help">
+        The execution report of this pipeline with all stage results, test details and security scanner links, as generated by the DevSecOps pipeline.
+      </p>
+      <iframe
+        [src]="reportFrameUrl()"
+        title="DevSecOps Pipeline Execution Report"
+        loading="lazy"
+        sandbox="allow-same-origin allow-popups allow-popups-to-escape-sandbox allow-scripts"
+      ></iframe>
+    </section>
+
+    @for (dashboard of dashboards(); track $index) {
+      <section class="card grafana">
+        <header class="card-header">
+          <h2>{{ dashboard.name }}</h2>
+          <a class="text-link" [href]="dashboard.dashboardUrl" target="_blank" rel="noopener"
+            >Open in {{ dashboard.name }}</a
+          >
+        </header>
+        <p class="section-help">The detailed charts of this pipeline in {{ dashboard.name }}.</p>
+        <iframe
+          [src]="dashboard.embedded"
+          [title]="'DevSecOps pipeline dashboard in ' + dashboard.name"
+          loading="lazy"
+        ></iframe>
+      </section>
+    } @empty {
+      <section class="card grafana">
+        <header class="card-header"><h2>Grafana dashboard</h2></header>
+        <p class="missing">
+          No Grafana dashboard is linked to the portal, so the detailed charts of this pipeline are
+          not shown here.
+          <span class="admin"
+            >For the administrator: link the Grafana dashboards under Admin, Library defaults.</span
+          >
+        </p>
+      </section>
+    }
+
+    <section class="card">
+      <header class="card-header">
+        <h2>Recent runs</h2>
+        <span class="muted">Newest first, within the last {{ d.dora.rangeDays }} days</span>
+      </header>
+      @if (d.recentRuns.length === 0) {
+        <div class="empty-state small-empty"><p>No runs in this period.</p></div>
+      } @else {
+        <dso-run-grid label="Recent runs" [runs]="d.recentRuns" [details]="['commit', 'stages']" />
+      }
+    </section>
+  } @else {
+    <dso-loading />
+  }
+</div>

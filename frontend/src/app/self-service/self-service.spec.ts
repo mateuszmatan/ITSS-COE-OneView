@@ -1,0 +1,1039 @@
+import { provideHttpClient } from '@angular/common/http';
+import { HttpTestingController, provideHttpClientTesting } from '@angular/common/http/testing';
+import { ComponentFixture, TestBed } from '@angular/core/testing';
+import { provideRouter } from '@angular/router';
+import { MY_DEPARTMENT_KEY } from '@common/departments/my-department';
+import { RETRY } from '@common/core/errors';
+import { buttonOf, fieldOf, helpOf, text, unexplained } from '@common/testing/dom';
+import {
+  anotherService,
+  databaseService,
+  department,
+  globalSettings,
+  pipeline,
+  product,
+  productSummary,
+  service,
+  servicePipelines,
+  serviceTemplate,
+} from '../testing/fixtures';
+import { SelfService } from './self-service';
+import { WizardService } from './self-service-model';
+
+const added: WizardService = {
+  id: null,
+  name: 'archive-api',
+  description: '',
+  appScanId: service().appScan.applicationId,
+  tool: 'GRADLE',
+  target: 'VM',
+  openShiftProject: '',
+  nexusIqApplication: '',
+  repositoryUrl: '',
+};
+
+describe('SelfService', () => {
+  let fixture: ComponentFixture<SelfService>;
+  let http: HttpTestingController;
+
+  beforeEach(async () => {
+    localStorage.removeItem(MY_DEPARTMENT_KEY);
+    TestBed.configureTestingModule({
+      imports: [SelfService],
+      providers: [provideHttpClient(), provideHttpClientTesting(), provideRouter([])],
+    });
+    http = TestBed.inject(HttpTestingController);
+    fixture = TestBed.createComponent(SelfService);
+    fixture.detectChanges();
+    http
+      .expectOne('/api/products')
+      .flush([
+        productSummary(),
+        productSummary({ id: 2, name: 'Payments Hub', departmentId: null, departmentName: null }),
+        productSummary({ id: 3, name: 'Ledger', departmentId: 5, departmentName: 'Fund Services' }),
+      ]);
+    http
+      .expectOne('/api/departments')
+      .flush([department(), department({ id: 5, name: 'Fund Services' })]);
+    http.expectOne('/api/settings').flush(globalSettings());
+    http.expectOne('/api/service-template').flush(serviceTemplate());
+    await fixture.whenStable();
+  });
+
+  afterEach(() => http.verify());
+
+  const wizard = () => fixture.componentInstance;
+  const page = () => fixture.nativeElement as HTMLElement;
+  const all = (selector: string) => [...page().querySelectorAll(selector)].map(text);
+  const review = () => all('dl.rows dt');
+  const entries = () =>
+    [...page().querySelectorAll('.review-list li')].map((entry) =>
+      [...entry.querySelectorAll('strong, .tag, .review-text')].map(text).join(' · '),
+    );
+  const groups = () =>
+    wizard()
+      ['productGroups']()
+      .map((group) => [group.name, group.products.map((p) => p.id)]);
+
+  async function next() {
+    wizard()['next']();
+    await fixture.whenStable();
+  }
+
+  async function click(scope: ParentNode, label: string) {
+    buttonOf(scope, label).click();
+    await fixture.whenStable();
+  }
+
+  async function chooseProduct(
+    departmentId: number,
+    stored = product(),
+    pipelines = [servicePipelines()],
+  ) {
+    wizard()['productForm'].controls.departmentId.setValue(departmentId);
+    wizard()['chooseMode']('existing');
+    wizard()['productId'].setValue(stored.id);
+    http.expectOne(`/api/products/${stored.id}`).flush(stored);
+    TestBed.tick();
+    http.expectOne(`/api/products/${stored.id}/pipelines`).flush(pipelines);
+    await fixture.whenStable();
+  }
+
+  it('asks the department of a new product first and shows it in the review', async () => {
+    expect(all('.step-bar .step-label')).toEqual([
+      'Product',
+      'Pipeline',
+      'Services',
+      'Review',
+      'Next steps',
+    ]);
+    expect(text(page().querySelector('.fields dso-label'))).toBe('Business Service');
+    expect(text(page().querySelector('.step-actions .btn-primary'))).toBe('Next: Pipeline');
+
+    await next();
+
+    expect(wizard()['step']()).toBe(0);
+    expect(text(fieldOf(page(), 'Business Service')?.querySelector('dso-error'))).toBe('Required');
+
+    wizard()['productForm'].patchValue({
+      departmentId: 5,
+      name: 'Trade Archive',
+    });
+    await new Promise((resolve) => setTimeout(resolve, 350));
+    http.expectOne('/api/products/code-suggestion?name=Trade%20Archive').flush({ code: 'TA' });
+    await next();
+
+    expect(text(page().querySelector('h2'))).toBe('Which pipeline does Trade Archive need?');
+    expect(page().querySelector('.today')).toBeNull();
+    expect(page().querySelector('.tile-note')).toBeNull();
+    expect(all('.step-actions button')).toEqual(['Back', 'Next: Services']);
+
+    wizard()['pipeline'].set('SAST');
+    await next();
+    wizard()['services'].set([added]);
+    await fixture.whenStable();
+
+    expect(text(page().querySelector('.step-actions .btn-primary'))).toBe('Next: Review');
+
+    await next();
+
+    expect(review()).toEqual([
+      'Product',
+      'Business Service',
+      'Owner team',
+      'Contact e-mail',
+      'Pipeline',
+      'Jenkins agents',
+    ]);
+    expect(entries()).toEqual([
+      'archive-api · New · Added with a SAST pipeline and its own key. Built with Gradle.',
+    ]);
+    expect(wizard()['departmentName']()).toBe('Fund Services');
+    expect(text(buttonOf(page(), 'Create the pipelines'))).toBe('Create the pipelines');
+  });
+
+  it('lists the products of the chosen department and those not in one, and moves one into it', async () => {
+    wizard()['chooseMode']('existing');
+    wizard()['productForm'].controls.departmentId.setValue(3);
+    await fixture.whenStable();
+
+    expect(groups()).toEqual([
+      ['Corporate Technology', [1]],
+      ['Not in a business service', [2]],
+    ]);
+
+    wizard()['productForm'].controls.departmentId.setValue(5);
+    await fixture.whenStable();
+
+    expect(groups()).toEqual([
+      ['Fund Services', [3]],
+      ['Not in a business service', [2]],
+    ]);
+    expect(text(fieldOf(page(), 'Product')?.querySelector('dso-hint'))).toBe(
+      '2 products to choose from',
+    );
+
+    wizard()['productId'].setValue(2);
+    http.expectOne('/api/products/2').flush(product({ id: 2, departmentId: null }));
+    TestBed.tick();
+    http.expectOne('/api/products/2/pipelines').flush([servicePipelines()]);
+    await fixture.whenStable();
+
+    expect(text(fieldOf(page(), 'Business Service')?.querySelector('dso-hint'))).toBe(
+      'Saving moves the product into this business service',
+    );
+    expect(review()).toEqual(['Owner team', 'Services']);
+
+    await next();
+    wizard()['pipeline'].set('SAST');
+    await next();
+    await next();
+
+    expect(wizard()['step']()).toBe(3);
+    expect(wizard()['departmentName']()).toBe('Fund Services');
+    expect(text(buttonOf(page(), 'Save the changes'))).toBe('Save the changes');
+
+    await next();
+    const request = http.expectOne({ method: 'PUT', url: '/api/products/2?pipelineType=SAST' });
+    expect(request.request.body.departmentId).toBe(5);
+    request.flush(product({ id: 2, departmentId: 5 }));
+    http.expectOne('/api/products/2/pipelines').flush([]);
+    await fixture.whenStable();
+
+    expect(wizard()['step']()).toBe(4);
+    expect(wizard().hasUnsavedChanges()).toBe(false);
+  });
+
+  it('forgets the product once another department is chosen', async () => {
+    await chooseProduct(3);
+
+    wizard()['productForm'].controls.departmentId.setValue(5);
+    await fixture.whenStable();
+
+    expect(wizard()['productId'].value).toBeNull();
+    expect(wizard()['existing']()).toBeNull();
+    expect(wizard()['services']()).toEqual([]);
+  });
+
+  it('drops a product still loading once a new product is chosen', async () => {
+    wizard()['chooseMode']('existing');
+    wizard()['productId'].setValue(1);
+    const request = http.expectOne('/api/products/1');
+
+    wizard()['chooseMode']('new');
+    await fixture.whenStable();
+
+    expect(request.cancelled).toBe(true);
+    expect(wizard()['existing']()).toBeNull();
+    expect(wizard()['productId'].value).toBeNull();
+  });
+
+  it('continues only with the product chosen last once it is loaded', async () => {
+    await chooseProduct(3);
+    wizard()['productId'].setValue(2);
+    const second = http.expectOne('/api/products/2');
+
+    await next();
+
+    expect(wizard()['step']()).toBe(0);
+    expect(wizard()['existing']()).toBeNull();
+    expect(text(page().querySelector('.choice-error'))).toBe('Wait until the product is loaded');
+
+    second.flush(product({ id: 2, name: 'Payments Hub', departmentId: null, services: [] }));
+    TestBed.tick();
+    http.expectOne('/api/products/2/pipelines').flush([]);
+    await next();
+
+    expect(wizard()['step']()).toBe(1);
+    expect(wizard()['productName']()).toBe('Payments Hub');
+  });
+
+  it('says why the chosen product could not be loaded and keeps to the products in the portal', async () => {
+    await chooseProduct(3);
+    wizard()['productId'].setValue(2);
+    http
+      .expectOne('/api/products/2')
+      .flush({ detail: 'Product 2 was not found' }, { status: 404, statusText: 'Not Found' });
+
+    await next();
+
+    expect(wizard()['step']()).toBe(0);
+    expect(wizard()['mode']()).toBe('existing');
+    expect(wizard()['existing']()).toBeNull();
+    expect(text(page().querySelector('.choice-error'))).toBe(
+      `The product could not be loaded. Product 2 was not found. ${RETRY}`,
+    );
+    expect(fieldOf(page(), 'Product name')).toBeNull();
+  });
+
+  it('shows the pipelines every service has today and how many services have each one', async () => {
+    await chooseProduct(3, product({ services: [service(), anotherService()] }), [
+      servicePipelines({ pipelines: [pipeline({ type: 'SAST' }), pipeline()] }),
+      servicePipelines({ serviceId: 11, serviceName: 'api', pipelines: [pipeline()] }),
+      servicePipelines({ serviceId: 12, serviceName: 'batch', pipelines: [] }),
+    ]);
+    await next();
+
+    expect(text(page().querySelector('.lead'))).toBe(
+      "A pipeline is the automated build, test and security checks Jenkins runs on a service's code; the one you choose is added to every service that does not have it yet, and their other pipelines stay as they are.",
+    );
+    expect(all('.today li')).toEqual(['gui · Full, SAST', 'api · Full', 'batch · no pipeline yet']);
+    expect(all('.tile-label')).toEqual([
+      'SAST (Static Application Security Tests) - HCL AppScan',
+      'OSA (Open Source Analysis) (NexusIQ with Golden Fix and Golden Pull Request)',
+      'Security',
+      'Full',
+    ]);
+    expect(all('.tile-description')).toEqual([
+      'Unit Tests, NexusIQ, SAST, SonarQube',
+      'Static Security (unit test, NexusIQ, SAST, SonarQube) + Extended (lower test region deployment, regression, performance, smoke, DAST, *higher test region deployment)',
+    ]);
+    expect(page().querySelector('.tile')?.getAttribute('aria-description')).toBe(
+      '1 of 3 services has it',
+    );
+    expect(all('.tile-note')).toEqual([
+      '1 of 3 services has it',
+      'No service has it yet',
+      'No service has it yet',
+      '2 of 3 services have it',
+    ]);
+  });
+
+  it('says why the pipelines of a product in the portal are missing', async () => {
+    wizard()['productForm'].controls.departmentId.setValue(3);
+    wizard()['chooseMode']('existing');
+    wizard()['productId'].setValue(1);
+    http.expectOne('/api/products/1').flush(product());
+    TestBed.tick();
+    http
+      .expectOne('/api/products/1/pipelines')
+      .flush({ detail: 'Database unavailable' }, { status: 500, statusText: 'Server Error' });
+    await next();
+
+    expect(text(page().querySelector('.choice-error'))).toBe(
+      `Its pipelines could not be loaded. Database unavailable. ${RETRY}`,
+    );
+    expect(page().querySelector('.tile-note')).toBeNull();
+  });
+
+  it('removes a service in the portal only on save and warns about its pipelines', async () => {
+    await chooseProduct(3, product({ services: [service(), anotherService()] }), [
+      servicePipelines({ pipelines: [pipeline(), pipeline({ type: 'SAST' })] }),
+      servicePipelines({ serviceId: 11, serviceName: 'api', pipelines: [pipeline()] }),
+    ]);
+    await next();
+    wizard()['pipeline'].set('SECURITY');
+    await next();
+    const rows = () => [...page().querySelectorAll<HTMLElement>('.service-list li')];
+    const names = () =>
+      [...page().querySelectorAll('.service-list button')].map((button) =>
+        button.getAttribute('aria-label'),
+      );
+
+    expect(names()).toEqual(['Change gui', 'Remove gui', 'Change api', 'Remove api']);
+
+    await click(rows()[0], 'Remove');
+
+    expect(names()).toEqual(['Undo removing gui', 'Change api', 'Remove api']);
+
+    expect(rows()[0].classList).toContain('removed');
+    expect(text(rows()[0].querySelector('.tag'))).toBe('Removed');
+    expect(text(rows()[0].querySelector('.removal'))).toBe(
+      'Saving deletes gui, its pipelines (Full, SAST) and their keys. Jenkins jobs that use these keys stop working.',
+    );
+    expect(wizard().hasUnsavedChanges()).toBe(true);
+
+    await click(rows()[1], 'Remove');
+    await next();
+
+    expect(wizard()['step']()).toBe(2);
+    expect(text(page().querySelector('.choice-error'))).toBe('Keep at least one service');
+
+    await click(rows()[1], 'Undo');
+    await next();
+
+    expect(review()).toEqual(['Product', 'Business Service', 'Pipeline', 'Jenkins agents']);
+    expect(entries()).toEqual([
+      'gui · Removed · Deleted, with its pipelines and their keys.',
+      'api · Gets a Security pipeline with its own key; nothing else changes.',
+    ]);
+    expect(all('.removal-warning li')).toEqual(['gui · Full, SAST']);
+
+    await next();
+    const request = http.expectOne({ method: 'PUT', url: '/api/products/1?pipelineType=SECURITY' });
+    expect(request.request.body.services.map((entry: { id: number }) => entry.id)).toEqual([11]);
+    request.flush(product({ services: [anotherService()] }));
+    http.expectOne('/api/products/1/pipelines').flush([]);
+    await fixture.whenStable();
+
+    wizard()['restart']();
+    TestBed.tick();
+    http.expectOne('/api/products').flush([productSummary()]);
+    await fixture.whenStable();
+
+    expect(wizard()['step']()).toBe(0);
+    expect(wizard()['removed']()).toEqual([]);
+    expect(wizard()['services']()).toEqual([]);
+  });
+
+  it('removes a service not saved yet at once', async () => {
+    await chooseProduct(3);
+    await next();
+    wizard()['pipeline'].set('SAST');
+    await next();
+    wizard()['services'].update((services) => [...services, added]);
+    await fixture.whenStable();
+
+    await click(page().querySelectorAll('.service-list li')[1], 'Remove');
+
+    expect(
+      wizard()
+        ['services']()
+        .map((entry) => entry.name),
+    ).toEqual(['gui']);
+    expect(wizard()['removed']()).toEqual([]);
+  });
+
+  it('says how a service in the portal changes and sends its new build tool with default build settings', async () => {
+    await chooseProduct(3);
+    await next();
+    wizard()['pipeline'].set('FULL');
+    await next();
+    wizard()['services'].update(([gui]) => [{ ...gui, name: 'web', tool: 'MAVEN' }]);
+    await fixture.whenStable();
+
+    expect(text(page().querySelector('.service-list .tag'))).toBe('Changed');
+
+    await next();
+
+    expect(entries()).toEqual([
+      'web · Changed · Keeps its Full pipeline. Renamed from gui; built with Maven instead of Gradle, with the default build settings.',
+    ]);
+    expect(page().querySelector('.removal-warning')).toBeNull();
+
+    await next();
+    const request = http.expectOne({ method: 'PUT', url: '/api/products/1?pipelineType=FULL' });
+    const [sent] = request.request.body.services;
+    expect(sent.id).toBe(10);
+    expect(sent.name).toBe('web');
+    expect(sent.build).toEqual(
+      expect.objectContaining({ tool: 'MAVEN', autoSetup: true, buildPath: 'target/*.jar' }),
+    );
+    expect(sent.deployment).toEqual(service().deployment);
+    expect(sent.testJobs).toEqual(service().testJobs);
+    request.flush(product());
+    http.expectOne('/api/products/1/pipelines').flush([servicePipelines()]);
+    await fixture.whenStable();
+
+    expect(text(page().querySelector('.step-actions a[href="/admin/products/1"]'))).toBe(
+      'Open CertScanner in DevSecOps Admin',
+    );
+    expect(all('.step-actions button')).toEqual(['Set up another product']);
+    expect(buttonOf(page(), 'Copy the Jenkinsfile of gui')).toBeDefined();
+  });
+
+  it('asks where the services added for a static scan run once the pipeline deploys them', async () => {
+    const unplaced: WizardService = { ...added, target: null };
+    wizard()['pipeline'].set('SECURITY');
+    wizard()['services'].set([unplaced]);
+    wizard()['step'].set(2);
+    await next();
+
+    expect(wizard()['step']()).toBe(2);
+    expect(text(page().querySelector('.choice-error'))).toBe(
+      'Use Change to say where these services run: archive-api',
+    );
+
+    wizard()['services'].set([{ ...unplaced, target: 'OPENSHIFT' }]);
+    await next();
+    expect(wizard()['step']()).toBe(2);
+
+    wizard()['services'].set([
+      { ...unplaced, target: 'OPENSHIFT', openShiftProject: 'ta-archive' },
+    ]);
+    await next();
+    expect(wizard()['step']()).toBe(3);
+    expect(entries()).toEqual([
+      'archive-api · New · Added with a Security pipeline and its own key. Built with Gradle, runs on OpenShift in project ta-archive.',
+    ]);
+
+    wizard()['pipeline'].set('SAST');
+    await fixture.whenStable();
+    expect(entries()).toEqual([
+      'archive-api · New · Added with a SAST pipeline and its own key. Built with Gradle.',
+    ]);
+  });
+
+  it('says in the review that a new pipeline joins the Jenkins job that two pipelines of its repository share, while the service template names a job', async () => {
+    const web = anotherService({
+      id: 12,
+      name: 'web',
+      sonar: { ...service().sonar, projectKey: 'cert-web' },
+    });
+    await chooseProduct(3, product({ services: [service(), anotherService(), web] }), [
+      servicePipelines(),
+      servicePipelines({
+        serviceId: 11,
+        serviceName: 'api',
+        pipelines: [pipeline({ id: 200, serviceId: 11, serviceName: 'api' })],
+      }),
+      servicePipelines({ serviceId: 12, serviceName: 'web', pipelines: [] }),
+    ]);
+    await next();
+    wizard()['pipeline'].set('FULL');
+    await next();
+    await next();
+
+    expect(wizard()['step']()).toBe(3);
+    const joining = [
+      'gui · Already has a Full pipeline; nothing changes. Its Jenkinsfile, which it shares with api, gets the key of web.',
+      'api · Already has a Full pipeline; nothing changes. Its Jenkinsfile, which it shares with gui, gets the key of web.',
+      'web · Gets a Full pipeline with its own key; nothing else changes. Joins the Jenkins job that gui and api share, so their Jenkinsfile gets its key.',
+    ];
+    expect(entries()).toEqual(joining);
+
+    const keeping = [
+      'gui · Already has a Full pipeline; nothing changes. Shares its repository with api and web but keeps its Jenkinsfile and Jenkins job.',
+      'api · Already has a Full pipeline; nothing changes. Shares its repository with gui and web but keeps its Jenkinsfile and Jenkins job.',
+      'web · Gets a Full pipeline with its own key; nothing else changes.',
+    ];
+
+    wizard()['agents'].setValue('windows-agent');
+    await fixture.whenStable();
+
+    expect(entries()).toEqual(keeping);
+
+    wizard()['agents'].setValue('');
+    await fixture.whenStable();
+
+    expect(entries()).toEqual(joining);
+
+    wizard()['serviceTemplate'].set(serviceTemplate({ jenkinsJob: null }));
+    await fixture.whenStable();
+
+    expect(entries()).toEqual(keeping);
+  });
+
+  it('asks for the Nexus IQ application and repository of every service and points to the golden pull requests', async () => {
+    await chooseProduct(
+      3,
+      product({ services: [service(), anotherService({ nexusIqApplications: [] })] }),
+      [servicePipelines(), servicePipelines({ serviceId: 11, serviceName: 'api', pipelines: [] })],
+    );
+    await next();
+    wizard()['pipeline'].set('NEXUS_IQ');
+    await fixture.whenStable();
+
+    expect(all('.prepare li').at(-1)).toBe(
+      'The Nexus IQ application and the Bitbucket repository of each service',
+    );
+
+    await next();
+    await next();
+
+    expect(wizard()['step']()).toBe(2);
+    expect(text(page().querySelector('.choice-error'))).toBe(
+      'Use Change to add the Nexus IQ application and Bitbucket repository of these services: api',
+    );
+
+    wizard()['services'].update(([gui, api]) => [gui, { ...api, nexusIqApplication: 'cert-api' }]);
+    await next();
+
+    expect(wizard()['step']()).toBe(3);
+    expect(entries()).toEqual([
+      'gui · Gets an OSA pipeline with its own key; nothing else changes. Shares its repository with api, so they get one Jenkinsfile and one Jenkins job.',
+      'api · Changed · Gets an OSA pipeline with its own key. New Nexus IQ application. Shares its repository with gui, so they get one Jenkinsfile and one Jenkins job.',
+    ]);
+
+    await next();
+    const request = http.expectOne({ method: 'PUT', url: '/api/products/1?pipelineType=NEXUS_IQ' });
+    expect(request.request.body.services[1].nexusIqApplications).toEqual([
+      {
+        application: 'cert-api',
+        scanPatterns: ['**/build/libs/*.jar'],
+        stage: 'build',
+        failOnNetworkError: false,
+      },
+    ]);
+    expect(request.request.body.services[0].nexusIqApplications).toEqual(
+      service().nexusIqApplications,
+    );
+    request.flush(product());
+    http.expectOne('/api/products/1/pipelines').flush([
+      servicePipelines({
+        pipelines: [
+          pipeline(),
+          pipeline({
+            id: 101,
+            type: 'NEXUS_IQ',
+            entryPoint: 'devSecOpsNexusIqGoldenFixPipeline',
+            jenkinsJob: 'DevSecOps/CERT/gui-nexusiq',
+          }),
+        ],
+      }),
+    ]);
+    await fixture.whenStable();
+
+    expect(all('.next-steps > li h3')).toEqual([
+      "Put the Jenkinsfile in each service's repository",
+      'Ask your Jenkins administrator for a job for each service',
+      'Run each job once',
+      'Review the golden pull requests',
+      'Follow the results',
+    ]);
+    expect(all('.jenkinsfile-head')).toEqual([
+      'gui · goes into https://bitbucket.bbh.com/projects/CERT/repos/gui Copy',
+    ]);
+    expect(all('.job-names li')).toEqual(['gui: DevSecOps/CERT/gui-nexusiq']);
+    expect(text(page().querySelector('.jenkinsfile .code-block'))).toContain(
+      'devSecOpsNexusIqGoldenFixPipeline(',
+    );
+  });
+
+  it('keeps the department of a product in the portal', async () => {
+    await chooseProduct(3);
+
+    expect(text(fieldOf(page(), 'Business Service')?.querySelector('dso-hint'))).toBe('');
+    expect(review()).toEqual(['Owner team', 'Services']);
+    expect(wizard()['departmentName']()).toBe('Corporate Technology');
+    expect(fieldOf(page(), 'AppScan API key ID')).toBeNull();
+  });
+
+  it('asks for the Jenkins agents of the pipelines it creates, starting with those of the template', async () => {
+    await chooseProduct(3, product({ services: [] }), []);
+    await next();
+
+    expect(fieldOf(page(), 'Jenkins agents')?.querySelector('input')?.value).toBe('linux-agent');
+
+    wizard()['agents'].setValue(`linux-agent, ${'x'.repeat(101)}`);
+    await next();
+
+    expect(wizard()['step']()).toBe(1);
+    expect(text(fieldOf(page(), 'Jenkins agents')?.querySelector('dso-error'))).toBe(
+      `At most 100 characters per label: ${'x'.repeat(101)}`,
+    );
+
+    wizard()['agents'].setValue(' docker-agent, linux-agent ');
+    wizard()['pipeline'].set('SAST');
+    await next();
+    wizard()['services'].set([
+      { ...added, serviceRequest: { ...service(), id: null, name: 'archive-api' } },
+    ]);
+    await next();
+
+    expect(review()).toContain('Jenkins agents');
+
+    await next();
+
+    const request = http.expectOne({ method: 'PUT', url: '/api/products/1?pipelineType=SAST' });
+    expect(request.request.body.agentLabels).toEqual(['docker-agent', 'linux-agent']);
+    expect(request.request.body.appScan).toBeUndefined();
+    expect(request.request.body.services.map((service: { name: string }) => service.name)).toEqual([
+      'archive-api',
+    ]);
+    expect(request.request.body.services[0].appScan.keyId).toBeUndefined();
+    request.flush(product());
+    http.expectOne('/api/products/1/pipelines').flush([]);
+    await fixture.whenStable();
+
+    expect(wizard()['step']()).toBe(4);
+  });
+
+  it('explains the fields of the product and pipeline steps with a help text', async () => {
+    expect(unexplained(page())).toEqual([]);
+    expect(helpOf(fieldOf(page(), 'Product name')!)).toBe(
+      'The full name of the product as the portal shows it. No other product may use it.',
+    );
+
+    await chooseProduct(3, product({ services: [] }), []);
+
+    expect(unexplained(page())).toEqual([]);
+
+    await next();
+
+    expect(unexplained(page())).toEqual([]);
+    expect(helpOf(fieldOf(page(), 'Jenkins agents')!)).toBe(
+      'Jenkins agent labels or label expressions for the pipelines this request creates; existing pipelines keep theirs. A run uses the one chosen in its AGENT_NAME parameter.',
+    );
+  });
+
+  it('asks for an UrbanCode Deploy application for DV of the services a Full pipeline deploys to virtual machines', async () => {
+    await chooseProduct(3, product({ services: [service({ urbanCodeApplications: [] })] }));
+    await next();
+    wizard()['pipeline'].set('FULL');
+    await next();
+    wizard()['services'].update((services) => [...services, added]);
+    await next();
+
+    expect(wizard()['step']()).toBe(2);
+    expect(all('.choice-error')).toEqual([
+      'Use Change to add an UrbanCode Deploy application for DV to these services, which the Full pipeline uses to deploy them to the lower test region: gui, archive-api',
+    ]);
+
+    wizard()['services'].update(([gui, api]) => [
+      { ...gui, serviceRequest: service() },
+      { ...api, target: 'OPENSHIFT', openShiftProject: 'cert' },
+    ]);
+    await next();
+
+    expect(wizard()['step']()).toBe(3);
+  });
+
+  it('keeps Liquibase services with database changes out of the Nexus IQ wizard and out of the UrbanCode Deploy check', async () => {
+    const stored = product({ services: [service(), databaseService({ id: 11 })] });
+    const pipelines = [
+      servicePipelines(),
+      servicePipelines({ serviceId: 11, serviceName: 'orders-db', pipelines: [] }),
+    ];
+    await chooseProduct(3, stored, pipelines);
+    await next();
+    wizard()['pipeline'].set('NEXUS_IQ');
+    await next();
+    await next();
+
+    expect(wizard()['step']()).toBe(2);
+    expect(all('.choice-error')).toEqual([
+      'The library runs no Nexus IQ GoldenFix pipeline for a Liquibase service with database changes. Remove these services from this pipeline: orders-db',
+    ]);
+
+    wizard()['back']();
+    wizard()['pipeline'].set('FULL');
+    await fixture.whenStable();
+    await next();
+    await next();
+
+    expect(all('.choice-error')).toEqual([]);
+    expect(wizard()['step']()).toBe(3);
+    expect(entries()[1]).toBe(
+      'orders-db · Gets a Full pipeline with its own key; nothing else changes.',
+    );
+  });
+
+  it('asks for no AppScan API key ID, which the library holds for every service', async () => {
+    await chooseProduct(3, product({ services: [service()] }));
+    await next();
+    wizard()['pipeline'].set('SAST');
+    await next();
+
+    expect(all('.service-problem')).toEqual([]);
+
+    await next();
+
+    expect(all('.choice-error')).toEqual([]);
+    expect(wizard()['step']()).toBe(3);
+  });
+
+  it('asks to rename a new service that has the name of a service of the product chosen after it', async () => {
+    await chooseProduct(3, product({ id: 2, name: 'Payments Hub', services: [] }), []);
+    wizard()['services'].set([{ ...added, name: 'GUI' }]);
+    await chooseProduct(3);
+    await next();
+    wizard()['pipeline'].set('SAST');
+    await next();
+
+    expect(all('.service-list strong')).toEqual(['gui', 'GUI']);
+
+    await next();
+
+    expect(wizard()['step']()).toBe(2);
+    expect(all('.choice-error')).toEqual([
+      'Use Change to rename these services, as another service of CertScanner has the same name: GUI',
+    ]);
+  });
+
+  async function saveWithApi(jenkinsJob: string, webJob?: string) {
+    const services = [service(), anotherService()];
+    const listed = [
+      servicePipelines(),
+      servicePipelines({
+        serviceId: 11,
+        serviceName: 'api',
+        pipelines: [
+          pipeline({
+            id: 200,
+            serviceId: 11,
+            serviceName: 'api',
+            jenkinsJob,
+            activeKey: { ...pipeline().activeKey!, value: 'a1b2c3d4-0000-4abc-9def-123456789abc' },
+          }),
+        ],
+      }),
+    ];
+    if (webJob) {
+      services.push(
+        anotherService({
+          id: 12,
+          name: 'web',
+          sonar: { ...service().sonar, projectKey: 'cert-web' },
+        }),
+      );
+      listed.push(
+        servicePipelines({
+          serviceId: 12,
+          serviceName: 'web',
+          pipelines: [
+            pipeline({
+              id: 201,
+              serviceId: 12,
+              serviceName: 'web',
+              jenkinsJob: webJob,
+              activeKey: {
+                ...pipeline().activeKey!,
+                value: 'b2c3d4e5-0000-4abc-9def-123456789abc',
+              },
+            }),
+          ],
+        }),
+      );
+    }
+    const stored = product({ services });
+    await chooseProduct(3, stored, listed);
+    await next();
+    wizard()['pipeline'].set('FULL');
+    await next();
+    await next();
+    await next();
+    http.expectOne({ method: 'PUT', url: '/api/products/1?pipelineType=FULL' }).flush(stored);
+    http.expectOne('/api/products/1/pipelines').flush(listed);
+    await fixture.whenStable();
+  }
+
+  it('asks for one Jenkinsfile and one job for the services whose pipelines share the job of a repository', async () => {
+    await saveWithApi('DevSecOps/CERT/gui-full');
+    const step = (index: number) => text(page().querySelectorAll('.next-steps > li')[index]);
+
+    expect(all('.next-steps > li h3').slice(0, 2)).toEqual([
+      "Put the Jenkinsfile in each service's repository",
+      'Ask your Jenkins administrator for a job for each Jenkinsfile',
+    ]);
+    expect(step(0)).toContain(
+      'Services whose pipelines share a Jenkins job share one Jenkinsfile with all their keys.',
+    );
+    expect(all('.jenkinsfile-head')).toEqual([
+      'gui and api · goes into https://bitbucket.bbh.com/projects/CERT/repos/gui Copy',
+    ]);
+    expect(text(page().querySelector('.jenkinsfile .code-block'))).toContain(
+      "devSecOpsPipeline(pipelineKeys: [ '6f1c2d3e-0000-4abc-9def-123456789abc', 'a1b2c3d4-0000-4abc-9def-123456789abc', ])",
+    );
+    expect(buttonOf(page(), 'Copy the Jenkinsfile of gui and api')).toBeDefined();
+    expect(step(1)).toContain(
+      'Ask for one Pipeline job for each Jenkinsfile above, not one per service, that reads the Jenkinsfile from its repository (Pipeline script from SCM): one GoldenFix pull request then covers all the services of the job. Use these names:',
+    );
+    expect(all('.job-names li')).toEqual(['gui and api: DevSecOps/CERT/gui-full']);
+    expect(all('.shared-runs')).toEqual([
+      'Pipeline Monitoring shows the runs of the shared job under gui, the service of the first key. To see them on the other services too, give them the same Project tag (Monitoring section) and the shared job as the Jenkins job of their pipelines.',
+    ]);
+  });
+
+  it('keeps a Jenkinsfile and a job for each service of a repository whose pipelines run in jobs of their own', async () => {
+    await saveWithApi('DevSecOps/CERT/api-full');
+
+    expect(all('.next-steps > li h3')[1]).toBe(
+      'Ask your Jenkins administrator for a job for each service',
+    );
+    expect(all('.job-names li')).toEqual([
+      'gui: DevSecOps/CERT/gui-full',
+      'api: DevSecOps/CERT/api-full',
+    ]);
+    expect(page().querySelectorAll('.jenkinsfile .code-block')).toHaveLength(2);
+  });
+
+  it('asks for one job for each Jenkinsfile when only some services of a repository share a job', async () => {
+    await saveWithApi('DevSecOps/CERT/api-full', 'DevSecOps/CERT/API-full');
+
+    expect(all('.next-steps > li h3')[1]).toBe(
+      'Ask your Jenkins administrator for a job for each Jenkinsfile',
+    );
+    expect(all('.jenkinsfile-head')).toEqual([
+      'gui · goes into https://bitbucket.bbh.com/projects/CERT/repos/gui Copy',
+      'api and web · goes into https://bitbucket.bbh.com/projects/CERT/repos/gui Copy',
+    ]);
+    expect(all('.job-names li')).toEqual([
+      'gui: DevSecOps/CERT/gui-full',
+      'api and web: DevSecOps/CERT/api-full',
+    ]);
+  });
+
+  it('points to the pipeline page of a service whose key is invalidated instead of its Jenkinsfile', async () => {
+    await chooseProduct(3);
+    await next();
+    wizard()['pipeline'].set('FULL');
+    await next();
+    await next();
+    await next();
+    http.expectOne({ method: 'PUT', url: '/api/products/1?pipelineType=FULL' }).flush(product());
+    http
+      .expectOne('/api/products/1/pipelines')
+      .flush([servicePipelines({ pipelines: [pipeline({ activeKey: null })] })]);
+    await fixture.whenStable();
+
+    expect(buttonOf(page(), 'Copy the Jenkinsfile of gui')).toBeUndefined();
+    expect(page().querySelector('.code-block')).toBeNull();
+    expect(all('.jenkinsfile-missing')).toEqual([
+      'Its key is invalidated, so the pipeline is refused its settings and stops. Issue a new key on its pipeline page and copy the Jenkinsfile from there.',
+    ]);
+    expect(page().querySelector('.jenkinsfile-missing a')?.getAttribute('href')).toBe(
+      '/pipelines/100',
+    );
+  });
+});
+
+describe('SelfService without departments', () => {
+  it('says why no department can be chosen and still takes a product that has one', async () => {
+    TestBed.configureTestingModule({
+      imports: [SelfService],
+      providers: [provideHttpClient(), provideHttpClientTesting(), provideRouter([])],
+    });
+    const http = TestBed.inject(HttpTestingController);
+    const fixture = TestBed.createComponent(SelfService);
+    const wizard = fixture.componentInstance;
+    fixture.detectChanges();
+    http.expectOne('/api/products').flush([productSummary()]);
+    http
+      .expectOne('/api/departments')
+      .flush({ detail: 'Database unavailable' }, { status: 500, statusText: 'Server Error' });
+    http.expectOne('/api/settings').flush(globalSettings());
+    http.expectOne('/api/service-template').flush(serviceTemplate());
+    await fixture.whenStable();
+
+    const error = (fixture.nativeElement as HTMLElement).querySelector('.choice-error');
+    expect(text(error)).toContain('The business services could not be loaded');
+
+    wizard['chooseMode']('existing');
+    wizard['productId'].setValue(1);
+    http.expectOne('/api/products/1').flush(product());
+    TestBed.tick();
+    http.expectOne('/api/products/1/pipelines').flush([servicePipelines()]);
+    wizard['next']();
+    await fixture.whenStable();
+
+    expect(wizard['step']()).toBe(1);
+    expect(wizard['departmentName']()).toBe('Corporate Technology');
+    http.verify();
+  });
+});
+
+describe('SelfService without products', () => {
+  it('says why no product in the portal can be chosen', async () => {
+    TestBed.configureTestingModule({
+      imports: [SelfService],
+      providers: [provideHttpClient(), provideHttpClientTesting(), provideRouter([])],
+    });
+    const http = TestBed.inject(HttpTestingController);
+    const fixture = TestBed.createComponent(SelfService);
+    fixture.detectChanges();
+    http
+      .expectOne('/api/products')
+      .flush({ detail: 'Database unavailable' }, { status: 500, statusText: 'Server Error' });
+    http.expectOne('/api/departments').flush([department()]);
+    http.expectOne('/api/settings').flush(globalSettings());
+    http.expectOne('/api/service-template').flush(serviceTemplate());
+    await fixture.whenStable();
+
+    expect(text((fixture.nativeElement as HTMLElement).querySelector('.choice-error'))).toBe(
+      `The products could not be loaded. Database unavailable. ${RETRY}`,
+    );
+    http.verify();
+  });
+});
+
+describe('SelfService in your department', () => {
+  let fixture: ComponentFixture<SelfService>;
+  let http: HttpTestingController;
+
+  afterEach(() => {
+    http.verify();
+    localStorage.removeItem(MY_DEPARTMENT_KEY);
+  });
+
+  const wizard = () => fixture.componentInstance;
+  const page = () => fixture.nativeElement as HTMLElement;
+
+  function open(departmentId: string) {
+    localStorage.setItem(MY_DEPARTMENT_KEY, departmentId);
+    TestBed.configureTestingModule({
+      imports: [SelfService],
+      providers: [provideHttpClient(), provideHttpClientTesting(), provideRouter([])],
+    });
+    http = TestBed.inject(HttpTestingController);
+    fixture = TestBed.createComponent(SelfService);
+    fixture.detectChanges();
+    http.expectOne('/api/products').flush([productSummary()]);
+    http.expectOne('/api/departments').flush([department({ id: 5, name: 'Fund Services' })]);
+    http.expectOne('/api/settings').flush(globalSettings());
+  }
+
+  async function next() {
+    wizard()['next']();
+    await fixture.whenStable();
+  }
+
+  it('starts in the department you chose and says when the service template cannot be read', async () => {
+    open('5');
+    http
+      .expectOne('/api/service-template')
+      .flush({ detail: 'Database unavailable' }, { status: 500, statusText: 'Server Error' });
+    await fixture.whenStable();
+
+    expect(wizard()['productForm'].controls.departmentId.value).toBe(5);
+    expect(wizard()['departmentName']()).toBe('Fund Services');
+
+    wizard()['chooseMode']('existing');
+    wizard()['productId'].setValue(1);
+    http.expectOne('/api/products/1').flush(product());
+    TestBed.tick();
+    http.expectOne('/api/products/1/pipelines').flush([servicePipelines()]);
+    await next();
+    wizard()['pipeline'].set('SAST');
+    await next();
+
+    expect(text(page().querySelector('.template-problem'))).toBe(
+      'The service template could not be loaded. Database unavailable. New services, and services that change how they are built or where they run, get their build settings from it. Try again',
+    );
+
+    await next();
+
+    expect(wizard()['step']()).toBe(3);
+
+    buttonOf(page(), 'Back').click();
+    wizard()['services'].update((services) => [...services, added]);
+    await next();
+
+    expect(wizard()['step']()).toBe(2);
+    expect([...page().querySelectorAll('.choice-error')].map(text)).toEqual([
+      'The service template could not be loaded. Database unavailable. New services, and services that change how they are built or where they run, get their build settings from it.',
+      'These services get their build settings from the service template, which has to load first: archive-api',
+    ]);
+
+    buttonOf(page(), 'Try again').click();
+    TestBed.tick();
+    http.expectOne('/api/service-template').flush(serviceTemplate());
+    await fixture.whenStable();
+
+    expect(page().querySelector('.template-problem')).toBeNull();
+
+    await next();
+
+    expect(wizard()['step']()).toBe(3);
+  });
+
+  it('forgets the department you chose once it is no longer listed', async () => {
+    open('7');
+    http.expectOne('/api/service-template').flush(serviceTemplate());
+    await fixture.whenStable();
+
+    expect(wizard()['productForm'].controls.departmentId.value).toBeNull();
+
+    await next();
+
+    expect(wizard()['step']()).toBe(0);
+    expect(text(fieldOf(page(), 'Business Service')?.querySelector('dso-error'))).toBe('Required');
+
+    wizard()['restart']();
+    TestBed.tick();
+    http.expectOne('/api/products').flush([productSummary()]);
+    await fixture.whenStable();
+
+    expect(wizard()['productForm'].controls.departmentId.value).toBeNull();
+  });
+});

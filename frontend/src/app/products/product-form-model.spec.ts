@@ -1,0 +1,2278 @@
+import { DestroyRef, inject } from '@angular/core';
+import { TestBed } from '@angular/core/testing';
+import { of } from 'rxjs';
+import { FormGroup } from '@angular/forms';
+import { applyFieldProblems, controlAt, revalidateAll } from '@common/shared/form-controls';
+import { BuildTool, PipelineType, ServiceDefaults } from '../core/models';
+import {
+  anotherService,
+  command,
+  databaseDefaults,
+  databaseService,
+  databaseSettings,
+  databaseTarget,
+  globalSettings,
+  nodeBuild,
+  product,
+  service,
+  serviceTemplate,
+} from '../testing/fixtures';
+import {
+  BADGE_TWICE,
+  CHANGELOG_AT_ROOT,
+  NOT_ALLOWED_DATABASE,
+  NO_ALLOWED_DATABASES,
+  OWN_TEST_DATABASE,
+  QC_GETS_TESTS,
+  NODE_TWICE,
+  notHeldBySonarFolder,
+  NO_COMMAND,
+  NO_NEXUS_DELIVERY,
+  ONE_APPLICATION,
+  OPENSHIFT_RD_REQUIRED,
+  PRODUCT_WIDE_FIELD,
+  SAME_NAME,
+  applyProductProblems,
+  REMOTE_JENKINS_MESSAGE,
+  SERVICE_SECTIONS,
+  createNexusIqApplicationForm,
+  createOpenShiftTargetForm,
+  createProductForm,
+  createServiceForm,
+  createServiceGoldenFixForm,
+  createTestJobForm,
+  createToolCommandForm,
+  createUrbanCodeApplicationForm,
+  deploysToDv,
+  duplicateService,
+  dvApplication,
+  firstInvalidSection,
+  firstServiceWithProblem,
+  followName,
+  followToolDefaults,
+  NO_GOLDEN_FIX_OVERRIDES,
+  createGlobalGoldenFixForm,
+  goldenFixControls,
+  inheritsGoldenFix,
+  toGlobalGoldenFixPolicy,
+  isJobUrl,
+  isRemoteJob,
+  patchProduct,
+  prefillNewService,
+  relativePath,
+  sectionInvalid,
+  sectionTouched,
+  toProductRequest,
+  toServiceRequest,
+  toTestJob,
+  toToolCommand,
+  unitTestsConfigured,
+  formChangesDatabase,
+  visibleSections,
+  visibleSectionsForPipeline,
+  withDatabaseRules,
+} from './product-form-model';
+import { SEARCH_PATH_MESSAGE } from '../shared/database-rules';
+
+const DEFAULTS: ServiceDefaults = {
+  buildTool: 'MAVEN',
+  deployTarget: 'OPENSHIFT',
+  sourceDir: 'app',
+  testsMaxParallel: 20,
+  nodeInstallationName: null,
+  npmRegistry: null,
+  npmrcCredentialsId: null,
+  pluginRepositoriesEnabled: true,
+  gradlePluginRepository: null,
+  mavenPluginRepository: null,
+};
+
+describe('createServiceForm', () => {
+  it('starts a new service with the defaults of the DevSecOps library', () => {
+    const value = createServiceForm().getRawValue();
+
+    expect(value.build).toEqual({
+      tool: 'GRADLE',
+      sourceDir: '.',
+      javaPath: '',
+      autoSetup: false,
+      buildPath: '',
+      command: {
+        tasks: '',
+        flags: '',
+        directory: '',
+        mavenHome: '',
+        environment: '',
+        label: '',
+        returnStdout: false,
+      },
+    });
+    expect(value.deployment.target).toBe('VM');
+    expect(value.testJobs).toEqual([]);
+    expect(value.nexusIqApplications).toEqual([]);
+    expect(createNexusIqApplicationForm().getRawValue().stage).toBe('build');
+    expect(value.tests.smokeRequired && value.tests.regressionRequired).toBe(true);
+    expect(value.tests.performanceRequired).toBe(true);
+    expect(value.goldenFix.inherit).toBe(true);
+    expect(value.goldenFix.enabled).toBeNull();
+    expect(value.metrics).toEqual({
+      enabled: true,
+      influxProject: '',
+      influxEnv: 'test',
+      influxUrl: '',
+      influxCredentialsId: '',
+    });
+  });
+
+  it('starts a new service from the service defaults of the global settings', () => {
+    const value = createServiceForm(undefined, DEFAULTS).getRawValue();
+
+    expect(value.build.tool).toBe('MAVEN');
+    expect(value.build.sourceDir).toBe('app');
+    expect(value.deployment.target).toBe('OPENSHIFT');
+  });
+
+  it('keeps the values of a stored service over the service defaults', () => {
+    const value = createServiceForm(service(), DEFAULTS).getRawValue();
+
+    expect(value.build.tool).toBe('GRADLE');
+    expect(value.build.sourceDir).toBe('.');
+    expect(value.deployment.target).toBe('VM');
+  });
+
+  it('needs the JDK path unless a Gradle or Maven build sets it up automatically or the build tool is Liquibase', () => {
+    const form = createServiceForm();
+    const { javaPath, autoSetup, tool } = form.controls.build.controls;
+    expect(javaPath.hasError('required')).toBe(true);
+
+    autoSetup.setValue(true);
+    expect(javaPath.valid).toBe(true);
+
+    tool.setValue('MAVEN');
+    expect(javaPath.valid).toBe(true);
+
+    tool.setValue('LIQUIBASE');
+    autoSetup.setValue(false);
+    expect(javaPath.valid).toBe(true);
+    expect(form.controls.build.controls.command.enabled).toBe(true);
+
+    tool.setValue('FLUTTER');
+    expect(autoSetup.value).toBe(false);
+    expect(autoSetup.disabled).toBe(true);
+    expect(javaPath.hasError('required')).toBe(true);
+
+    tool.setValue('GRADLE');
+    expect(autoSetup.enabled).toBe(true);
+    expect(javaPath.hasError('required')).toBe(true);
+  });
+
+  it('needs the Flutter modules and the delivery coordinates on virtual machines', () => {
+    const form = createServiceForm();
+    form.controls.build.controls.tool.setValue('FLUTTER');
+    const flutter = form.controls.flutter.controls;
+    expect(flutter.modules.hasError('required')).toBe(true);
+    expect(flutter.testModules.hasError('required')).toBe(true);
+    expect(flutter.testSubmodules.valid).toBe(true);
+    expect(flutter.deliveryGroup.hasError('required')).toBe(true);
+    expect(flutter.deliveryArtifact.hasError('required')).toBe(true);
+    expect(flutter.deliveryPlugin.hasError('required')).toBe(true);
+
+    form.controls.deployment.controls.target.setValue('OPENSHIFT');
+    expect(flutter.deliveryGroup.valid).toBe(true);
+    expect(flutter.deliveryArtifact.valid).toBe(true);
+    expect(flutter.deliveryPlugin.valid).toBe(true);
+
+    flutter.deliveryPlugin.setValue('deploy:deploy-file $(id)');
+    expect(flutter.deliveryPlugin.hasError('pattern')).toBe(true);
+  });
+
+  it('accepts only the AppScan client path, folders and Maven home the shell can take', () => {
+    const form = createServiceForm();
+    form.controls.build.controls.tool.setValue('MAVEN');
+    const { clientPath, includedDirs } = form.controls.appScan.controls;
+    const { mavenHome } = form.controls.build.controls.command.controls;
+
+    clientPath.setValue('\\SAClientUtil\\bin\\appscan.bat');
+    includedDirs.setValue('src/main');
+    mavenHome.setValue('/opt/maven-3.9');
+    expect([clientPath.valid, includedDirs.valid, mavenHome.valid]).toEqual([true, true, true]);
+
+    clientPath.setValue('bin/appscan.bat; id');
+    includedDirs.setValue("src/main\nit's");
+    mavenHome.setValue('/opt/maven;id');
+    expect(clientPath.hasError('pattern')).toBe(true);
+    expect(includedDirs.hasError('item')).toBe(true);
+    expect(mavenHome.hasError('pattern')).toBe(true);
+  });
+
+  it('needs a DAST target URL once DAST is switched on', () => {
+    const form = createServiceForm();
+    const { dastEnabled, dastTargetUrl } = form.controls.appScan.controls;
+    expect(dastTargetUrl.disabled).toBe(true);
+
+    dastEnabled.setValue(true);
+    expect(dastTargetUrl.hasError('required')).toBe(true);
+
+    dastTargetUrl.setValue('ftp://host');
+    expect(dastTargetUrl.hasError('pattern')).toBe(true);
+
+    for (const unsafe of ['$(id)', '`id`', '"', '\\']) {
+      dastTargetUrl.setValue(`https://cert-uat.testbbh.com/${unsafe}`);
+      expect(dastTargetUrl.hasError('pattern')).toBe(true);
+    }
+
+    dastTargetUrl.setValue('https://cert-uat.testbbh.com');
+    expect(dastTargetUrl.valid).toBe(true);
+  });
+
+  it('needs the SonarQube tasks with a project key and the Bitbucket credentials with a repository', () => {
+    const form = createServiceForm();
+    const { sonar, scm } = form.controls;
+    expect(sonar.controls.command.controls.tasks.valid).toBe(true);
+    expect(scm.controls.credentialsId.valid).toBe(true);
+
+    sonar.controls.projectKey.setValue('cert-api');
+    scm.controls.repositoryUrl.setValue('https://bitbucket.bbh.com/projects/CERT/repos/api');
+
+    expect(sonar.controls.command.controls.tasks.hasError('required')).toBe(true);
+    expect(scm.controls.credentialsId.hasError('required')).toBe(true);
+  });
+
+  it('takes the pinned image tags the library accepts from a security pipeline', () => {
+    const { buildTag, internalDockerUrl } = createOpenShiftTargetForm().controls;
+    buildTag.setValue('1.4.2+20261006');
+    internalDockerUrl.setValue('registry.svc:5000/cert/gui@sha256:4f2a');
+    expect([buildTag.valid, internalDockerUrl.valid]).toEqual([true, true]);
+
+    buildTag.setValue('1.4.2,rc');
+    internalDockerUrl.setValue('registry/~cert');
+    expect(buildTag.hasError('pattern')).toBe(true);
+    expect(internalDockerUrl.hasError('pattern')).toBe(true);
+  });
+
+  it('needs the tasks of an analysis or compile command that sets anything else', () => {
+    const form = createServiceForm();
+    const { sonar, appScan } = form.controls;
+    const compile = appScan.controls.compileCommand.controls;
+
+    sonar.controls.command.controls.label.setValue('Analyse');
+    compile.returnStdout.setValue(true);
+    expect(sonar.controls.command.controls.tasks.hasError('required')).toBe(true);
+    expect(compile.tasks.hasError('required')).toBe(true);
+
+    compile.tasks.setValue('classes');
+    expect(compile.tasks.valid).toBe(true);
+  });
+
+  it('checks names, the AppScan application id and the number of scan patterns', () => {
+    const form = createServiceForm({ name: 'Backend API' });
+    expect(form.controls.name.hasError('pattern')).toBe(true);
+    expect(form.controls.appScan.controls.applicationId.hasError('required')).toBe(true);
+
+    form.controls.appScan.controls.applicationId.setValue(' 109f44ac-cc06-4ca0-884e-d944904f7019 ');
+    expect(form.controls.appScan.controls.applicationId.valid).toBe(true);
+
+    const nexusIq = createNexusIqApplicationForm();
+    expect(nexusIq.controls.application.hasError('required')).toBe(true);
+    expect(nexusIq.controls.scanPatterns.hasError('required')).toBe(true);
+    nexusIq.controls.scanPatterns.setValue(
+      Array.from({ length: 21 }, (_, i) => `p${i}`).join('\n'),
+    );
+    expect(nexusIq.controls.scanPatterns.hasError('maxLines')).toBe(true);
+  });
+});
+
+describe('sections that apply to the build tool and deployment target', () => {
+  it('disables the commands and enables the Flutter section for Flutter', () => {
+    const form = createServiceForm(service());
+    const c = form.controls;
+    expect(c.flutter.disabled).toBe(true);
+
+    c.build.controls.tool.setValue('FLUTTER');
+
+    expect(c.build.controls.command.disabled).toBe(true);
+    expect(c.unitTests.controls.command.disabled).toBe(true);
+    expect(c.sonar.controls.command.disabled).toBe(true);
+    expect(c.appScan.controls.compileCommand.disabled).toBe(true);
+    expect(c.flutter.enabled).toBe(true);
+    expect(c.flutter.controls.signingPasswordCredentialsId.hasError('required')).toBe(true);
+    expect(form.invalid).toBe(true);
+  });
+
+  it('switches between the virtual machine and the OpenShift sections', () => {
+    const form = createServiceForm(service());
+    const c = form.controls;
+    expect([c.urbanCode, c.urbanCodeApplications, c.sshTargets].every((s) => s.enabled)).toBe(true);
+    expect(c.openShiftTargets.disabled).toBe(true);
+
+    c.deployment.controls.target.setValue('OPENSHIFT');
+
+    expect([c.urbanCode, c.urbanCodeApplications, c.sshTargets].every((s) => s.disabled)).toBe(
+      true,
+    );
+    expect(c.openShiftTargets.enabled).toBe(true);
+  });
+
+  it('keeps problems of sections that do not apply out of the validity', () => {
+    const form = createServiceForm(service());
+    form.controls.urbanCodeApplications.at(0).controls.applicationName.setValue('');
+    expect(form.invalid).toBe(true);
+
+    form.controls.deployment.controls.target.setValue('OPENSHIFT');
+    form.patchValue({ deployment: { appName: 'gui', artifactName: 'gui.jar' } });
+    expect(form.invalid).toBe(true);
+
+    form.controls.openShiftTargets.controls.RD.patchValue({
+      projectBuild: 'cert-build',
+      buildConfigPath: 'openshift/build.yaml',
+      dockerFilePath: 'Dockerfile',
+      buildContext: '.',
+      dockerRepoPush: 'nexus.bbh.com:18444',
+      nexusAuthFile: '/etc/containers/auth.json',
+    });
+
+    expect(form.valid).toBe(true);
+  });
+
+  it('finds the first section holding an invalid value', () => {
+    expect(firstInvalidSection(createServiceForm())).toBe('general');
+
+    const form = createServiceForm(service());
+    expect(firstInvalidSection(form)).toBeNull();
+
+    form.controls.sonar.controls.command.controls.tasks.setValue('');
+    expect(firstInvalidSection(form)).toBe('sonar');
+  });
+
+  it.each([
+    ['SAST', ['general', 'build', 'appScan', 'scm']],
+    ['NEXUS_IQ', ['general', 'build', 'appScan', 'nexusIq', 'scm', 'goldenFix']],
+    [
+      'SECURITY',
+      [
+        'general',
+        'build',
+        'unitTests',
+        'deployment',
+        'appScan',
+        'sonar',
+        'nexusIq',
+        'scm',
+        'goldenFix',
+        'metrics',
+      ],
+    ],
+  ] as const)('shows the %s pipeline the sections it reads', (pipeline, sections) => {
+    const form = createServiceForm(service());
+
+    expect(visibleSectionsForPipeline(form, pipeline).map((section) => section.id)).toEqual(
+      sections,
+    );
+  });
+
+  it('shows the SECURITY pipeline of a service on OpenShift its OpenShift targets and stops at their problems', () => {
+    const form = createServiceForm(service());
+    form.controls.deployment.controls.target.setValue('OPENSHIFT');
+    form.patchValue({ deployment: { appName: 'gui', artifactName: 'gui.jar' } });
+
+    expect(visibleSectionsForPipeline(form, 'SECURITY').map((section) => section.id)).toContain(
+      'openShift',
+    );
+    expect(firstInvalidSection(form, 'SECURITY')).toBe('openShift');
+    expect(firstInvalidSection(form, 'SAST')).toBeNull();
+  });
+
+  it('lets a pipeline save past problems in sections it does not read', () => {
+    const form = createServiceForm(service());
+    form.controls.sonar.controls.command.controls.tasks.setValue('');
+
+    expect(firstInvalidSection(form, 'NEXUS_IQ')).toBeNull();
+    expect(firstInvalidSection(form, 'SECURITY')).toBe('sonar');
+  });
+
+  it('needs the AppScan application ID of every service, but no API key, which the library holds', () => {
+    const form = createServiceForm(service());
+
+    expect(Object.keys(form.controls.appScan.controls)).not.toContain('keyId');
+    expect(Object.keys(form.controls.appScan.controls)).not.toContain('secretCredentialsId');
+
+    form.controls.appScan.controls.applicationId.setValue(' ');
+
+    expect(form.controls.appScan.controls.applicationId.hasError('required')).toBe(true);
+    expect(firstInvalidSection(form, 'NEXUS_IQ')).toBe('appScan');
+  });
+});
+
+describe('fields hidden while they do not apply', () => {
+  it('turns the DAST fields off with DAST and sends only a valid hidden value', () => {
+    const form = createServiceForm(service());
+    const { dastEnabled, dastTargetUrl, dastPresenceId } = form.controls.appScan.controls;
+
+    dastEnabled.setValue(true);
+    dastTargetUrl.setValue('cert-scanner.testbbh.com');
+    dastPresenceId.setValue('presence-7');
+    expect(form.invalid).toBe(true);
+
+    dastEnabled.setValue(false);
+
+    expect(dastTargetUrl.disabled && dastPresenceId.disabled).toBe(true);
+    expect(form.valid).toBe(true);
+    expect(toServiceRequest(form).appScan).toMatchObject({
+      dastEnabled: false,
+      dastTargetUrl: null,
+      dastPresenceId: 'presence-7',
+    });
+
+    dastEnabled.setValue(true);
+    expect(dastTargetUrl.hasError('pattern')).toBe(true);
+  });
+
+  it('turns the compile command off with compiling and drops it when it is invalid', () => {
+    const form = createServiceForm(service());
+    const { compile, compileCommand } = form.controls.appScan.controls;
+    compileCommand.patchValue({ tasks: 'compileJava', environment: 'not a variable' });
+    expect(form.invalid).toBe(true);
+
+    compile.setValue(false);
+
+    expect(compileCommand.disabled).toBe(true);
+    expect(form.valid).toBe(true);
+    expect(toServiceRequest(form).appScan.compileCommand).toEqual(NO_COMMAND);
+
+    compileCommand.patchValue({ environment: 'CI=true' });
+    expect(toServiceRequest(form).appScan.compileCommand.tasks).toEqual(['compileJava']);
+
+    compile.setValue(true);
+    expect(compileCommand.enabled).toBe(true);
+  });
+
+  it('turns the remote Jenkins fields of a test job off while it runs on this Jenkins', () => {
+    const job = createTestJobForm({ type: 'REMOTE', job: 'CERT/smoke' });
+    const { type, remoteJenkinsUrl, remoteJenkins, credentialsId } = job.controls;
+    remoteJenkinsUrl.setValue('jenkins-qa.bbh.com');
+    expect(job.invalid).toBe(true);
+
+    type.setValue('LOCAL');
+
+    expect([remoteJenkins, remoteJenkinsUrl, credentialsId].every((c) => c.disabled)).toBe(true);
+    expect(job.valid).toBe(true);
+    expect(toTestJob(job).remoteJenkinsUrl).toBeNull();
+
+    job.controls.job.setValue('https://jenkins-qa.bbh.com/job/smoke/');
+    expect(remoteJenkinsUrl.enabled).toBe(true);
+    expect(remoteJenkinsUrl.hasError('pattern')).toBe(true);
+  });
+});
+
+describe('switches between dependent settings', () => {
+  it('hides and keeps the values only the Nexus delivery uses while it is disabled on virtual machines', () => {
+    const form = createServiceForm(service({ build: { ...service().build, tool: 'MAVEN' } }));
+    const { delivery, build, deployment } = form.controls;
+    delivery.controls.tasks.setValue('deploy:deploy-file');
+    deployment.controls.artifactName.setValue('cert-gui.jar');
+    build.controls.buildPath.setValue('');
+
+    expect(build.controls.buildPath.hasError('required')).toBe(true);
+
+    deployment.controls.nexusDeliveryDisabled.setValue(true);
+    const request = toServiceRequest(form);
+
+    expect(delivery.disabled).toBe(true);
+    expect(build.controls.buildPath.valid).toBe(true);
+    expect(deployment.controls.artifactName.disabled).toBe(true);
+    expect(request.deployment.nexusDeliveryDisabled).toBe(true);
+    expect(request.delivery.tasks).toEqual(['deploy:deploy-file']);
+    expect(request.deployment.artifactName).toBe('cert-gui.jar');
+
+    deployment.controls.nexusDeliveryDisabled.setValue(false);
+
+    expect(delivery.enabled).toBe(true);
+    expect(delivery.controls.tasks.value).toBe('deploy:deploy-file');
+    expect(build.controls.buildPath.hasError('required')).toBe(true);
+  });
+
+  it('drops the OpenShift image build and push of RD from validation while Nexus delivery is disabled', () => {
+    const form = createServiceForm(service());
+    form.patchValue({
+      deployment: { target: 'OPENSHIFT', appName: 'gui', artifactName: 'gui.jar' },
+      openShiftTargets: { RD: { dockerRepoPull: 'nexus/gui', projectDeployment: 'cert-rd' } },
+    });
+    const rd = form.controls.openShiftTargets.controls.RD.controls;
+    rd.addFile.setValue('kept.txt');
+
+    expect(rd.projectBuild.hasError('required')).toBe(true);
+
+    form.controls.deployment.controls.nexusDeliveryDisabled.setValue(true);
+
+    expect(form.controls.openShiftTargets.valid).toBe(true);
+    expect(
+      [rd.projectBuild, rd.dockerRepoPush, rd.internalDockerUrl].every((c) => c.disabled),
+    ).toBe(true);
+    expect(rd.projectDeployment.enabled).toBe(true);
+    expect(toServiceRequest(form).openShiftTargets.RD?.addFile).toBe('kept.txt');
+  });
+
+  it('hides and keeps the Flutter delivery coordinates while Nexus delivery is disabled', () => {
+    const form = createServiceForm(service());
+    form.controls.build.controls.tool.setValue('FLUTTER');
+    const flutter = form.controls.flutter.controls;
+
+    expect(flutter.deliveryGroup.hasError('required')).toBe(true);
+
+    form.controls.flutter.patchValue({
+      deliveryGroup: 'com.bbh.cert',
+      deliveryArtifact: 'cert-app',
+    });
+    form.controls.deployment.controls.nexusDeliveryDisabled.setValue(true);
+
+    expect(flutter.deliveryGroup.disabled).toBe(true);
+    expect(flutter.modules.enabled).toBe(true);
+    expect(toServiceRequest(form).flutter).toEqual(
+      expect.objectContaining({ deliveryGroup: 'com.bbh.cert', deliveryArtifact: 'cert-app' }),
+    );
+  });
+
+  it('takes the badge token or its credentials ID, not both', () => {
+    const sonar = createServiceForm(service()).controls.sonar.controls;
+    sonar.badgeCredentialsId.setValue('sonar-badge');
+
+    expect(sonar.badgeCredentialsId.valid).toBe(true);
+
+    sonar.badgeToken.setValue('sqb_1a2b');
+
+    expect(sonar.badgeToken.errors).toEqual({ rule: BADGE_TWICE });
+    expect(sonar.badgeCredentialsId.errors).toEqual({ rule: BADGE_TWICE });
+
+    sonar.badgeCredentialsId.setValue('');
+
+    expect(sonar.badgeToken.valid).toBe(true);
+    expect(sonar.badgeCredentialsId.valid).toBe(true);
+
+    sonar.badgeCredentialsId.setValue('sonar-badge');
+    sonar.badgeToken.setValue('');
+
+    expect(sonar.badgeToken.valid).toBe(true);
+    expect(sonar.badgeCredentialsId.valid).toBe(true);
+  });
+
+  it('leaves the QC region optional and needs what its deployment reads once it is started', () => {
+    const form = createServiceForm(service());
+    form.controls.deployment.controls.target.setValue('OPENSHIFT');
+    const qc = form.controls.openShiftTargets.controls.QC;
+
+    expect(qc.valid).toBe(true);
+
+    qc.controls.healthCheckUrl.setValue('/health');
+
+    expect(
+      ['projectDeployment', 'deployConfigPath', 'dockerRepoPull', 'configPath'].filter((key) =>
+        qc.get(key)!.hasError('required'),
+      ),
+    ).toEqual(['projectDeployment', 'deployConfigPath', 'dockerRepoPull', 'configPath']);
+
+    qc.patchValue({
+      projectDeployment: 'cert-qc',
+      deployConfigPath: 'openshift/deployment.yaml',
+      dockerRepoPull: 'nexus/cert',
+      skipConfigDeploy: true,
+    });
+
+    expect(qc.valid).toBe(true);
+
+    qc.patchValue({ projectDeployment: '', deployConfigPath: '', dockerRepoPull: '' });
+    qc.controls.healthCheckUrl.setValue('');
+    qc.controls.skipConfigDeploy.setValue(false);
+
+    expect(qc.valid).toBe(true);
+  });
+});
+
+describe('Node.js build', () => {
+  const nodeOf = (form: ReturnType<typeof createServiceForm>) => form.controls.nodeBuild.controls;
+
+  it('starts off with its fields disabled and needs nothing but the switch', () => {
+    const form = createServiceForm(service());
+    const node = nodeOf(form);
+
+    expect(form.getRawValue().nodeBuild).toEqual({
+      enabled: false,
+      directory: '',
+      commands: '',
+      installationName: '',
+      nodePath: '',
+      environment: '',
+      registry: '',
+      npmrcCredentialsId: '',
+      timeoutMinutes: null,
+      nexusIqScan: true,
+    });
+    expect(node.enabled.enabled).toBe(true);
+    expect(node.directory.disabled && node.commands.disabled && node.nexusIqScan.disabled).toBe(
+      true,
+    );
+
+    node.enabled.setValue(true);
+
+    expect(Object.values(node).every((control) => control.enabled)).toBe(true);
+    expect(form.valid).toBe(true);
+    expect(firstInvalidSection(form)).toBeNull();
+  });
+
+  it('takes the folders, commands, variables, registry and timeout the API takes', () => {
+    const form = createServiceForm(service({ nodeBuild: nodeBuild({ enabled: true }) }));
+    const node = nodeOf(form);
+    form.controls.nodeBuild.patchValue({
+      directory: 'apps/frontend',
+      commands: 'npm ci\nnpm run build -- --configuration production',
+      nodePath: 'C:\\Program Files\\nodejs',
+      environment: 'NODE_OPTIONS=--max-old-space-size=4096',
+      registry: 'https://tools.bbh.com/nexus/repository/npm-group/',
+      timeoutMinutes: 240,
+    });
+
+    expect(form.controls.nodeBuild.valid).toBe(true);
+
+    for (const folder of ['/opt/app', '../frontend', 'web/../app', "it's"]) {
+      node.directory.setValue(folder);
+      expect(node.directory.hasError('pattern'), folder).toBe(true);
+    }
+    for (const home of ['opt/node-20', '/opt/"node"']) {
+      node.nodePath.setValue(home);
+      expect(node.nodePath.hasError('pattern'), home).toBe(true);
+    }
+    node.commands.setValue('npm ci\tnpm run build');
+    expect(node.commands.hasError('item')).toBe(true);
+    node.commands.setValue(Array.from({ length: 21 }, () => 'npm ci').join('\n'));
+    expect(node.commands.hasError('maxLines')).toBe(true);
+    node.environment.setValue('not a variable');
+    expect(node.environment.hasError('item')).toBe(true);
+    node.registry.setValue('npm.bbh.com');
+    expect(node.registry.hasError('pattern')).toBe(true);
+    node.timeoutMinutes.setValue(241);
+    expect(node.timeoutMinutes.hasError('max')).toBe(true);
+    expect(firstInvalidSection(form)).toBe('build');
+  });
+
+  it('takes the Node.js installation or its home on the agent, not both, while it is on', () => {
+    const both = { installationName: 'NodeJS-20', nodePath: '/opt/node-20' };
+    const form = createServiceForm(service({ nodeBuild: nodeBuild({ enabled: true, ...both }) }));
+    const node = nodeOf(form);
+
+    expect(node.installationName.errors).toEqual({ rule: NODE_TWICE });
+    expect(node.nodePath.errors).toEqual({ rule: NODE_TWICE });
+    expect(sectionInvalid(form, SERVICE_SECTIONS[1])).toBe(true);
+
+    node.enabled.setValue(false);
+
+    expect(form.valid).toBe(true);
+    expect(toServiceRequest(form).nodeBuild).toMatchObject({
+      enabled: false,
+      installationName: 'NodeJS-20',
+      nodePath: '/opt/node-20',
+    });
+
+    node.enabled.setValue(true);
+    node.installationName.setValue('');
+
+    expect(node.nodePath.valid).toBe(true);
+  });
+
+  it('sends the commands in order with repeats, the npm scan only when it is off, and hidden values only when valid', () => {
+    const form = createServiceForm(service());
+    const node = nodeOf(form);
+    node.enabled.setValue(true);
+    form.controls.nodeBuild.patchValue({
+      directory: ' frontend ',
+      commands: ' npm ci \n\nnpm run lint\nnpm ci',
+      environment: 'CI=true\nCI=true',
+      timeoutMinutes: 45,
+    });
+
+    expect(toServiceRequest(form).nodeBuild).toEqual(
+      nodeBuild({
+        enabled: true,
+        directory: 'frontend',
+        commands: ['npm ci', 'npm run lint', 'npm ci'],
+        environment: ['CI=true', 'CI=true'],
+        timeoutMinutes: 45,
+      }),
+    );
+
+    node.nexusIqScan.setValue(false);
+    node.directory.setValue('../frontend');
+    node.enabled.setValue(false);
+    const request = toServiceRequest(form).nodeBuild;
+
+    expect(request.nexusIqScan).toBe(false);
+    expect(request.directory).toBeNull();
+    expect(request.commands).toEqual(['npm ci', 'npm run lint', 'npm ci']);
+  });
+
+  it('refuses a folder that leaves the repository, judged as the server keeps it', () => {
+    const node = nodeOf(createServiceForm(service()));
+    node.enabled.setValue(true);
+
+    for (const folder of [
+      ' /opt/web',
+      '\\opt\\web',
+      'web/../..',
+      './.."',
+      '/',
+      'C:\\work\\app\\frontend',
+      './C:/work/web',
+      'd:web',
+    ]) {
+      node.directory.setValue(folder);
+      expect(node.directory.hasError('pattern'), folder).toBe(true);
+    }
+    for (const folder of ['', '.', './', ' ./apps//web/ ', './/opt/web', 'apps/web.ui']) {
+      node.directory.setValue(folder);
+      expect(node.directory.valid, folder).toBe(true);
+    }
+  });
+
+  it('sends the folder and the shared catalogs as the server keeps them, so the root is null', () => {
+    const form = createServiceForm(service());
+    const node = nodeOf(form);
+    node.enabled.setValue(true);
+    form.controls.versionCatalogs.setValue('./bom/pom.xml\nbom/pom.xml\ngradle//deps.toml\n.');
+
+    for (const [folder, sent] of [
+      ['.', null],
+      ['./', null],
+      [' ./apps//web/ ', 'apps/web'],
+      ['frontend/', 'frontend'],
+    ]) {
+      node.directory.setValue(folder!);
+      expect(toServiceRequest(form).nodeBuild.directory, folder!).toBe(sent);
+    }
+    expect(toServiceRequest(form).versionCatalogs).toEqual(['bom/pom.xml', 'gradle/deps.toml']);
+  });
+
+  it('switches off and locks the Node.js build of a Flutter service, keeping its values', () => {
+    const form = createServiceForm(
+      service({ nodeBuild: nodeBuild({ enabled: true, directory: 'frontend' }) }),
+    );
+    const node = nodeOf(form);
+    form.controls.build.controls.tool.setValue('FLUTTER');
+
+    expect(node.enabled.value).toBe(false);
+    expect(form.controls.nodeBuild.disabled).toBe(true);
+    expect(toServiceRequest(form).nodeBuild).toMatchObject({
+      enabled: false,
+      directory: 'frontend',
+    });
+
+    form.controls.build.controls.tool.setValue('GRADLE');
+
+    expect(node.enabled.enabled).toBe(true);
+    expect(node.enabled.value).toBe(false);
+    expect(node.directory.disabled).toBe(true);
+  });
+
+  it('round-trips a stored Node.js build and the shared version catalogs', () => {
+    const stored = service({
+      nodeBuild: nodeBuild({
+        enabled: true,
+        directory: 'frontend',
+        commands: ['npm ci', 'npm run build'],
+        nodePath: '/opt/node-20',
+        environment: ['NODE_OPTIONS=--max-old-space-size=4096'],
+        registry: 'https://tools.bbh.com/nexus/repository/npm-group/',
+        npmrcCredentialsId: 'npmrc-file',
+        timeoutMinutes: 30,
+        nexusIqScan: false,
+      }),
+      versionCatalogs: ['gradle/libs.versions.toml', 'platform/**/*.versions.toml'],
+    });
+
+    expect(toServiceRequest(createServiceForm(stored))).toEqual({ ...stored, flutter: null });
+  });
+});
+
+describe('relativePath', () => {
+  it.each([
+    [' ./frontend/ ', 'frontend'],
+    ['././web//app/./ui/', 'web/app/ui'],
+    ['.', null],
+    ['./', null],
+    [' ', null],
+    [null, null],
+    ['**/catalog/*.versions.toml', '**/catalog/*.versions.toml'],
+    ['../catalog/deps.toml', '../catalog/deps.toml'],
+    ['/shared/deps.toml', '/shared/deps.toml'],
+  ])('drops the . and empty folders of %j as the server does', (path, expected) => {
+    expect(relativePath(path)).toBe(expected);
+  });
+});
+
+describe('shared version catalogs', () => {
+  it('keep a service on the inherited GoldenFix policy and are sent with either policy', () => {
+    const form = createServiceForm(service({ versionCatalogs: ['gradle/libs.versions.toml'] }));
+    const { versionCatalogs, goldenFix } = form.controls;
+
+    expect(goldenFix.controls.inherit.value).toBe(true);
+    expect(versionCatalogs.enabled).toBe(true);
+    versionCatalogs.setValue('gradle/libs.versions.toml\ncatalog/deps.toml\ncatalog/deps.toml');
+    expect(toServiceRequest(form)).toMatchObject({
+      goldenFix: { enabled: null, ...NO_GOLDEN_FIX_OVERRIDES },
+      versionCatalogs: ['gradle/libs.versions.toml', 'catalog/deps.toml'],
+    });
+
+    goldenFix.controls.inherit.setValue(false);
+    expect(versionCatalogs.enabled).toBe(true);
+    expect(toServiceRequest(form).versionCatalogs).toEqual([
+      'gradle/libs.versions.toml',
+      'catalog/deps.toml',
+    ]);
+  });
+
+  it('take repository paths and globs only, and mark the GoldenFix section otherwise', () => {
+    const form = createServiceForm(service());
+    const { versionCatalogs } = form.controls;
+    versionCatalogs.setValue(
+      '**/libs.versions.toml\nbuild-logic/deps.gradle\n./parent/pom.xml\ncatalog/*\n platform/pom.xml ',
+    );
+
+    expect(versionCatalogs.valid).toBe(true);
+
+    for (const path of [
+      '/gradle/libs.versions.toml',
+      '../shared/libs.versions.toml',
+      'a\\b.toml',
+    ]) {
+      versionCatalogs.setValue(path);
+      expect(versionCatalogs.hasError('item'), path).toBe(true);
+    }
+    for (const folder of ['platform/bom/', './', '**/', 'platform/pom.xml\nbom/ ']) {
+      versionCatalogs.setValue(folder);
+      expect(versionCatalogs.getError('item')?.message, folder).toBe(
+        'Name the file, such as platform/pom.xml, not its folder',
+      );
+    }
+    expect(firstInvalidSection(form)).toBe('goldenFix');
+    expect(firstInvalidSection(form, 'SAST')).toBeNull();
+  });
+
+  it('are sent only while valid, so a hidden imported value cannot fail the save', () => {
+    const form = createServiceForm(service({ versionCatalogs: ['/shared/libs.versions.toml'] }));
+
+    expect(toServiceRequest(form).versionCatalogs).toEqual([]);
+
+    form.controls.versionCatalogs.setValue('shared/libs.versions.toml');
+
+    expect(toServiceRequest(form).versionCatalogs).toEqual(['shared/libs.versions.toml']);
+  });
+});
+
+describe('tool commands', () => {
+  it('reads tasks as words and flags and variables as lines, keeping repeats', () => {
+    const form = createToolCommandForm(
+      command({ tasks: ['clean', 'build'], flags: ['-x', 'test'], environment: ['A=1'] }),
+    );
+    expect(form.getRawValue()).toEqual({
+      tasks: 'clean build',
+      flags: '-x\ntest',
+      directory: '',
+      mavenHome: '',
+      environment: 'A=1',
+      label: '',
+      returnStdout: false,
+    });
+
+    form.patchValue({
+      tasks: ' clean  test test ',
+      flags: '-B\n\n -U ',
+      directory: ' app ',
+      mavenHome: ' ',
+      environment: 'JAVA_OPTS=-Xmx2g\nCI=true',
+      label: ' Unit tests ',
+      returnStdout: true,
+    });
+
+    expect(toToolCommand(form)).toEqual({
+      tasks: ['clean', 'test', 'test'],
+      flags: ['-B', '-U'],
+      directory: 'app',
+      mavenHome: null,
+      environment: ['JAVA_OPTS=-Xmx2g', 'CI=true'],
+      label: 'Unit tests',
+      returnStdout: true,
+    });
+  });
+});
+
+describe('test jobs', () => {
+  it('needs the remote Jenkins of a remote job given as a path', () => {
+    const job = createTestJobForm({ type: 'REMOTE', job: 'CERT/regression' });
+    expect(job.controls.remoteJenkins.errors).toEqual({ rule: REMOTE_JENKINS_MESSAGE });
+
+    job.controls.remoteJenkinsUrl.setValue('https://jenkins-qa.bbh.com');
+    expect(job.controls.remoteJenkins.valid).toBe(true);
+
+    job.controls.remoteJenkinsUrl.setValue('');
+    expect(job.controls.remoteJenkins.invalid).toBe(true);
+
+    job.controls.job.setValue('https://jenkins-qa.bbh.com/job/CERT/job/regression/');
+    expect(job.controls.remoteJenkins.valid).toBe(true);
+  });
+
+  it('drops the remote values of a local job', () => {
+    const job = createTestJobForm({
+      stage: 'REGRESSION',
+      name: ' nightly ',
+      type: 'LOCAL',
+      job: ' CERT/regression ',
+      timeoutMinutes: 90,
+      remoteJenkins: 'qa',
+      credentialsId: 'jenkins-qa',
+      pollIntervalSec: 20,
+      tokenCredentialsId: 'qa-trigger-token',
+      useCrumbCache: true,
+    });
+
+    expect(toTestJob(job)).toEqual({
+      stage: 'REGRESSION',
+      name: 'nightly',
+      type: 'LOCAL',
+      job: 'CERT/regression',
+      timeoutMinutes: 90,
+      parameters: null,
+      remoteJenkins: null,
+      remoteJenkinsUrl: null,
+      credentialsId: null,
+      pollIntervalSec: null,
+      tokenCredentialsId: null,
+      abortTriggeredJob: false,
+      overrideTrustAllCertificates: false,
+      preventRemoteBuildQueue: false,
+      trustAllCertificates: false,
+      useCrumbCache: false,
+      useJobInfoCache: false,
+    });
+    expect(job.controls.tokenCredentialsId.disabled).toBe(true);
+
+    job.controls.type.setValue('REMOTE');
+    expect(toTestJob(job)).toMatchObject({
+      remoteJenkins: 'qa',
+      credentialsId: 'jenkins-qa',
+      pollIntervalSec: 20,
+      tokenCredentialsId: 'qa-trigger-token',
+      useCrumbCache: true,
+    });
+  });
+
+  it('sends blank parameters as null', () => {
+    const job = createTestJobForm({ job: 'CERT/regression' });
+    job.controls.parameters.setValue(' \n ');
+
+    expect(job.controls.parameters.valid).toBe(true);
+    expect(toTestJob(job).parameters).toBeNull();
+  });
+
+  it.each([
+    ['ENV=rd,SUITE=critical', true],
+    ['ENV=rd\n\nSUITE=', true],
+    ['_flag=1', true],
+    ['ENV rd', false],
+    ['1ENV=rd', false],
+    [' ENV=rd', false],
+    ['ENV=rd\n=critical', false],
+  ])('checks that every parameter line %j is NAME=value: %s', (parameters, valid) => {
+    const job = createTestJobForm({ job: 'CERT/regression', parameters });
+    expect(job.controls.parameters.valid).toBe(valid);
+  });
+});
+
+describe('UrbanCode applications', () => {
+  it('lists the environments separated by commas and sends them without repeats', () => {
+    const form = createServiceForm(service());
+    const application = form.controls.urbanCodeApplications.at(0);
+    expect(application.controls.environments.value).toBe('DV, RD');
+
+    application.controls.environments.setValue('DV, RD QC,RD');
+
+    expect(toServiceRequest(form).urbanCodeApplications[0]).toMatchObject({
+      applicationName: 'CERT-GUI',
+      environments: ['DV', 'RD', 'QC'],
+      components: [
+        { componentName: 'CERT-GUI-app', baseDir: 'build/libs', fileExcludePatterns: null },
+      ],
+    });
+  });
+
+  it('needs at least one component with its base folder and include patterns', () => {
+    const stored = service().urbanCodeApplications[0];
+    const application = createUrbanCodeApplicationForm({
+      ...stored,
+      components: [{ ...stored.components[0], baseDir: null, fileIncludePatterns: '' }],
+    });
+    const component = application.controls.components.at(0).controls;
+    expect(component.baseDir.hasError('required')).toBe(true);
+    expect(component.fileIncludePatterns.hasError('required')).toBe(true);
+    expect(component.fileExcludePatterns.valid).toBe(true);
+
+    application.controls.components.removeAt(0);
+    expect(application.controls.components.errors).toEqual({ rule: 'Add at least one component' });
+  });
+
+  it('takes an application without environments or with DV as one that deploys to DV', () => {
+    expect(deploysToDv([])).toBe(true);
+    expect(deploysToDv(['RD', ' dv '])).toBe(true);
+    expect(deploysToDv(['RD', 'QC'])).toBe(false);
+  });
+
+  it('needs an application for DV while the service deploys to virtual machines', () => {
+    const form = createServiceForm(service());
+    const applications = form.controls.urbanCodeApplications;
+    applications.addValidators(dvApplication);
+    applications.at(0).controls.environments.setValue('rd, qc');
+
+    expect(applications.errors).toEqual({
+      rule: 'Add an UrbanCode Deploy application for DV: the Full pipeline uses it to deploy to the lower test region',
+    });
+    expect(firstInvalidSection(form)).toBe('urbanCode');
+
+    applications.push(
+      createUrbanCodeApplicationForm({ ...service().urbanCodeApplications[0], environments: [] }),
+    );
+    expect(applications.valid).toBe(true);
+
+    applications.clear();
+    expect(form.invalid).toBe(true);
+
+    form.controls.deployment.controls.target.setValue('OPENSHIFT');
+    expect(applications.errors).toBeNull();
+    expect(firstInvalidSection(form)).not.toBe('urbanCode');
+  });
+});
+
+describe('GoldenFix', () => {
+  const inherited = (enabled: boolean | null) => ({ enabled, ...NO_GOLDEN_FIX_OVERRIDES });
+
+  it('lets a service follow the global policy, with only its own switch', () => {
+    const form = createServiceGoldenFixForm(inherited(false));
+    expect(form.controls.inherit.value).toBe(true);
+    expect(form.controls.enabled.value).toBe(false);
+    expect(form.controls.enabled.enabled).toBe(true);
+    expect(form.controls.minThreatLevel.disabled).toBe(true);
+
+    form.controls.inherit.setValue(false);
+    expect(form.controls.minThreatLevel.enabled).toBe(true);
+  });
+
+  it.each([
+    [null, null],
+    [true, true],
+    [false, false],
+  ])('sends the switch %s as %s', (stored, sent) => {
+    const form = createServiceForm(service({ goldenFix: inherited(stored) }));
+    expect(toServiceRequest(form).goldenFix.enabled).toBe(sent);
+  });
+
+  it('sends the inherited policy, or the values the service overrides', () => {
+    const form = createServiceForm(service());
+    expect(toServiceRequest(form).goldenFix).toEqual(inherited(null));
+
+    form.controls.goldenFix.patchValue({
+      inherit: false,
+      enabled: true,
+      minThreatLevel: 5,
+      ecosystems: ['npm', 'npm'],
+      excludeDirs: 'legacy\n\nlegacy\ndocs',
+    });
+
+    expect(toServiceRequest(form).goldenFix).toEqual({
+      ...inherited(true),
+      minThreatLevel: 5,
+      ecosystems: ['npm'],
+      excludeDirs: ['legacy', 'docs'],
+    });
+  });
+
+  it('requires every value of the global policy, which always switches GoldenFix on or off', () => {
+    const group = createGlobalGoldenFixForm(null);
+    const c = group.controls;
+
+    expect(c.enabled.value).toBe(true);
+    expect(c.minThreatLevel.hasError('required')).toBe(true);
+    expect(c.ecosystems.hasError('required')).toBe(true);
+    expect(c.goldenVersionTypes.hasError('required')).toBe(true);
+    expect(c.commitAuthorEmail.hasError('required')).toBe(true);
+    expect(c.timeZone.valid).toBe(true);
+    expect(new FormGroup(goldenFixControls(null)).valid).toBe(true);
+
+    c.enabled.setValue(false);
+    expect(toGlobalGoldenFixPolicy(group).enabled).toBe(false);
+  });
+});
+
+describe('toServiceRequest', () => {
+  it('trims values, sends blanks as null and splits the scan patterns into distinct lines', () => {
+    const form = createServiceForm(service());
+    form.patchValue({
+      description: '  ',
+      build: { sourceDir: ' ' },
+      nexusIqApplications: [{ scanPatterns: ' **/*.jar \n\n**/*.war\n**/*.jar', stage: '' }],
+    });
+
+    const request = toServiceRequest(form);
+
+    expect(request.id).toBe(10);
+    expect(request.description).toBeNull();
+    expect(request.build.sourceDir).toBe('.');
+    expect(request.nexusIqApplications[0].scanPatterns).toEqual(['**/*.jar', '**/*.war']);
+    expect(request.nexusIqApplications[0].stage).toBe('build');
+    expect(request.build.command).toEqual(
+      command({ tasks: ['clean', 'build'], flags: ['--refresh-dependencies'] }),
+    );
+  });
+
+  it('round-trips the stored service of the fixtures', () => {
+    const stored = service();
+
+    expect(toServiceRequest(createServiceForm(stored))).toEqual({ ...stored, flutter: null });
+  });
+
+  it('sends the Nexus delivery of a Gradle service on a VM with only the flags of its commands', () => {
+    const form = createServiceForm(service());
+    form.patchValue({
+      delivery: { tasks: 'publish', flags: '--info', environment: 'GRADLE_OPTS=-Xmx1g' },
+      nexusDelivery: {
+        artifacts: 'build/libs/*.jar\nbuild/docs.zip docs',
+        group: 'com.bbh.cert',
+        artifact: 'cert-gui',
+        repositoryUrl: 'https://tools.bbh.com/nexus/repository/snapshots',
+        allowInsecureProtocol: true,
+        pull: { tasks: 'pull', flags: '--offline' },
+        pullArtifacts: 'cert-gui.jar',
+        pullOutputDirectory: 'nexus',
+      },
+    });
+
+    const request = toServiceRequest(form);
+
+    expect(form.controls.delivery.controls.tasks.enabled).toBe(false);
+    expect(request.delivery).toEqual(command({ flags: ['--info'], environment: ['GRADLE_OPTS=-Xmx1g'] }));
+    expect(request.nexusDelivery).toEqual({
+      artifacts: ['build/libs/*.jar', 'build/docs.zip docs'],
+      group: 'com.bbh.cert',
+      artifact: 'cert-gui',
+      repositoryUrl: 'https://tools.bbh.com/nexus/repository/snapshots',
+      allowInsecureProtocol: true,
+      pull: command({ flags: ['--offline'] }),
+      pullArtifacts: ['cert-gui.jar'],
+      pullOutputDirectory: 'nexus',
+    });
+  });
+
+  it('requires the coordinates, the repository and the download goals the listed artifacts need', () => {
+    const gradle = createServiceForm(service());
+    const nexus = gradle.controls.nexusDelivery.controls;
+
+    expect([nexus.group.valid, nexus.artifact.valid, nexus.repositoryUrl.valid]).toEqual([true, true, true]);
+    nexus.artifacts.setValue('build/libs/*.jar');
+    expect([nexus.group.valid, nexus.artifact.valid, nexus.repositoryUrl.valid]).toEqual([false, false, false]);
+
+    const maven = createServiceForm(service({ build: { ...service().build, tool: 'MAVEN' } }));
+    const download = maven.controls.nexusDelivery.controls;
+    expect(maven.controls.build.controls.buildPath.valid).toBe(true);
+    download.pullArtifacts.setValue('cert-gui.jar');
+    expect([download.group.valid, download.pull.controls.tasks.valid]).toEqual([false, false]);
+    expect(download.repositoryUrl.enabled).toBe(false);
+    download.pullArtifacts.setValue('README');
+    expect(download.pullArtifacts.valid).toBe(false);
+  });
+
+  it('sends no Nexus delivery for a service on OpenShift', () => {
+    const form = createServiceForm(service({ deployment: { ...service().deployment, target: 'OPENSHIFT' } }));
+
+    expect(toServiceRequest(form).nexusDelivery).toEqual(NO_NEXUS_DELIVERY);
+  });
+
+  it('round-trips the Bitbucket repository GoldenFix raises its pull requests against', () => {
+    const stored = service();
+    stored.scm = {
+      ...stored.scm,
+      apiUrl: 'https://bitbucket.bbh.com',
+      workspace: 'bbh-technology',
+      projectKey: '~jsmith',
+      repoSlug: 'cert-scanner',
+    };
+
+    const form = createServiceForm(stored);
+
+    expect(form.controls.scm.valid).toBe(true);
+    expect(toServiceRequest(form).scm).toEqual(stored.scm);
+  });
+
+  it('accepts only an http or https Bitbucket API URL and names without spaces or slashes', () => {
+    const { scm } = createServiceForm(service()).controls;
+
+    scm.controls.apiUrl.setValue('ssh://git@bitbucket.bbh.com');
+    scm.controls.workspace.setValue('bbh technology');
+    scm.controls.projectKey.setValue('TA/CERT');
+    scm.controls.repoSlug.setValue('cert scanner');
+
+    expect(scm.controls.apiUrl.hasError('pattern')).toBe(true);
+    expect(scm.controls.workspace.hasError('pattern')).toBe(true);
+    expect(scm.controls.projectKey.hasError('pattern')).toBe(true);
+    expect(scm.controls.repoSlug.hasError('pattern')).toBe(true);
+
+    scm.controls.repoSlug.setValue('r'.repeat(201));
+    expect(scm.controls.repoSlug.hasError('maxlength')).toBe(true);
+  });
+
+  it('keeps the deployment names whatever the target, since the library reads them for both', () => {
+    const form = createServiceForm(
+      service({
+        deployment: {
+          target: 'VM',
+          appName: 'gui',
+          artifactName: 'gui.jar',
+          baseArtifactName: null,
+          nexusDeliveryDisabled: false,
+        },
+      }),
+    );
+
+    expect(toServiceRequest(form).deployment).toEqual({
+      target: 'VM',
+      appName: 'gui',
+      artifactName: 'gui.jar',
+      baseArtifactName: null,
+      nexusDeliveryDisabled: false,
+    });
+  });
+
+  it('sends the commands and sections that do not apply empty, keeping the JDK of Flutter', () => {
+    const form = createServiceForm(service());
+    form.controls.build.controls.tool.setValue('FLUTTER');
+    form.controls.flutter.patchValue({
+      platform: 'APK',
+      modules: 'app\npackages/core',
+      signingPasswordCredentialsId: 'sign',
+      prodLicenseCredentialsId: 'prod',
+      testLicenseCredentialsId: 'test',
+    });
+
+    const request = toServiceRequest(form);
+
+    expect(request.build.command).toEqual(NO_COMMAND);
+    expect(request.build.javaPath).toBe(service().build.javaPath);
+    expect(request.build.autoSetup).toBe(false);
+    expect(request.unitTests.command).toEqual(NO_COMMAND);
+    expect(request.sonar.command).toEqual(NO_COMMAND);
+    expect(request.appScan.compileCommand).toEqual(NO_COMMAND);
+    expect(request.delivery).toEqual(NO_COMMAND);
+    expect(request.flutter).toMatchObject({
+      platform: 'APK',
+      modules: ['app', 'packages/core'],
+      signingPasswordCredentialsId: 'sign',
+      deliveryGroup: null,
+    });
+  });
+
+  it('sends only the targets of the deployment target, without regions that set nothing', () => {
+    const form = createServiceForm(service());
+    expect(toServiceRequest(form).sshTargets).toEqual({
+      QC: {
+        host: null,
+        user: null,
+        deployDir: '/opt/cert/gui',
+        deployScript: null,
+        versionFile: null,
+      },
+    });
+    expect(toServiceRequest(form).openShiftTargets).toEqual({});
+
+    form.controls.deployment.controls.target.setValue('OPENSHIFT');
+    form.controls.openShiftTargets.controls.RD.patchValue({ projectBuild: ' cert-build ' });
+    const request = toServiceRequest(form);
+
+    expect(request.sshTargets).toEqual({});
+    expect(request.urbanCodeApplications).toEqual([]);
+    expect(Object.keys(request.openShiftTargets)).toEqual(['RD']);
+    expect(request.openShiftTargets.RD).toMatchObject({
+      projectBuild: 'cert-build',
+      skipConfigDeploy: false,
+      dockerRepoPush: null,
+    });
+  });
+});
+
+describe('values unique within a product', () => {
+  function twoServices() {
+    const form = createProductForm();
+    patchProduct(form, product({ services: [service(), anotherService({ name: 'api' })] }));
+    return { form, first: form.controls.services.at(0), second: form.controls.services.at(1) };
+  }
+
+  it('flags a name another service already uses on the later service only', () => {
+    const { form, first, second } = twoServices();
+    expect(form.valid).toBe(true);
+
+    second.controls.name.setValue('GUI');
+
+    expect(second.controls.name.errors).toEqual({ rule: SAME_NAME });
+    expect(first.controls.name.valid).toBe(true);
+    const statuses: string[] = [];
+    second.controls.name.statusChanges.subscribe((status) => statuses.push(status));
+
+    first.controls.name.setValue('web');
+
+    expect(second.controls.name.valid).toBe(true);
+    expect(statuses).toEqual(['VALID']);
+    expect(form.valid).toBe(true);
+  });
+
+  it('flags duplicate scan IDs across services with different Bitbucket repositories, but permits them for the same repository', () => {
+    const { form, first, second } = twoServices();
+    first.controls.scm.controls.repositoryUrl.setValue('https://bitbucket.bbh.com/projects/PROJ/repos/repo-a');
+    first.controls.scm.controls.credentialsId.setValue('cred');
+    second.controls.scm.controls.repositoryUrl.setValue('https://bitbucket.bbh.com/projects/PROJ/repos/repo-b');
+    second.controls.scm.controls.credentialsId.setValue('cred');
+
+    second.controls.appScan.controls.applicationId.setValue(first.controls.appScan.controls.applicationId.value);
+    expect(second.controls.appScan.controls.applicationId.errors).toEqual({
+      rule: 'services in different Bitbucket repositories cannot share the same AppScan application ID',
+    });
+
+    second.controls.scm.controls.repositoryUrl.setValue('https://bitbucket.bbh.com/projects/PROJ/repos/repo-a');
+    expect(second.controls.appScan.controls.applicationId.valid).toBe(true);
+
+    second.controls.scm.controls.repositoryUrl.setValue('https://bitbucket.bbh.com/projects/PROJ/repos/repo-b');
+    second.controls.appScan.controls.applicationId.setValue('3a1b2c3d-9999-4a5b-8c9d-0e1f2a3b4c5d');
+    second.controls.sonar.controls.projectKey.setValue(first.controls.sonar.controls.projectKey.value);
+    expect(second.controls.sonar.controls.projectKey.errors).toEqual({
+      rule: 'services in different Bitbucket repositories cannot share the same SonarQube project key',
+    });
+
+    second.controls.scm.controls.repositoryUrl.setValue('https://bitbucket.bbh.com/projects/PROJ/repos/repo-a.git');
+    expect(second.controls.sonar.controls.projectKey.valid).toBe(true);
+  });
+
+  it('lets a service scan one Nexus IQ application, and a legacy second one fails until removed', () => {
+    const { form, first } = twoServices();
+    const applications = first.controls.nexusIqApplications;
+    applications.push(
+      createNexusIqApplicationForm({ application: 'cert-gui', scanPatterns: ['*.jar'] }),
+    );
+
+    expect(applications.errors).toEqual({ rule: ONE_APPLICATION });
+    expect(applications.controls.every((application) => application.valid)).toBe(true);
+    expect(form.valid).toBe(false);
+
+    applications.removeAt(1);
+
+    expect(applications.valid).toBe(true);
+  });
+
+  it('rejects a product name of spaces only', () => {
+    const form = createProductForm();
+    form.controls.name.setValue('   ');
+
+    expect(form.controls.name.hasError('required')).toBe(true);
+  });
+
+  it('lets services share a metrics tag and a SonarQube key', () => {
+    const { form, first, second } = twoServices();
+    for (const each of [first, second]) {
+      each.controls.metrics.controls.influxProject.setValue('Cert Scanner');
+      each.controls.metrics.controls.influxEnv.setValue('test');
+      each.controls.sonar.controls.projectKey.setValue('cert-scanner');
+    }
+
+    expect(form.valid).toBe(true);
+  });
+
+  it('clears a product-wide problem of the API once anything in the product changes', () => {
+    const { form, first, second } = twoServices();
+
+    const unmatched = applyProductProblems(form, [
+      { field: 'services[1].name', message: SAME_NAME },
+      { field: 'services[1].build.javaPath', message: 'is not a JDK' },
+      { field: 'serviceTemplate', message: 'is not configured' },
+    ]);
+
+    expect(unmatched).toEqual([{ field: 'serviceTemplate', message: 'is not configured' }]);
+    expect(second.controls.name.errors).toEqual({ server: SAME_NAME });
+    expect(second.controls.build.controls.javaPath.errors).toEqual({ server: 'is not a JDK' });
+
+    first.controls.name.setValue('web');
+    revalidateAll(form);
+
+    expect(second.controls.name.valid).toBe(true);
+    expect(second.controls.build.controls.javaPath.errors).toEqual({ server: 'is not a JDK' });
+    expect(PRODUCT_WIDE_FIELD.test('services[3].name')).toBe(true);
+    expect(PRODUCT_WIDE_FIELD.test('services[3].metrics.influxProject')).toBe(false);
+  });
+});
+
+describe('product form', () => {
+  it('upper-cases the product code as it is typed', () => {
+    const form = createProductForm();
+    const values: string[] = [];
+    form.valueChanges.subscribe((value) => values.push(value.code ?? ''));
+
+    form.controls.code.setValue('cert-2');
+
+    expect(form.controls.code.value).toBe('CERT-2');
+    expect(form.controls.code.valid).toBe(true);
+    expect(values).toEqual(['CERT-2']);
+  });
+
+  it('round-trips a stored product into the request the API takes', () => {
+    const form = createProductForm();
+    patchProduct(form, product({ services: [service(), anotherService({ name: 'backend-api' })] }));
+
+    const request = toProductRequest(form, 3);
+
+    expect(form.valid).toBe(true);
+    expect(request).toMatchObject({
+      code: 'CERT',
+      name: 'CertScanner',
+      ownerTeam: 'Technology Architecture',
+      departmentId: 3,
+      version: 3,
+    });
+    expect(request).not.toHaveProperty('appScan');
+    expect(request).not.toHaveProperty('agentLabels');
+    expect(request.services.map((s) => [s.id, s.name])).toEqual([
+      [10, 'gui'],
+      [11, 'backend-api'],
+    ]);
+  });
+
+  it('needs the department of a product that is not in one yet', () => {
+    const form = createProductForm();
+    patchProduct(form, product({ departmentId: null }));
+
+    expect(form.controls.departmentId.hasError('required')).toBe(true);
+
+    form.controls.departmentId.setValue(5);
+
+    expect(form.valid).toBe(true);
+    expect(toProductRequest(form, 3).departmentId).toBe(5);
+  });
+
+  it('sends the Jenkins agents of a new product only, as a list', () => {
+    const form = createProductForm();
+    patchProduct(form, product({ services: [] }));
+
+    expect(form.controls.agentLabels.disabled).toBe(true);
+
+    form.controls.agentLabels.enable();
+    form.controls.agentLabels.setValue(' linux-agent, linux && docker ,');
+
+    expect(form.valid).toBe(true);
+    expect(toProductRequest(form, null).agentLabels).toEqual(['linux-agent', 'linux && docker']);
+
+    form.controls.agentLabels.setValue('a,b');
+    form.controls.agentLabels.setValue('');
+
+    expect(form.controls.agentLabels.valid).toBe(true);
+    expect(toProductRequest(form, null).agentLabels).toEqual([]);
+  });
+
+  it('replaces the services of an earlier product when patched again', () => {
+    const form = createProductForm();
+    patchProduct(form, product({ services: [service(), anotherService({ name: 'api' })] }));
+    patchProduct(
+      form,
+      product({ description: null, services: [service({ id: 12, name: 'worker' })] }),
+    );
+
+    expect(form.controls.services.length).toBe(1);
+    expect(form.controls.description.value).toBe('');
+  });
+
+  it('duplicates a service as a new one without the values that identify the source', () => {
+    const source = service({
+      appScan: { ...service().appScan, scanName: 'CertScanner-GUI-SAST' },
+      deployment: {
+        ...service().deployment,
+        target: 'OPENSHIFT',
+        appName: 'gui',
+        artifactName: 'gui.jar',
+      },
+      nodeBuild: nodeBuild({ enabled: true, directory: 'frontend' }),
+      versionCatalogs: ['gradle/libs.versions.toml'],
+    });
+    const form = createServiceForm(source);
+    form.controls.openShiftTargets.controls.RD.patchValue({
+      projectBuild: 'cert-build',
+      dockerRepoPush: 'nexus/cert/gui',
+    });
+    const copy = duplicateService(form, null);
+    const value = copy.getRawValue();
+
+    expect(value.id).toBeNull();
+    expect(value.name).toBe('gui-copy');
+    expect(value.appScan.scanName).toBe('');
+    expect(value.deployment.appName).toBe('');
+    expect(value.deployment.artifactName).toBe('gui.jar');
+    expect(value.sonar.projectName).toBe('');
+    expect(value.sonar.projectKey).toBe('');
+    expect(value.metrics.influxProject).toBe('');
+    expect(value.nexusIqApplications).toEqual([
+      expect.objectContaining({ application: '', scanPatterns: '**/build/libs/*.jar' }),
+    ]);
+    expect(value.metrics.influxEnv).toBe('test');
+    expect(value.appScan.applicationId).toBe('109f44ac-cc06-4ca0-884e-d944904f7019');
+    expect(value.build.javaPath).toBe('/usr/lib/jvm/java-17-openjdk');
+    expect(value.testJobs.map((job) => job.job)).toEqual(['CERT/gui-smoke']);
+    expect(value.nodeBuild).toMatchObject({ enabled: true, directory: 'frontend' });
+    expect(value.versionCatalogs).toBe('gradle/libs.versions.toml');
+    expect(value.openShiftTargets.RD).toEqual(
+      expect.objectContaining({ projectBuild: 'cert-build', dockerRepoPush: 'nexus/cert/gui' }),
+    );
+    expect(copy.controls.nexusIqApplications.at(0).controls.application.hasError('required')).toBe(
+      true,
+    );
+  });
+
+  it('duplicates a service with database changes without the artifact ID of its package', () => {
+    const source = createServiceForm(
+      databaseService({ database: databaseSettings({ artifactId: 'orders-db-package' }) }),
+    );
+    const copy = duplicateService(source, null);
+
+    expect(copy.controls.database.controls.artifactId.value).toBe('');
+    expect(copy.controls.database.controls.changelogFile.value).toBe(
+      source.controls.database.controls.changelogFile.value,
+    );
+  });
+
+  it('gives a copy the Library defaults for what the source inherits', () => {
+    const copy = duplicateService(createServiceForm(service()), globalSettings());
+
+    expect(copy.controls.sonar.controls.serverUrl.value).toBe('https://tools.bbh.com/sonar');
+    expect(toServiceRequest(copy).sonar.serverUrl).toBeNull();
+  });
+
+  it('gives a new service the Library defaults and no AppScan key', () => {
+    const form = createServiceForm();
+    prefillNewService(form, globalSettings());
+
+    expect(form.controls.sonar.controls.serverUrl.value).toBe('https://tools.bbh.com/sonar');
+    expect(form.controls.appScan.getRawValue()).not.toHaveProperty('keyId');
+    expect(form.controls.appScan.getRawValue()).not.toHaveProperty('secretCredentialsId');
+  });
+});
+
+describe('field problems reported by the API', () => {
+  function formWithServices() {
+    const form = createProductForm();
+    patchProduct(form, product({ services: [service(), anotherService({ name: 'api' })] }));
+    return form;
+  }
+
+  it('finds the control a field path names', () => {
+    const form = formWithServices();
+    const second = form.controls.services.at(1).controls;
+    expect(controlAt(form, 'services[1].build.javaPath')).toBe(second.build.controls.javaPath);
+    expect(controlAt(form, 'services[0].appScan.applicationId')).toBe(
+      form.controls.services.at(0).controls.appScan.controls.applicationId,
+    );
+    expect(controlAt(form, 'services[1].testJobs[0].job')).toBe(second.testJobs.at(0).controls.job);
+  });
+
+  it('shows each problem on its control and returns those without one', () => {
+    const form = formWithServices();
+    const unmatched = applyFieldProblems(form, [
+      { field: 'services[1].name', message: 'is already used by another service' },
+      { field: 'version', message: 'is stale' },
+    ]);
+
+    const name = form.controls.services.at(1).controls.name;
+    expect(name.errors).toEqual({ server: 'is already used by another service' });
+    expect(name.touched).toBe(true);
+    expect(unmatched).toEqual([{ field: 'version', message: 'is stale' }]);
+
+    name.setValue('api-2');
+    expect(name.valid).toBe(true);
+  });
+
+  it('opens the first service holding a problem', () => {
+    expect(
+      firstServiceWithProblem([
+        { field: 'name', message: 'x' },
+        { field: 'services[3].name', message: 'x' },
+        { field: 'services[1].sonar.projectKey', message: 'x' },
+      ]),
+    ).toBe(1);
+    expect(firstServiceWithProblem([{ field: 'code', message: 'x' }])).toBeNull();
+  });
+});
+
+describe('followToolDefaults', () => {
+  it('swaps the template build for that of the new build tool unless it was changed', () => {
+    const form = createServiceForm();
+    const build = form.controls.build.controls;
+    build.tool.setValue('GRADLE');
+    build.buildPath.setValue('build/libs/*.jar');
+    build.command.controls.tasks.setValue('clean build');
+    TestBed.runInInjectionContext(() => followToolDefaults(form, serviceTemplate()));
+    const values = () => [build.command.controls.tasks.value, build.buildPath.value];
+
+    build.tool.setValue('MAVEN');
+    expect(values()).toEqual(['clean verify', 'target/*.jar']);
+
+    build.command.controls.tasks.setValue('clean package');
+    build.buildPath.setValue('');
+    build.tool.setValue('GRADLE');
+    expect(values()).toEqual(['clean package', 'build/libs/*.jar']);
+  });
+
+  it.each([
+    [null, '**/target/*.jar'],
+    [10, '**/build/libs/*.jar'],
+  ] as const)(
+    'moves the template scan pattern only for a new service (id %s)',
+    (id, scanPattern) => {
+      const form = createServiceForm({ ...service(), id });
+      TestBed.runInInjectionContext(() => followToolDefaults(form, serviceTemplate()));
+
+      form.controls.build.controls.tool.setValue('MAVEN');
+
+      expect(form.controls.nexusIqApplications.at(0).controls.scanPatterns.value).toBe(scanPattern);
+    },
+  );
+
+  it('turns automatic setup on for a new service that leaves Flutter, unless the user set it', () => {
+    const form = createServiceForm({
+      ...service({ build: { ...service().build, tool: 'FLUTTER' } }),
+      id: null,
+    });
+    const { tool, autoSetup } = form.controls.build.controls;
+    TestBed.runInInjectionContext(() => followToolDefaults(form, serviceTemplate()));
+
+    tool.setValue('GRADLE');
+    expect(autoSetup.value).toBe(true);
+
+    tool.setValue('FLUTTER');
+    tool.setValue('MAVEN');
+    expect(autoSetup.value).toBe(true);
+
+    tool.setValue('FLUTTER');
+    autoSetup.markAsDirty();
+    tool.setValue('GRADLE');
+    expect(autoSetup.value).toBe(false);
+
+    const stored = createServiceForm(service({ build: { ...service().build, tool: 'FLUTTER' } }));
+    TestBed.runInInjectionContext(() => followToolDefaults(stored, serviceTemplate()));
+    stored.controls.build.controls.tool.setValue('GRADLE');
+    expect(stored.controls.build.controls.autoSetup.value).toBe(false);
+  });
+
+  it.each(['NPM', 'PIP', 'IOS'] as BuildTool[])(
+    'needs no command and no JDK path for %s, and sends only the parts of a command the library reads',
+    (tool) => {
+      const full = command({
+        tasks: ['run', 'it'],
+        flags: ['-Dsonar.sources=src'],
+        directory: 'app',
+        environment: ['A=b'],
+        label: 'Step',
+        returnStdout: true,
+      });
+      const form = createServiceForm(
+        service({
+          build: { ...service().build, autoSetup: false, javaPath: null, command: full },
+          unitTests: { ...service().unitTests, command: full },
+          sonar: { ...service().sonar, command: full },
+          appScan: { ...service().appScan, compile: true, compileCommand: full },
+        }),
+      );
+      form.controls.build.controls.tool.setValue(tool);
+      const c = form.controls;
+
+      expect(c.build.controls.javaPath.valid).toBe(true);
+      expect(c.build.controls.command.enabled).toBe(tool !== 'NPM');
+      expect(c.build.controls.command.controls.flags.enabled).toBe(false);
+      expect(c.unitTests.controls.command.controls.tasks.enabled).toBe(true);
+      expect(c.unitTests.controls.command.controls.directory.enabled).toBe(true);
+      expect(c.unitTests.controls.command.controls.environment.enabled).toBe(false);
+      expect(c.sonar.controls.command.controls.tasks.enabled).toBe(false);
+      expect(c.sonar.controls.command.controls.flags.enabled).toBe(true);
+      expect(c.appScan.controls.compileCommand.enabled).toBe(false);
+
+      const request = toServiceRequest(form);
+      expect(request.build.command).toEqual(
+        command(tool === 'NPM' ? {} : { tasks: ['run', 'it'] }),
+      );
+      expect(request.unitTests.command).toEqual(command({ tasks: ['run', 'it'], directory: 'app' }));
+      expect(request.sonar.command).toEqual(command({ flags: ['-Dsonar.sources=src'] }));
+      expect(request.appScan.compileCommand).toEqual(command());
+
+      form.controls.build.controls.tool.setValue('GRADLE');
+      expect(c.build.controls.command.controls.flags.enabled).toBe(true);
+      expect(c.sonar.controls.command.controls.tasks.enabled).toBe(true);
+      expect(c.unitTests.controls.command.controls.environment.enabled).toBe(true);
+      expect(toServiceRequest(form).build.command).toEqual(full);
+    },
+  );
+
+  it('takes the Node.js build of an npm service as its build, without the stage 0 switch', () => {
+    const form = createServiceForm(
+      service({ nodeBuild: nodeBuild({ directory: 'web', commands: ['npm ci', 'npm run build:prod'] }) }),
+    );
+    const node = form.controls.nodeBuild.controls;
+    expect(node.commands.enabled).toBe(false);
+
+    form.controls.build.controls.tool.setValue('NPM');
+
+    expect(node.enabled.value).toBe(false);
+    expect(node.commands.enabled).toBe(true);
+    expect(node.directory.enabled).toBe(true);
+    expect(toServiceRequest(form).nodeBuild).toEqual(
+      nodeBuild({ directory: 'web', commands: ['npm ci', 'npm run build:prod'] }),
+    );
+  });
+
+  it('builds an Android service with Gradle tasks and a JDK', () => {
+    const form = createServiceForm(
+      service({ build: { ...service().build, autoSetup: false, javaPath: null, command: command() } }),
+    );
+    const { tool, javaPath } = form.controls.build.controls;
+
+    tool.setValue('ANDROID');
+
+    expect(form.controls.build.controls.command.controls.tasks.hasError('required')).toBe(true);
+    expect(javaPath.hasError('required')).toBe(true);
+    expect(form.controls.build.controls.command.controls.flags.enabled).toBe(true);
+  });
+
+  it('empties the unit test command when the build tool changes between tasks and a command line', () => {
+    const form = createServiceForm(service());
+    TestBed.runInInjectionContext(() => followToolDefaults(form, serviceTemplate()));
+    const tests = form.controls.unitTests.controls.command.controls.tasks;
+    tests.setValue('test jacocoTestReport');
+
+    form.controls.build.controls.tool.setValue('MAVEN');
+    expect(tests.value).toBe('test jacocoTestReport');
+
+    form.controls.build.controls.tool.setValue('PIP');
+    expect(tests.value).toBe('');
+
+    tests.setValue('pytest -q');
+    form.controls.build.controls.tool.setValue('NPM');
+    expect(tests.value).toBe('pytest -q');
+
+    form.controls.build.controls.tool.setValue('GRADLE');
+    expect(tests.value).toBe('');
+  });
+});
+
+describe('Liquibase services with and without database changes', () => {
+  const ORDERS_DB = 'jdbc:oracle:thin:@//rd-db.bbh.com:1521/ORDERS_RD';
+  const gradle = () => createServiceForm(service());
+  const database = (overrides = {}) =>
+    createServiceForm(databaseService({ database: databaseSettings(overrides) }));
+  const ids = (sections: { id: string }[]) => sections.map((section) => section.id);
+
+  it("shows main's sections and the database changes, and hides the deployment once the changelog file is set", () => {
+    const form = createServiceForm(databaseService());
+    const plain = createServiceForm(databaseService({ database: null, databaseTargets: {} }));
+    const c = form.controls;
+
+    expect(form.valid && plain.valid).toBe(true);
+    expect(ids(visibleSections(plain))).toEqual([
+      ...ids(visibleSections(gradle())).slice(0, 2),
+      'database',
+      ...ids(visibleSections(gradle())).slice(2),
+    ]);
+    expect(ids(visibleSections(form))).toEqual([
+      'general',
+      'build',
+      'database',
+      'unitTests',
+      'testJobs',
+      'appScan',
+      'sonar',
+      'nexusIq',
+      'scm',
+      'goldenFix',
+      'metrics',
+    ]);
+    expect(c.database.controls.parameters.value).toBe('app_role=orders_app_role');
+    expect([c.database.controls.tag.value, c.database.controls.testReset.value]).toEqual([
+      true,
+      false,
+    ]);
+    expect(c.databaseTargets.controls.QC.controls.credentialsId.value).toBe('orders-db-qc');
+    expect(ids(visibleSectionsForPipeline(form, 'SAST'))).toEqual([
+      'general',
+      'build',
+      'database',
+      'appScan',
+      'scm',
+    ]);
+  });
+
+  type Mode = BuildTool | 'DATABASE';
+  const APPLIES: Record<string, Mode[]> = {
+    'build.command': ['GRADLE', 'MAVEN', 'LIQUIBASE', 'DATABASE'],
+    'build.buildPath': ['GRADLE', 'MAVEN', 'FLUTTER', 'LIQUIBASE', 'DATABASE'],
+    nodeBuild: ['GRADLE', 'MAVEN', 'LIQUIBASE'],
+    unitTests: ['GRADLE', 'MAVEN', 'FLUTTER', 'LIQUIBASE', 'DATABASE'],
+    'unitTests.command': ['GRADLE', 'MAVEN', 'LIQUIBASE', 'DATABASE'],
+    'sonar.command': ['GRADLE', 'MAVEN', 'LIQUIBASE', 'DATABASE'],
+    'appScan.dastEnabled': ['GRADLE', 'MAVEN', 'FLUTTER', 'LIQUIBASE', 'DATABASE'],
+    deployment: ['GRADLE', 'MAVEN', 'FLUTTER', 'LIQUIBASE'],
+    urbanCode: ['GRADLE', 'MAVEN', 'FLUTTER', 'LIQUIBASE'],
+    urbanCodeApplications: ['GRADLE', 'MAVEN', 'FLUTTER', 'LIQUIBASE'],
+    sshTargets: ['GRADLE', 'MAVEN', 'FLUTTER', 'LIQUIBASE'],
+    nexusIqApplications: ['GRADLE', 'MAVEN', 'FLUTTER', 'LIQUIBASE', 'DATABASE'],
+    goldenFix: ['GRADLE', 'MAVEN', 'FLUTTER', 'LIQUIBASE', 'DATABASE'],
+    versionCatalogs: ['GRADLE', 'MAVEN', 'FLUTTER', 'LIQUIBASE', 'DATABASE'],
+    flutter: ['FLUTTER'],
+    'database.changelogFile': ['LIQUIBASE', 'DATABASE'],
+    'database.searchPath': ['DATABASE'],
+    'database.artifactId': ['DATABASE'],
+    'database.groupId': ['DATABASE'],
+    'database.utplsqlSourcePath': [],
+    databaseTargets: ['DATABASE'],
+  };
+
+  it.each<Mode>(['GRADLE', 'MAVEN', 'FLUTTER', 'LIQUIBASE', 'DATABASE'])(
+    'enables only what a %s service uses',
+    (mode) => {
+      const form = gradle();
+      form.controls.build.controls.tool.setValue(mode === 'DATABASE' ? 'LIQUIBASE' : mode);
+      if (mode === 'DATABASE') {
+        form.controls.database.controls.changelogFile.setValue('db/changelog-master.xml');
+      }
+
+      expect(
+        Object.fromEntries(Object.keys(APPLIES).map((path) => [path, form.get(path)!.enabled])),
+      ).toEqual(
+        Object.fromEntries(
+          Object.entries(APPLIES).map(([path, modes]) => [path, modes.includes(mode)]),
+        ),
+      );
+    },
+  );
+
+  it('switches off and locks the Node.js build once the changelog file is set, keeping its values', () => {
+    const form = createServiceForm(
+      databaseService({
+        database: null,
+        databaseTargets: {},
+        nodeBuild: nodeBuild({ enabled: true, directory: 'frontend' }),
+      }),
+    );
+    expect(form.controls.nodeBuild.controls.enabled.value).toBe(true);
+
+    form.controls.database.controls.changelogFile.setValue('db/changelog-master.xml');
+
+    expect(form.controls.nodeBuild.disabled).toBe(true);
+    expect(toServiceRequest(form).nodeBuild).toMatchObject({
+      enabled: false,
+      directory: 'frontend',
+    });
+  });
+
+  it('turns the utPLSQL fields on with the tests and the delivery fields off with the delivery', () => {
+    const d = database({ utplsql: false }).controls.database.controls;
+    const utplsql = [d.utplsqlPaths, d.utplsqlOwner, d.utplsqlSourcePath, d.utplsqlTestPath];
+    const delivery = [d.groupId, d.mvnPath, d.snapshotRepositoryId, d.releaseRepositoryUrl];
+    expect([...utplsql, ...delivery].map((c) => c.enabled)).toEqual([
+      false,
+      false,
+      false,
+      false,
+      true,
+      true,
+      true,
+      true,
+    ]);
+
+    d.utplsql.setValue(true);
+    d.nexusDelivery.setValue(false);
+
+    expect([...utplsql, ...delivery].map((c) => c.enabled)).toEqual([
+      true,
+      true,
+      true,
+      true,
+      false,
+      false,
+      false,
+      false,
+    ]);
+    expect(d.artifactId.enabled).toBe(true);
+  });
+
+  it("sends main's request of a Liquibase service, and the two database blocks once its changelog file is set", () => {
+    const form = createServiceForm(databaseService());
+    const { database: block, databaseTargets, ...rest } = toServiceRequest(form);
+    form.controls.database.controls.changelogFile.setValue('');
+    const plain = toServiceRequest(form);
+
+    expect(plain).not.toHaveProperty('database');
+    expect(plain).not.toHaveProperty('databaseTargets');
+    expect(rest).toEqual(plain);
+    expect(block).toEqual(
+      databaseSettings({
+        parameters: ['app_role=orders_app_role'],
+        requireRollback: false,
+        tag: true,
+        compileCheck: true,
+        recompile: true,
+        groupId: 'com.bbh.orders',
+        nexusDelivery: true,
+        testReset: false,
+        utplsql: true,
+        utplsqlSourcePath: 'db/code',
+        utplsqlTestPath: 'db/test',
+      }),
+    );
+    expect(databaseTargets).toEqual(databaseService().databaseTargets);
+  });
+
+  it.each<BuildTool>(['GRADLE', 'MAVEN', 'FLUTTER'])(
+    'sends no database values for a %s service',
+    (tool) => {
+      const form = gradle();
+      form.controls.build.controls.tool.setValue(tool);
+      form.controls.database.controls.changelogFile.setValue('db/changelog-master.xml');
+
+      const request = toServiceRequest(form);
+
+      expect(request).not.toHaveProperty('database');
+      expect(request).not.toHaveProperty('databaseTargets');
+    },
+  );
+
+  it('keeps every value of a Gradle service switched to Liquibase and back', () => {
+    const form = gradle();
+    TestBed.runInInjectionContext(() => followToolDefaults(form, serviceTemplate()));
+    const before = toServiceRequest(form);
+
+    form.controls.build.controls.tool.setValue('LIQUIBASE');
+    expect(toServiceRequest(form).nexusIqApplications).toEqual(before.nexusIqApplications);
+    form.controls.build.controls.tool.setValue('GRADLE');
+
+    expect(toServiceRequest(form)).toEqual(before);
+  });
+
+  it('treats a service of SQL and PL/SQL files as database changes without a changelog file or commands', () => {
+    const form = gradle();
+    const c = form.controls;
+    c.build.controls.tool.setValue('LIQUIBASE');
+    c.database.controls.changelogFile.setValue('db/changelog-master.xml');
+    c.build.controls.tool.setValue('SQL');
+
+    expect(formChangesDatabase(form)).toBe(true);
+    expect(c.database.controls.changelogFile.disabled).toBe(true);
+    expect(c.database.controls.changelogFile.value).toBe('');
+    expect(c.database.controls.searchPath.enabled).toBe(true);
+    expect(c.databaseTargets.enabled).toBe(true);
+    expect(c.build.controls.command.disabled).toBe(true);
+    expect(c.unitTests.controls.command.disabled).toBe(true);
+    expect(c.deployment.disabled).toBe(true);
+    expect(visibleSections(form).map(({ id }) => id)).toContain('database');
+    expect(visibleSections(form).map(({ id }) => id)).not.toContain('deployment');
+
+    c.database.controls.searchPath.setValue('db');
+    const request = toServiceRequest(form);
+    expect(request.build.tool).toBe('SQL');
+    expect(request.database?.searchPath).toBe('db');
+    expect(request.database?.changelogFile ?? null).toBeNull();
+  });
+
+  it('offers the Nexus IQ application of the template to a Liquibase service as to any other', () => {
+    const form = createServiceForm();
+    form.controls.build.controls.tool.setValue('LIQUIBASE');
+    TestBed.runInInjectionContext(() =>
+      followName(form, serviceTemplate(), of('CERT'), inject(DestroyRef)),
+    );
+
+    form.controls.name.setValue('orders-db');
+
+    expect(form.controls.nexusIqApplications.getRawValue()[0].application).toBe('cert-orders-db');
+  });
+
+  it('sends no hidden, disabled or invalid database value', () => {
+    const form = database({ utplsql: false, nexusDelivery: false, defaultSchema: 'ORDERS' });
+    const d = form.controls.database.controls;
+    d.utplsqlSourcePath.setValue('db/code');
+    d.liquibaseSchema.setValue('1 not a schema');
+    form.controls.databaseTargets.controls.RD.controls.timeoutMinutes.setValue(500);
+
+    const request = toServiceRequest(form);
+
+    expect(request.database).toMatchObject({
+      defaultSchema: 'ORDERS',
+      liquibaseSchema: null,
+      groupId: null,
+      nexusDelivery: false,
+      utplsql: false,
+      utplsqlSourcePath: null,
+    });
+    expect(request.databaseTargets?.RD?.timeoutMinutes).toBeNull();
+  });
+
+  const NEEDS: [PipelineType, string[]][] = [
+    [
+      'FULL',
+      [
+        'groupId',
+        'snapshotRepositoryId',
+        'snapshotRepositoryUrl',
+        'releaseRepositoryId',
+        'releaseRepositoryUrl',
+      ],
+    ],
+    [
+      'EXTENDED',
+      [
+        'groupId',
+        'snapshotRepositoryId',
+        'snapshotRepositoryUrl',
+        'releaseRepositoryId',
+        'releaseRepositoryUrl',
+      ],
+    ],
+    ['SECURITY', ['groupId', 'snapshotRepositoryId', 'snapshotRepositoryUrl']],
+    ['SAST', []],
+  ];
+  const missing = (form: ReturnType<typeof database>) =>
+    Object.entries(form.controls.database.controls)
+      .filter(([, control]) => control.hasError('rule'))
+      .map(([key]) => key);
+
+  it.each(NEEDS)(
+    'needs what a delivering %s pipeline uploads, without Library defaults: %j',
+    (type, keys) => {
+      const form = withDatabaseRules(database({ groupId: null }), null, [type]);
+
+      expect(missing(form)).toEqual(keys);
+    },
+  );
+
+  it('takes the repositories of the Library defaults and needs only the group ID then', () => {
+    const settings = globalSettings({ database: databaseDefaults() });
+    const form = withDatabaseRules(database({ groupId: null }), settings, ['FULL', 'SECURITY']);
+
+    expect(missing(form)).toEqual(['groupId']);
+    expect(form.controls.database.controls.groupId.errors).toEqual({
+      rule: 'Add the group ID of the package, or untick Deliver the package to Nexus: the Full pipeline delivers it',
+    });
+
+    form.controls.database.controls.nexusDelivery.setValue(false);
+    expect(form.valid).toBe(true);
+  });
+
+  it('names each repository the delivery needs and the Library defaults do not hold', () => {
+    const settings = globalSettings({
+      database: databaseDefaults({ releaseRepositoryUrl: null }),
+    });
+    const d = withDatabaseRules(database(), settings, ['FULL']).controls.database.controls;
+
+    expect(d.releaseRepositoryUrl.errors).toEqual({
+      rule: 'Add the release repository URL, set it in the Library defaults (Liquibase database changes), or untick Deliver the package to Nexus',
+    });
+    expect(d.releaseRepositoryId.valid).toBe(true);
+  });
+
+  it('deploys only to the databases the Library defaults allow', () => {
+    const url = (form: ReturnType<typeof database>) =>
+      form.controls.databaseTargets.controls.RD.controls.url;
+    const allowed = globalSettings({ database: databaseDefaults() });
+
+    expect(url(withDatabaseRules(database(), allowed, ['FULL'])).valid).toBe(true);
+    expect(url(withDatabaseRules(database(), globalSettings(), ['FULL'])).errors).toEqual({
+      rule: NO_ALLOWED_DATABASES,
+    });
+    const prod = url(withDatabaseRules(database(), allowed, ['SAST']));
+    prod.setValue('jdbc:oracle:thin:@//prod-db.bbh.com:1521/ORDERS');
+    expect(prod.errors).toEqual({ rule: NOT_ALLOWED_DATABASE });
+    expect(url(withDatabaseRules(database(), null, ['FULL'])).valid).toBe(true);
+  });
+
+  it('needs a test database of its own', () => {
+    const t = database().controls.databaseTargets.controls;
+
+    t.TEST.controls.url.setValue(` ${ORDERS_DB.replace('rd-db', 'RD-DB')} `);
+    expect(t.TEST.controls.url.errors).toEqual({ rule: OWN_TEST_DATABASE });
+
+    t.RD.controls.url.setValue('jdbc:oracle:thin:@//rd2-db.bbh.com:1521/ORDERS_RD');
+    expect(t.TEST.controls.url.valid).toBe(true);
+  });
+
+  it('keeps the test changesets out of QC, under QC Contexts or else under the service Contexts', () => {
+    const form = database();
+    const contexts = form.controls.database.controls.contexts;
+    const qc = form.controls.databaseTargets.controls.QC.controls.contexts;
+    expect(contexts.valid && qc.valid).toBe(true);
+
+    contexts.setValue('test, prod');
+    expect(contexts.errors).toEqual({ rule: QC_GETS_TESTS });
+
+    qc.setValue('!test');
+    expect(contexts.valid).toBe(true);
+
+    qc.setValue('test');
+    expect(qc.errors).toEqual({ rule: QC_GETS_TESTS });
+    expect(contexts.valid).toBe(true);
+  });
+
+  it('needs a folder for a changelog in the repository root', () => {
+    const form = database({ changelogFile: 'changelog.xml' });
+    const changelog = form.controls.database.controls.changelogFile;
+    expect(changelog.errors).toEqual({ rule: CHANGELOG_AT_ROOT });
+
+    changelog.setValue('./db/changelog.xml');
+    expect(changelog.errors).toEqual({ rule: CHANGELOG_AT_ROOT });
+
+    form.controls.database.controls.searchPath.setValue('db');
+    expect(changelog.valid).toBe(true);
+
+    form.controls.database.controls.searchPath.setValue('.');
+    form.controls.build.controls.sourceDir.setValue('db');
+    expect(changelog.valid).toBe(true);
+
+    form.controls.build.controls.sourceDir.setValue('./.');
+    expect(changelog.errors).toEqual({ rule: CHANGELOG_AT_ROOT });
+  });
+
+  it('runs the SonarQube analysis of a service with database changes in a folder that holds its package and tests', () => {
+    const form = database({
+      changelogFile: 'db/changelog.xml',
+      utplsql: true,
+      utplsqlTestPath: 'db/test',
+    });
+    const d = form.controls.database.controls;
+    const folder = form.controls.sonar.controls.command.controls.directory;
+    const problem = (value: string) => {
+      folder.setValue(value);
+      return folder.errors;
+    };
+
+    expect(['', '.', 'db', './db', ' db ', 'db/.'].map(problem)).toEqual(Array(6).fill(null));
+    expect(problem('db/test')).toEqual({ rule: notHeldBySonarFolder('db') });
+    expect(problem('web')).toEqual({ rule: notHeldBySonarFolder('db', 'db/test') });
+    expect(problem('web')).toEqual({
+      rule: 'Does not hold the package folder db and the folder of the test packages db/test: sonar-scanner runs in that folder, and SonarQube analyses only the files under it: set the directory to a folder that holds the package folder and the folder of the test packages, or empty it',
+    });
+    ['../db', '/db', 'db/', 'db folder', 'db/../web'].forEach((value) =>
+      expect(problem(value), value).toEqual({ rule: SEARCH_PATH_MESSAGE }),
+    );
+
+    d.utplsqlTestPath.setValue('test');
+    expect(problem('db')).toEqual({ rule: notHeldBySonarFolder(null, 'test') });
+    d.utplsql.setValue(false);
+    expect(folder.valid).toBe(true);
+
+    d.utplsql.setValue(true);
+    form.controls.build.controls.sourceDir.setValue('orders-db');
+    d.searchPath.setValue('src');
+    expect(problem('orders-db/src')).toBeNull();
+    expect(problem('orders-db/src/db')).toEqual({
+      rule: notHeldBySonarFolder(null, 'orders-db/src/test'),
+    });
+    expect(problem('db')).toEqual({
+      rule: notHeldBySonarFolder('orders-db/src/db', 'orders-db/src/test'),
+    });
+
+    d.changelogFile.setValue('changelog.xml');
+    expect(problem('orders-db/src')).toBeNull();
+    expect(problem('orders-db/src/test')).toEqual({ rule: notHeldBySonarFolder('orders-db/src') });
+  });
+
+  it('refuses a source or search folder that is no folder of the repository there, not under the SonarQube directory', () => {
+    const form = database({
+      changelogFile: 'db/changelog.xml',
+      utplsql: true,
+      utplsqlTestPath: 'test',
+    });
+    const sourceDir = form.controls.build.controls.sourceDir;
+    const searchPath = form.controls.database.controls.searchPath;
+    const folder = form.controls.sonar.controls.command.controls.directory;
+    folder.setValue('orders-db/db');
+    sourceDir.setValue('orders-db');
+    expect(sourceDir.valid).toBe(true);
+    expect(folder.errors).toEqual({ rule: notHeldBySonarFolder(null, 'orders-db/test') });
+
+    ['/orders-db', 'orders db', 'orders-db/..', 'orders-db/'].forEach((value) => {
+      sourceDir.setValue(value);
+      expect(sourceDir.errors, value).toEqual({ rule: SEARCH_PATH_MESSAGE });
+      expect(folder.valid, value).toBe(true);
+    });
+    folder.setValue('../db');
+    expect(folder.errors).toEqual({ rule: SEARCH_PATH_MESSAGE });
+    folder.setValue('orders-db/db');
+
+    ['', ' . ', './orders-db'].forEach((value) => {
+      sourceDir.setValue(value);
+      expect(sourceDir.valid, value).toBe(true);
+    });
+    ['/src', '../src', 'src/', 'src folder'].forEach((value) => {
+      searchPath.setValue(value);
+      expect(searchPath.errors, value).toEqual({ rule: SEARCH_PATH_MESSAGE });
+      expect(folder.valid, value).toBe(true);
+    });
+    searchPath.setValue('src');
+    expect(folder.errors).toEqual({
+      rule: notHeldBySonarFolder('orders-db/src/db', 'orders-db/src/test'),
+    });
+  });
+
+  it('checks the source folder only for a service with database changes', () => {
+    const java = gradle();
+    const plain = createServiceForm(databaseService({ database: null, databaseTargets: {} }));
+    const changes = database();
+    const sourceDir = (form: ReturnType<typeof gradle>) => form.controls.build.controls.sourceDir;
+    [java, plain, changes].forEach((form) => sourceDir(form).setValue('/orders-db'));
+
+    expect(sourceDir(java).valid && sourceDir(plain).valid).toBe(true);
+    expect(sourceDir(changes).errors).toEqual({ rule: SEARCH_PATH_MESSAGE });
+
+    changes.controls.database.controls.changelogFile.setValue(' ');
+    expect(sourceDir(changes).valid).toBe(true);
+    changes.controls.database.controls.changelogFile.setValue('db/changelog.xml');
+    expect(sourceDir(changes).valid).toBe(false);
+    changes.controls.build.controls.tool.setValue('GRADLE');
+    expect(sourceDir(changes).valid).toBe(true);
+  });
+
+  it('leaves the SonarQube directory of every other service as it is', () => {
+    const java = gradle();
+    const plain = createServiceForm(databaseService({ database: null, databaseTargets: {} }));
+    const changes = database();
+    const folder = (form: ReturnType<typeof gradle>) =>
+      form.controls.sonar.controls.command.controls.directory;
+    [java, plain, changes].forEach((form) => folder(form).setValue('../web'));
+
+    expect(folder(java).valid && folder(plain).valid).toBe(true);
+    expect(folder(changes).errors).toEqual({ rule: SEARCH_PATH_MESSAGE });
+
+    changes.controls.database.controls.changelogFile.setValue(' ');
+    expect(folder(changes).valid).toBe(true);
+    changes.controls.database.controls.changelogFile.setValue('db/changelog.xml');
+    changes.controls.build.controls.tool.setValue('GRADLE');
+    expect(folder(changes).valid).toBe(true);
+  });
+
+  it('needs the test database for the utPLSQL tests and for the reset, and a credentials ID with each URL', () => {
+    const form = database({ utplsql: false });
+    const test = form.controls.databaseTargets.controls.TEST.controls;
+    test.url.setValue('');
+    test.credentialsId.setValue('');
+    expect(form.controls.databaseTargets.valid).toBe(true);
+
+    form.controls.database.controls.testReset.setValue(true);
+    expect(test.url.hasError('required')).toBe(true);
+
+    test.url.setValue('jdbc:oracle:thin:@//dev-db.bbh.com:1521/ORDERS_CI');
+    expect(test.credentialsId.hasError('required')).toBe(true);
+
+    test.url.setValue('');
+    form.controls.database.controls.testReset.setValue(false);
+    test.credentialsId.setValue('orders-db-test');
+    expect(test.credentialsId.errors).toEqual({ rule: 'Is set without a JDBC URL' });
+  });
+});

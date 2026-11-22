@@ -1,0 +1,588 @@
+package com.bbh.itss.dso.portal.application.pipeline
+
+import com.bbh.itss.dso.portal.application.catalog.port.out.ProductRepositoryPort
+import com.bbh.itss.dso.portal.application.pipeline.port.out.PipelineRepositoryPort
+import com.bbh.itss.dso.portal.application.settings.port.in.ManageGlobalSettingsUseCase
+import com.bbh.itss.dso.portal.application.settings.port.in.ManageServiceTemplateUseCase
+import com.bbh.itss.dso.portal.domain.catalog.DatabaseSettings
+import com.bbh.itss.dso.portal.domain.catalog.NexusIqApplication
+import com.bbh.itss.dso.portal.domain.catalog.ScmSettings
+import com.bbh.itss.dso.portal.domain.catalog.UrbanCodeApplicationSettings
+import com.bbh.itss.dso.portal.domain.catalog.UrbanCodeComponent
+import com.bbh.itss.dso.portal.domain.monitoring.MetricsTag
+import com.bbh.itss.dso.portal.domain.pipeline.IssuedKey
+import com.bbh.itss.dso.portal.domain.pipeline.KeyGenerator
+import com.bbh.itss.dso.portal.domain.pipeline.Pipeline
+import com.bbh.itss.dso.portal.domain.settings.DatabaseDefaults
+import com.bbh.itss.dso.portal.domain.settings.StoredServiceTemplate
+import com.bbh.itss.dso.portal.domain.shared.InvalidRequestException
+import spock.lang.Specification
+
+import java.time.Instant
+
+import static com.bbh.itss.dso.portal.domain.catalog.BuildTool.LIQUIBASE
+import static com.bbh.itss.dso.portal.domain.catalog.DeployTarget.OPENSHIFT
+import static com.bbh.itss.dso.portal.domain.pipeline.KeyStatus.ACTIVE
+import static com.bbh.itss.dso.portal.domain.pipeline.KeyStatus.REVOKED
+import static com.bbh.itss.dso.portal.domain.pipeline.PipelineType.EXTENDED
+import static com.bbh.itss.dso.portal.domain.pipeline.PipelineType.FULL
+import static com.bbh.itss.dso.portal.domain.pipeline.PipelineType.NEXUS_IQ
+import static com.bbh.itss.dso.portal.domain.pipeline.PipelineType.SAST
+import static com.bbh.itss.dso.portal.domain.pipeline.PipelineType.SECURITY
+import static com.bbh.itss.dso.portal.domain.shared.Failures.STALE_VERSION
+import static com.bbh.itss.dso.portal.support.CatalogFixtures.copy
+import static com.bbh.itss.dso.portal.support.Fixtures.KEY
+import static com.bbh.itss.dso.portal.support.Fixtures.activeKey
+import static com.bbh.itss.dso.portal.support.Fixtures.build
+import static com.bbh.itss.dso.portal.support.Fixtures.database
+import static com.bbh.itss.dso.portal.support.Fixtures.databaseDefaults
+import static com.bbh.itss.dso.portal.support.Fixtures.databaseSettings
+import static com.bbh.itss.dso.portal.support.Fixtures.deployment
+import static com.bbh.itss.dso.portal.support.Fixtures.pipeline
+import static com.bbh.itss.dso.portal.support.Fixtures.pipelineSettings
+import static com.bbh.itss.dso.portal.support.Fixtures.product
+import static com.bbh.itss.dso.portal.support.Fixtures.revokedKey
+import static com.bbh.itss.dso.portal.support.Fixtures.storedSettings
+import static java.time.Clock.fixed
+import static java.time.ZoneOffset.UTC
+import static org.spockframework.mock.EmptyOrDummyResponse.INSTANCE
+
+class PipelineServiceSpec extends Specification {
+
+    static final Instant NOW = Instant.parse('2026-10-05T07:30:00.123456789Z')
+    static final Instant NOW_MICROS = Instant.parse('2026-10-05T07:30:00.123456Z')
+    static final String NEW_KEY = '9b2e2a52-2f0d-4f53-9b55-4f0b9a8f6c11'
+    static final String NOTHING_TO_SCAN =
+            'Service batch has no Nexus IQ application, so its Nexus IQ GoldenFix pipeline would scan nothing'
+    static final String NOT_DEPLOYED = 'Service batch deploys to virtual machines but has no UrbanCode Deploy ' +
+            'application for DV, so its Full pipeline would fail at the lower test region deployment'
+
+    PipelineRepositoryPort pipelines = Mock(defaultResponse: INSTANCE)
+    ProductRepositoryPort products = Mock(defaultResponse: INSTANCE)
+    ManageGlobalSettingsUseCase settings = Stub() {
+        current() >> storedSettings('https://jenkins.test')
+    }
+    KeyGenerator keys = { -> NEW_KEY } as KeyGenerator
+    def template = StoredServiceTemplate.unsaved()
+    ManageServiceTemplateUseCase templates = Stub() {
+        current() >> { template }
+    }
+    def service = new PipelineService(pipelines, products, settings, templates, keys, fixed(NOW, UTC))
+
+    def certScanner = product(id: 1, services: [[name: 'gui', id: 10, nexusIqApplications: [scanned('cert-gui')],
+                                                 urbanCodeApplications: [deployed('Cert')]],
+                                                [name: 'backend-api', id: 11, nexusIqApplications: [scanned('cert-api')],
+                                                 urbanCodeApplications: [deployed('Cert API')]]])
+    def batch = product(id: 2, services: [[name: 'batch', id: 20]])
+
+    def "each service of a product is listed with its pipelines, and one pipeline comes with its product and service"() {
+        given:
+        products.load(1L) >> Optional.of(certScanner)
+        pipelines.findByProductId(1L) >> [pipeline(id: 100), pipeline(id: 101, type: SAST)]
+        pipelines.load(100L) >> Optional.of(pipeline(id: 100, keys: [activeKey(), revokedKey()]))
+
+        when:
+        def list = service.listForProduct(1L)
+        def view = service.get(100L)
+
+        then:
+        list*.service()*.name() == ['gui', 'backend-api']
+        list[0].pipelines()*.pipeline()*.id() == [100, 101]
+        list[0].pipelines()*.jenkinsUrl() == ['https://jenkins.test', 'https://jenkins.test']
+        list[1].pipelines() == []
+        [view.product().code(), view.service().name(), view.pipeline().keys().size(), view.jenkinsUrl()] ==
+                ['CERT', 'gui', 2, 'https://jenkins.test']
+        view.metricsTag() == new MetricsTag('CERT-gui', 'test')
+    }
+
+    def "#action finds no #missing"() {
+        given:
+        pipelines.load(101L) >> Optional.of(pipeline(id: 101, productId: 2))
+        products.load(1L) >> Optional.of(certScanner)
+        products.findByServiceId(12L) >> Optional.of(certScanner)
+
+        when:
+        call(service)
+
+        then:
+        def e = thrown(NoSuchElementException)
+        e.message == "$missing does not exist"
+        0 * pipelines.save(_)
+        0 * pipelines.delete(_)
+
+        where:
+        action                  | missing        | call
+        'listing'               | 'Product 2'    | { it.listForProduct(2L) }
+        'reading'               | 'Pipeline 100' | { it.get(100L) }
+        'reading'               | 'Product 2'    | { it.get(101L) }
+        'starting new services' | 'Service 12'   | { it.createMissing(1L, [12L], FULL, []) }
+        'starting new services' | 'Product 7'    | { it.createMissing(7L, [10L], FULL, []) }
+        'creating'              | 'Service 10'   | { it.create(10L, FULL, pipelineSettings()) }
+        'creating'              | 'Service 12'   | { it.create(12L, FULL, pipelineSettings()) }
+        'deleting'              | 'Pipeline 100' | { it.delete(100L) }
+        'issuing a key'         | 'Pipeline 100' | { it.issueKey(100L) }
+    }
+
+    def "a pipeline is created with its first key"() {
+        given:
+        products.findByServiceId(10L) >> Optional.of(certScanner)
+
+        when:
+        def view = service.create(10L, SECURITY, pipelineSettings(
+                agentLabels: ['linux'], extendedPipelineJob: 'CERT/gui-extended', jenkinsJob: 'DevSecOps/CERT/gui-security'))
+
+        then:
+        1 * pipelines.save({ Pipeline p ->
+            p.id() == null && p.type() == SECURITY && p.service().serviceId() == 10L &&
+                    p.service().productId() == 1L && p.keys()*.value() == [NEW_KEY] && p.keys()[0].issuedAt() == NOW_MICROS
+        }) >> { Pipeline p -> stored(100L, p) }
+        view.pipeline().id() == 100
+        view.pipeline().settings().extendedPipelineJob() == 'CERT/gui-extended'
+        view.jenkinsJobUrl() == 'https://jenkins.test/job/DevSecOps/job/CERT/job/gui-security/'
+        view.pipeline().activeKey().get().status() == ACTIVE
+    }
+
+    def "every service a save covers starts with a #type pipeline and a key, named by the service template"() {
+        given:
+        products.load(1L) >> Optional.of(certScanner)
+
+        when:
+        def views = service.createMissing(1L, [10L, 11L], type, [])
+
+        then:
+        1 * pipelines.save({ Pipeline p ->
+            p.type() == type && p.settings().agentLabels() == ['linux-agent'] &&
+                    p.settings().jenkinsJob() == "DevSecOps/CERT/gui-$slug" && p.keys()*.value() == [NEW_KEY]
+        }) >> stored(100L, pipeline(id: null, serviceId: 10L))
+        1 * pipelines.save({ Pipeline p -> p.settings().jenkinsJob() == "DevSecOps/CERT/backend-api-$slug" }) >>
+                stored(101L, pipeline(id: null, serviceId: 11L))
+        views*.pipeline()*.id() == [100L, 101L]
+        views*.service()*.name() == ['gui', 'backend-api']
+        views.every { it.pipeline().isEnabled() }
+
+        where:
+        type     | slug
+        FULL     | 'full'
+        SAST     | 'sast'
+        NEXUS_IQ | 'nexusiq'
+    }
+
+    def "the new Nexus IQ pipelines of one repository share one Jenkins job, #existing"() {
+        given:
+        def repository = 'https://bitbucket.bbh.com/projects/PAY/repos/payhub'
+        products.load(1L) >> Optional.of(product(id: 1, services: [
+                [name: 'backend-api', id: 10, scm: ScmSettings.of(repository, 'bb'), nexusIqApplications: [scanned('a')]],
+                [name: 'web-ui', id: 11, scm: ScmSettings.of(" ${repository.toUpperCase()}.git/", 'bb'),
+                 nexusIqApplications: [scanned('b')]],
+                [name: 'batch', id: 12, scm: ScmSettings.of("${repository}-batch", 'bb'), nexusIqApplications: [scanned('c')]],
+                [name: 'docs', id: 13, nexusIqApplications: [scanned('d')]],
+                [name: 'reports', id: 14, scm: ScmSettings.of(repository, 'bb'), nexusIqApplications: [scanned('e')]]]))
+        pipelines.findByProductId(1L) >> before
+        pipelines.existsForService(10L, NEXUS_IQ) >> !before.isEmpty()
+
+        when:
+        service.createMissing(1L, [10L, 11L, 12L, 13L], NEXUS_IQ, [])
+
+        then:
+        (before ? 0 : 1) * pipelines.save({ Pipeline p -> p.service().serviceId() == 10L }) >> { Pipeline p -> stored(100L, p) }
+        1 * pipelines.save({ Pipeline p -> p.service().serviceId() == 11L && p.settings().jenkinsJob() == shared }) >>
+                { Pipeline p -> stored(101L, p) }
+        1 * pipelines.save({ Pipeline p -> p.settings().jenkinsJob() == 'DevSecOps/CERT/batch-nexusiq' }) >>
+                { Pipeline p -> stored(102L, p) }
+        1 * pipelines.save({ Pipeline p -> p.settings().jenkinsJob() == 'DevSecOps/CERT/docs-nexusiq' }) >>
+                { Pipeline p -> stored(103L, p) }
+
+        where:
+        existing                                        | before                                || shared
+        'both new'                                      | []                                    || 'DevSecOps/CERT/backend-api-nexusiq'
+        'not the job of one that runs already'          | [running(jenkinsJob: 'Teams/payhub')] || 'DevSecOps/CERT/web-ui-nexusiq'
+        'the job two that run already share'            | twice(jenkinsJob: ' teams/PAYHUB')    || 'Teams/payhub'
+        'not the separate jobs of two that run already' | twice(jenkinsJob: 'Teams/reports')    || 'DevSecOps/CERT/web-ui-nexusiq'
+        'not the job two on other agents share'         | twice(agentLabels: ['win'])           || 'DevSecOps/CERT/web-ui-nexusiq'
+        'not the job of two when one has no key'        | twice(keys: [])                       || 'DevSecOps/CERT/web-ui-nexusiq'
+    }
+
+    def "a saved service template decides the agents and the job of the pipelines the portal starts, unless the save names the agents"() {
+        given:
+        products.load(1L) >> Optional.of(certScanner)
+        template = new StoredServiceTemplate(StoredServiceTemplate.unsaved().template().toBuilder()
+                .agentLabels(['linux && docker', 'windows-agent']).jenkinsJob(job).build(), 3, null)
+
+        when:
+        service.createMissing(1L, [10L], SECURITY, labels)
+
+        then:
+        1 * pipelines.save({ Pipeline p ->
+            p.settings().agentLabels() == agents && p.settings().jenkinsJob() == expected
+        }) >> { Pipeline p -> stored(100L, p) }
+
+        where:
+        job                             | labels          || agents                                | expected
+        'Teams/{code}/{service}/{type}' | []              || ['linux && docker', 'windows-agent'] | 'Teams/cert/gui/security'
+        null                            | []              || ['linux && docker', 'windows-agent'] | null
+        'Teams/{code}/{service}/{type}' | ['linux-large'] || ['linux-large']                       | 'Teams/cert/gui/security'
+    }
+
+    def "agents named by a save that do not fit their column are refused on the agent labels"() {
+        given:
+        products.load(1L) >> Optional.of(certScanner)
+
+        when:
+        service.createMissing(1L, [10L], FULL, ['a' * 600, 'b' * 600])
+
+        then:
+        def e = thrown(InvalidRequestException)
+        e.problems()*.field == ['agentLabels']
+        0 * pipelines.save(_)
+    }
+
+    def "a service that already has a pipeline of the type keeps it, and a save that covered no service reads nothing"() {
+        given:
+        products.load(1L) >> Optional.of(certScanner)
+        pipelines.existsForService(10L, SECURITY) >> true
+
+        when:
+        def views = service.createMissing(1L, [10L, 11L], SECURITY, [])
+
+        then:
+        1 * pipelines.save({ Pipeline p -> p.service().serviceId() == 11L }) >> { Pipeline p -> stored(101L, p) }
+        0 * pipelines.save({ Pipeline p -> p.service().serviceId() == 10L })
+        views*.pipeline()*.id() == [101L]
+
+        when:
+        def none = service.createMissing(1L, [], SECURITY, [])
+
+        then:
+        none == []
+        0 * products.load(_)
+        0 * pipelines.save(_)
+    }
+
+    def "#refusal is refused before anything is saved"() {
+        given:
+        products.findByServiceId(10L) >> Optional.of(certScanner)
+        products.findByServiceId(20L) >> Optional.of(batch)
+        products.findByServiceId(21L) >> Optional.of(product(id: 3, services: [[name: 'batch', id: 21,
+                                                                                 urbanCodeApplications: [deployed('Batch', ['RD'])]]]))
+        products.load(2L) >> Optional.of(batch)
+        pipelines.existsForService(10L, FULL) >> true
+        pipelines.load(100L) >> Optional.of(pipeline(id: 100, version: 4))
+
+        when:
+        action(service)
+
+        then:
+        def e = thrown(IllegalStateException)
+        e.message == message
+        0 * pipelines.save(_)
+
+        where:
+        refusal                       | action                                              || message
+        'a second pipeline of a type' | { it.create(10L, FULL, pipelineSettings()) }        || 'Service gui already has the Full pipeline'
+        'a change of the type'        | { it.update(100L, 4L, SAST, pipelineSettings()) }   || 'The type of a pipeline cannot change; add a new pipeline instead'
+        'a change read at version 3'  | { it.update(100L, 3L, FULL, pipelineSettings()) }   || STALE_VERSION
+        'a change read at version 5'  | { it.update(100L, 5L, FULL, pipelineSettings()) }   || STALE_VERSION
+        'a Nexus IQ pipeline for a service with no Nexus IQ application' | { it.create(20L, NEXUS_IQ, pipelineSettings()) } || NOTHING_TO_SCAN
+        'the same pipeline started by a save'                           | { it.createMissing(2L, [20L], NEXUS_IQ, []) }     || NOTHING_TO_SCAN
+        'a Full pipeline for a VM service with no UrbanCode application' | { it.create(20L, FULL, pipelineSettings()) }     || NOT_DEPLOYED
+        'the same Full pipeline started by a save'                      | { it.createMissing(2L, [20L], FULL, []) }         || NOT_DEPLOYED
+        'a Full pipeline whose only UrbanCode application skips DV'     | { it.create(21L, FULL, pipelineSettings()) }     || NOT_DEPLOYED
+    }
+
+    def "a product whose service keeps a #type pipeline it can no longer run is refused"() {
+        given:
+        pipelines.existsForService(20L, type) >> true
+
+        when:
+        service.requireRunnablePipelines(product(id: 2, services: [[name: 'batch', id: 20], [name: 'new']]))
+
+        then:
+        def e = thrown(IllegalStateException)
+        e.message == message
+
+        where:
+        type     || message
+        NEXUS_IQ || NOTHING_TO_SCAN
+        FULL     || NOT_DEPLOYED
+    }
+
+    def "a product is accepted when #reason"() {
+        given:
+        pipelines.existsForService(20L, NEXUS_IQ) >> hasPipeline
+        pipelines.existsForService(20L, FULL) >> hasPipeline
+
+        when:
+        service.requireRunnablePipelines(product(id: 2, services: [[name: 'batch', id: 20] + batch, [name: 'new']]))
+
+        then:
+        noExceptionThrown()
+
+        where:
+        reason << ['its pipelines have an application to scan and one to deploy', 'one application deploys to DV',
+                   'its Full pipeline deploys to OpenShift', 'no service has a Nexus IQ or Full pipeline']
+        hasPipeline << [true, true, true, false]
+        batch << [[nexusIqApplications: [scanned('cert-batch')], urbanCodeApplications: [deployed('Batch')]],
+                  [nexusIqApplications  : [scanned('cert-batch')],
+                   urbanCodeApplications: [deployed('Batch', ['RD']), deployed('Batch DV', ['QC', ' dv '])]],
+                  [nexusIqApplications: [scanned('cert-batch')], deployment: deployment(target: OPENSHIFT)], [:]]
+    }
+
+    def "a #type pipeline of a Liquibase service that delivers its database package is refused without its #missing"() {
+        given:
+        products.findByServiceId(30L) >> Optional.of(product(id: 3, services: [[name: 'orders-db', id: 30,
+                                                                                 settings: databaseSettings(database: own)]]))
+
+        when:
+        withDefaults(library).create(30L, type, pipelineSettings())
+
+        then:
+        def e = thrown(IllegalStateException)
+        e.message == "Service orders-db delivers its database package to Nexus in the ${type.label()} pipeline but has no" +
+                " $missing. Set it under Database changes$orDefaults, or untick Deliver the package to Nexus"
+        0 * pipelines.save(_)
+
+        where:
+        type     | own                                   | library                                 || missing
+        FULL     | own(groupId: null)                    | databaseDefaults()                      || 'group ID'
+        SECURITY | own(groupId: null)                    | databaseDefaults()                      || 'group ID'
+        FULL     | database()                            | DatabaseDefaults.NONE                   || 'snapshot repository ID'
+        SECURITY | database()                            | DatabaseDefaults.NONE                   || 'snapshot repository ID'
+        EXTENDED | own(snapshotRepositoryId: 's')        | DatabaseDefaults.NONE                   || 'snapshot repository URL'
+        FULL     | own(snapshotRepositoryId: 's')        | library(snapshotRepositoryUrl: 'u')     || 'release repository ID'
+        EXTENDED | own(releaseRepositoryId: 'r')         | library(snapshotRepositoryId: 's',
+                                                                   snapshotRepositoryUrl: 'u')     || 'release repository URL'
+        orDefaults = missing == 'group ID' ? '' : ' or in the Library defaults (Liquibase database changes)'
+    }
+
+    def "a Liquibase service with database changes gets a #type pipeline when #reason"() {
+        given:
+        products.findByServiceId(30L) >> Optional.of(product(id: 3, services: [[name: 'orders-db', id: 30,
+                                                                                 settings: databaseSettings(database: own)]]))
+
+        when:
+        withDefaults(library).create(30L, type, pipelineSettings())
+
+        then:
+        1 * pipelines.save(_) >> { Pipeline p -> stored(100L, p) }
+
+        where:
+        reason                                                          | type     | own
+        'the Library defaults name the repositories, without UrbanCode' | FULL     | database()
+        'the Security pipeline needs no release repository'             | SECURITY | own(snapshotRepositoryId: 's',
+                                                                                         snapshotRepositoryUrl: 'u')
+        'the package is not delivered'                                  | EXTENDED | own(nexusDelivery: false, groupId: null)
+        'the SAST pipeline delivers nothing'                            | SAST     | own(groupId: null)
+        library = reason.startsWith('the Library') ? databaseDefaults() : DatabaseDefaults.NONE
+    }
+
+    def "a Liquibase service with database changes has no Nexus IQ pipeline, and a product keeping one is refused"() {
+        given:
+        products.findByServiceId(30L) >> Optional.of(product(id: 3, services: [[name: 'orders-db', id: 30,
+                                                                                 settings: databaseSettings()]]))
+        pipelines.existsForService(31L, NEXUS_IQ) >> true
+
+        when:
+        service.create(30L, NEXUS_IQ, pipelineSettings())
+
+        then:
+        def created = thrown(IllegalStateException)
+        created.message == NO_DEPENDENCIES
+
+        when:
+        service.requireRunnablePipelines(product(id: 3, services: [[name: 'orders-db', id: 31,
+                                                                     settings: databaseSettings()]]))
+
+        then:
+        def saved = thrown(IllegalStateException)
+        saved.message == NO_DEPENDENCIES
+    }
+
+    def "a Liquibase service without database changes gets a Nexus IQ pipeline for its Nexus IQ application"() {
+        given:
+        products.findByServiceId(30L) >> Optional.of(product(id: 3, services: [[name: 'orders-db', id: 30,
+                build: build(tool: LIQUIBASE), nexusIqApplications: [scanned('orders-db')]]]))
+
+        when:
+        service.create(30L, NEXUS_IQ, pipelineSettings())
+
+        then:
+        1 * pipelines.save(_) >> { Pipeline p -> stored(100L, p) }
+    }
+
+    def "a product whose services can run every pipeline type asks for none of their pipelines"() {
+        when:
+        service.requireRunnablePipelines(certScanner)
+
+        then:
+        0 * pipelines.existsForService(_, _)
+    }
+
+    def "a pipeline's settings can change at the version they were read at"() {
+        given:
+        pipelines.load(100L) >> Optional.of(pipeline(id: 100, version: 4))
+        products.load(1L) >> Optional.of(certScanner)
+
+        when:
+        def view = service.update(100L, version, FULL, pipelineSettings(
+                agentLabels: ['windows', 'linux'], extendedPipelineJob: 'CERT/x', securityPipelineJob: 'CERT/y',
+                description: 'Nightly'))
+
+        then:
+        1 * pipelines.save({ Pipeline p -> p.settings().agentLabels() == ['windows', 'linux'] }) >> { Pipeline p -> p }
+        view.pipeline().settings().description() == 'Nightly'
+        view.pipeline().settings().extendedPipelineJob() == null
+        view.pipeline().settings().securityPipelineJob() == null
+
+        where:
+        version = 4L
+    }
+
+    def "a key is revoked on the pipeline loaded under a row lock"() {
+        given:
+        products.load(1L) >> Optional.of(certScanner)
+
+        when:
+        def view = service.revokeKey(100L, 'Leaked in a build log')
+
+        then:
+        1 * pipelines.loadForUpdate(100L) >> Optional.of(pipeline(id: 100))
+        0 * pipelines.load(_)
+
+        then:
+        1 * pipelines.save({ Pipeline p -> !p.enabled }) >> { Pipeline p -> p }
+        !view.pipeline().enabled
+        view.pipeline().keys()[0].revokeReason() == 'Leaked in a build log'
+        view.pipeline().keys()[0].revokedAt() == NOW_MICROS
+    }
+
+    def "a new key is issued on the pipeline loaded under a row lock"() {
+        given:
+        products.load(1L) >> Optional.of(certScanner)
+
+        when:
+        def view = service.issueKey(100L)
+
+        then:
+        1 * pipelines.loadForUpdate(100L) >> Optional.of(pipeline(id: 100))
+
+        then:
+        1 * pipelines.save(_) >> { Pipeline p -> p }
+        view.pipeline().activeKey().get().value() == NEW_KEY
+        view.pipeline().keys()*.status() == [ACTIVE, REVOKED]
+    }
+
+    def "an active key given in any case and with spaces authorizes its pipeline and its use is recorded"() {
+        when:
+        long pipelineId = service.authorizeKey(" ${KEY.toUpperCase()} ")
+
+        then:
+        1 * pipelines.findKey(KEY) >> Optional.of(new IssuedKey(100L, activeKey(id: 500L)))
+        1 * pipelines.recordKeyUse(500L, NOW_MICROS) >> true
+        0 * pipelines.load(_)
+        0 * pipelines.save(_)
+        0 * products._
+        pipelineId == 100L
+    }
+
+    def "a revoked key is refused with the reason and its use is not recorded"() {
+        given:
+        def revoked = revokedKey(reason: 'Service retired')
+        pipelines.findKey(revoked.value()) >> Optional.of(new IssuedKey(100L, revoked))
+
+        when:
+        service.authorizeKey(revoked.value())
+
+        then:
+        def e = thrown(SecurityException)
+        e.message == "The DevSecOps pipeline key was invalidated on ${revoked.revokedAt()}: Service retired"
+        0 * pipelines.recordKeyUse(*_)
+    }
+
+    def "a key whose use was not recorded is refused when it was #outcome meanwhile"() {
+        when:
+        service.authorizeKey(KEY)
+
+        then:
+        2 * pipelines.findKey(KEY) >>> [Optional.of(new IssuedKey(100L, activeKey(id: 500L))), reread]
+        1 * pipelines.recordKeyUse(500L, NOW_MICROS) >> false
+        def e = thrown(failure)
+        e.message.endsWith(message)
+
+        where:
+        outcome       | reread                                                                     || failure                | message
+        'invalidated' | Optional.of(new IssuedKey(100L, revokedKey(value: KEY, reason: 'Leaked'))) || SecurityException      | ': Leaked'
+        'deleted'     | Optional.empty()                                                           || NoSuchElementException | 'Unknown DevSecOps pipeline key'
+    }
+
+    def "a key that is still active after a use that was not recorded authorizes its pipeline"() {
+        when:
+        long pipelineId = service.authorizeKey(KEY)
+
+        then:
+        2 * pipelines.findKey(KEY) >> Optional.of(new IssuedKey(100L, activeKey(id: 500L)))
+        1 * pipelines.recordKeyUse(500L, NOW_MICROS) >> false
+        pipelineId == 100L
+    }
+
+    def "a key that was never issued is not found: '#value'"() {
+        when:
+        service.authorizeKey(value)
+
+        then:
+        def e = thrown(NoSuchElementException)
+        e.message == 'Unknown DevSecOps pipeline key'
+        0 * pipelines.recordKeyUse(*_)
+
+        where:
+        value << ['00000000-0000-4000-8000-000000000000', ' ', null]
+    }
+
+    private static Pipeline stored(long id, Pipeline pipeline) {
+        Pipeline.restore(id, pipeline.service(), pipeline.type(), pipeline.settings(),
+                pipeline.keys().collect { k -> activeKey(id: 500L, value: k.value(), issuedAt: k.issuedAt()) },
+                0, NOW, NOW)
+    }
+
+    private static Pipeline running(Map args) {
+        pipeline([id: 90L, serviceId: 10L, type: NEXUS_IQ] + args)
+    }
+
+    /** Two pipelines that run already in the job Teams/payhub, the second one changed by the arguments. */
+    private static List<Pipeline> twice(Map args) {
+        [running(jenkinsJob: 'Teams/payhub', agentLabels: args.agentLabels),
+         running([id: 91L, serviceId: 14L, jenkinsJob: 'Teams/payhub'] + args)]
+    }
+
+    static final String NO_DEPENDENCIES = 'Service orders-db is a Liquibase service with database changes, for which' +
+            ' the library runs no Nexus IQ GoldenFix pipeline. Choose another pipeline type, or delete the Nexus IQ' +
+            ' GoldenFix pipeline of the service before you set its changelog file'
+
+    private static DatabaseSettings own(Map changes) {
+        def builder = database().toBuilder()
+        changes.each { name, value -> builder."$name"(value) }
+        builder.build()
+    }
+
+    private static DatabaseDefaults library(Map changes) {
+        def builder = DatabaseDefaults.builder()
+        changes.each { name, value -> builder."$name"(value) }
+        builder.build()
+    }
+
+    /** The service under a Global Settings stub with these Library defaults (Liquibase database changes). */
+    private PipelineService withDefaults(DatabaseDefaults defaults) {
+        ManageGlobalSettingsUseCase library = Stub() {
+            current() >> storedSettings { copy(it, database: defaults) }
+        }
+        new PipelineService(pipelines, products, library, templates, keys, fixed(NOW, UTC))
+    }
+
+    private static NexusIqApplication scanned(String application) {
+        NexusIqApplication.of(application, ['**/*.jar'])
+    }
+
+    private static UrbanCodeApplicationSettings deployed(String application, List<String> environments = []) {
+        UrbanCodeApplicationSettings.of(application, 1, environments, null,
+                [UrbanCodeComponent.of('app', 'build/libs', '*.jar')])
+    }
+}

@@ -1,0 +1,172 @@
+# Examples
+
+Jenkinsfiles, REST calls and a rendered configuration for the DevSecOps Management Portal, and screenshots of the
+portal GUI. The API scripts run against a portal started as in [Running locally](../README.md#running-locally); the
+portal starts empty, so `api/create-product.sh` first adds the product the other scripts read, or the scripts take the
+products you added in the portal. Every pipeline key in these files is a placeholder: take the real one from the
+product page, or from `api/pipeline-key.sh`.
+
+| File | What it shows |
+|------|---------------|
+| [jenkins/full-pipeline.Jenkinsfile](jenkins/full-pipeline.Jenkinsfile) | a service's full pipeline: `devSecOpsPipeline` with one key |
+| [jenkins/security-pipeline.Jenkinsfile](jenkins/security-pipeline.Jenkinsfile) | a security pipeline: `devSecOpsSecurityPipeline` |
+| [jenkins/extended-pipeline.Jenkinsfile](jenkins/extended-pipeline.Jenkinsfile) | an extended pipeline: `devSecOpsExtendedPipeline` |
+| [jenkins/sast-pipeline.Jenkinsfile](jenkins/sast-pipeline.Jenkinsfile) | a SAST scanning pipeline: `devSecOpsSASTScanningPipeline` |
+| [jenkins/nexus-iq-pipeline.Jenkinsfile](jenkins/nexus-iq-pipeline.Jenkinsfile) | a Nexus IQ GoldenFix pipeline: `devSecOpsNexusIqGoldenFixPipeline` |
+| [jenkins/multi-service/gateway.Jenkinsfile](jenkins/multi-service/gateway.Jenkinsfile) | the full pipeline of Payments Hub `gateway` |
+| [jenkins/multi-service/ledger.Jenkinsfile](jenkins/multi-service/ledger.Jenkinsfile) | the full pipeline of Payments Hub `ledger` |
+| [jenkins/multi-service/payhub-full.Jenkinsfile](jenkins/multi-service/payhub-full.Jenkinsfile) | one full run that builds every Payments Hub service, `gateway` first |
+| [jenkins/multi-service/orders-full.Jenkinsfile](jenkins/multi-service/orders-full.Jenkinsfile) | one full run of the product `ORDERSGRADLE`: the Liquibase service with database changes `orders-db` first, so its changes reach RD before `orders-app` |
+| [api/list-departments.sh](api/list-departments.sh) | the departments (Business Services in the GUI) with their product, service and pipeline counts |
+| [api/list-products.sh](api/list-products.sh) | the products, optionally filtered by a search text |
+| [api/create-product.sh](api/create-product.sh) with [api/new-product.json](api/new-product.json) | a new product with two services, as the Self-service wizard creates it, one of them with a Node.js frontend build |
+| [api/create-database-product.sh](api/create-database-product.sh) | the two products below, created with a Full pipeline for each service; the Library defaults must first allow their databases and name the Nexus repositories of the database packages |
+| [api/new-database-product.json](api/new-database-product.json) | the product `ORDERSDB` with one Liquibase service with database changes, `orders-db`: a Liquibase changelog, a test database with utPLSQL tests, RD and QC |
+| [api/new-mixed-product.json](api/new-mixed-product.json) | the product `ORDERSGRADLE`, one repository with a Gradle build and its Liquibase module: `orders-db` first, then the Gradle service `orders-app` with its Node.js frontend, which leaves `orders-db` out of its AppScan scope |
+| [api/product-pipelines.sh](api/product-pipelines.sh) | the services of a product with their pipelines and active keys |
+| [api/pipeline-key.sh](api/pipeline-key.sh) | the active key of one pipeline, found by product code, service and type |
+| [api/rotate-key.sh](api/rotate-key.sh) | a new key for a pipeline |
+| [api/revoke-key.sh](api/revoke-key.sh) | invalidating a pipeline's key with a reason |
+| [api/dso-config.sh](api/dso-config.sh) | the configuration the library reads for a key, as JSON and as YAML |
+| [api/import-config.sh](api/import-config.sh) | a `devsecops_config.yaml`, a `config.yaml` or a rendered configuration read back into new service forms |
+| [api/monitoring.sh](api/monitoring.sh) | the monitoring status, every product, all pipelines together, one product and one pipeline |
+| [config/payhub-gateway-full.json](config/payhub-gateway-full.json), [.yaml](config/payhub-gateway-full.yaml) | the configuration of the full pipeline of the sample product Payments Hub, service `gateway` |
+| [config/orders-db-full.json](config/orders-db-full.json), [.yaml](config/orders-db-full.yaml) | the configuration of the full pipeline of the Liquibase service with database changes `orders-db` of `ORDERSDB` |
+
+## Jenkinsfiles
+
+Each file is the whole Jenkinsfile of one Jenkins job, in the form the Self-service wizard and the product page
+generate: the `@Library` line loads the shared library named in the library defaults (`platform.jenkinsLibrary`,
+`DevSecOpsJenkinsLibrary` by default), and the entry point of the pipeline type receives the pipeline key as a string.
+Nothing else is in the file: no `devsecops_config.yaml`, no credentials ID and no tool server. The library reads
+everything else from the portal by the key, at `DSO_PORTAL_URL`, as described in
+[How DSOEnhanced reads its configuration](../README.md#how-dsoenhanced-reads-its-configuration). During the cutover,
+pin the portal-integrated version in the `@Library` line and in the library defaults, for example
+`DevSecOpsJenkinsLibrary@main`.
+
+Save a file as `Jenkinsfile` in the top folder of the service's Bitbucket repository and point a Pipeline job (Pipeline
+script from SCM) at it. A service with pipelines of several types has one job per type, and the Jenkinsfile of each
+job passes the key of its own pipeline. The service template names these jobs `DevSecOps/<CODE>/<service>-<type>`,
+for example `DevSecOps/PAYHUB/gateway-full`.
+
+- `full-pipeline.Jenkinsfile` runs `devSecOpsPipeline`: build, scans, tests, deployment to RD and QC, and release.
+- `security-pipeline.Jenkinsfile` runs `devSecOpsSecurityPipeline`: build and security scans; when the pipeline names
+  an extended pipeline job in the portal, it starts that job.
+- `extended-pipeline.Jenkinsfile` runs `devSecOpsExtendedPipeline`: the deployment and tests that the security
+  pipeline starts. It reads the security run's state, so the first extended run after the cutover needs one security
+  build made by the portal-integrated library.
+- `sast-pipeline.Jenkinsfile` runs `devSecOpsSASTScanningPipeline`: an AppScan static scan of the sources only, with
+  nothing built or deployed.
+- `nexus-iq-pipeline.Jenkinsfile` runs `devSecOpsNexusIqGoldenFixPipeline`: it checks out the sources, builds each
+  service so that the Nexus IQ scan patterns find the built artifacts, and scans the dependencies with Nexus IQ. On a
+  policy violation GoldenFix raises the golden pull request with the upgrades in the service's Bitbucket repository.
+  Nothing is deployed. The service template names these jobs `DevSecOps/<CODE>/<service>-nexusiq`, for example
+  `DevSecOps/PAYHUB/gateway-nexusiq`.
+- `multi-service/gateway.Jenkinsfile` and `multi-service/ledger.Jenkinsfile` are the full pipelines of two services of
+  the sample product Payments Hub, each in its own repository with its own key. The key in `gateway.Jenkinsfile`
+  (`00000000-0000-4000-8000-000000000000`) stands for the pipeline whose configuration `config/` shows.
+- `multi-service/payhub-full.Jenkinsfile` is the Jenkinsfile the product page offers as "Jenkinsfile for several
+  services": `pipelineKeys` lists the keys of the full pipelines of `gateway`, `ledger`, `notifications` and
+  `mobile-app`, the primary service first. One run builds them all. Extended pipelines join such a run only when they
+  name the same security pipeline.
+
+The keys stop working when they are invalidated or replaced: the next build of the job is refused with 403 and the
+Jenkinsfile needs the pipeline's new key.
+
+## API scripts
+
+The scripts need bash, `curl` 7.76 or later and `jq`. Each one reads `PORTAL_URL` (default `http://localhost:8080`)
+and prints the answer through `jq` (YAML as it comes). When the portal refuses a request, the script prints the
+problem detail it sent and exits with a non-zero status.
+
+```bash
+export PORTAL_URL=http://localhost:8080
+examples/api/list-departments.sh
+examples/api/create-product.sh
+examples/api/list-products.sh TRADEARCHIVE
+PRODUCT_ID=$(examples/api/list-products.sh TRADEARCHIVE | jq '.[0].id')
+examples/api/product-pipelines.sh "$PRODUCT_ID"
+KEY=$(examples/api/pipeline-key.sh TRADEARCHIVE archive-api FULL)
+examples/api/dso-config.sh "$KEY"
+```
+
+- `list-departments.sh` calls `GET /api/departments`.
+- `list-products.sh [SEARCH]` calls `GET /api/products?search=`; the search also matches the department name.
+- `create-product.sh [DEPARTMENT]` looks up the department's ID by name (`Custody` by default), puts it into
+  `new-product.json` and posts that to `POST /api/products?pipelineType=FULL`, as the Self-service wizard does after the
+  choice of a full pipeline. The body is the product Trade Archive with `archive-api`, a Maven build on OpenShift with
+  the RD and QC targets the wizard derives from the OpenShift project `cus-archive`, and `archive-gui`, a Gradle build
+  that the UrbanCode Deploy application `TRADEARCHIVE-GUI` deploys to virtual machines. `archive-gui` builds its
+  frontend in the folder `frontend` with Node.js before Gradle (`nodeBuild`, stage 0, with the default commands
+  `npm ci` and `npm run build`) and lists its version catalog `gradle/libs.versions.toml` in `versionCatalogs`.
+  GoldenFix finds that file by itself; listing it adds a run note when the file moves. The body carries the values the
+  wizard fills in, including the Bitbucket repository, its credentials ID and the Nexus IQ application that the
+  service template derives from the service name. The fields the wizard sends empty (`null`, `[]` or their defaults)
+  are left out, which the API reads the same way. Each service signs in to AppScan with its own key ID
+  (`appScan.keyId`), and each gets a full pipeline with an active key that runs on the Jenkins agents named in
+  `agentLabels`. A second run answers 409, because the product code is taken.
+- `product-pipelines.sh PRODUCT_ID` calls `GET /api/products/{id}/pipelines` and shows each pipeline's ID, type,
+  entry point, Jenkins job and active key.
+- `pipeline-key.sh CODE SERVICE [TYPE]` finds the product by its code and prints the active key of the service's
+  pipeline of that type (`FULL` by default, `NEXUS_IQ` for the Nexus IQ GoldenFix pipeline), for use in the other
+  scripts.
+- `rotate-key.sh PIPELINE_ID` calls `POST /api/pipelines/{id}/keys`. An active key is invalidated with the reason
+  "Replaced by a new key"; on a pipeline whose key was invalidated this regenerates it.
+- `revoke-key.sh PIPELINE_ID REASON` calls `POST /api/pipelines/{id}/keys/revoke` with `{"reason": ...}`. The pipeline
+  is disabled until a new key is issued; a pipeline without an active key answers 409.
+- `dso-config.sh KEY` calls `GET /api/dso/config/{key}?format=json` and `GET /api/dso/config/{key}`, the requests the
+  library sends, and records the key's last use. A revoked key answers 403, an unknown one 404.
+- `import-config.sh CONFIG_FILE [SERVICE_NAME]` posts the file to `POST /api/service-configs/import`, which stores
+  nothing, and shows each project with the notes on what the portal did not take over; `.services[].service` holds
+  the service in the shape `POST /api/products` takes. `SERVICE_NAME` names the service of a file that holds one
+  project without a `projects` map. Try it with
+  `examples/api/import-config.sh examples/config/payhub-gateway-full.yaml`.
+- `monitoring.sh PRODUCT_ID PIPELINE_ID [RANGE]` calls `GET /api/monitoring/status`, `/products`,
+  `/activity?range=`, `/products/{id}` and `/pipelines/{id}?range=` (`30d` by default) and shortens each answer;
+  without `INFLUX_URL` the status says that the metrics store is not configured and the runs stay empty.
+
+`create-product.sh`, `rotate-key.sh` and `revoke-key.sh` change the portal's data. Rotating or revoking a key of a
+pipeline no Jenkins job uses changes nothing in Jenkins.
+
+## Configuration sample
+
+`config/payhub-gateway-full.json` and `config/payhub-gateway-full.yaml` are what the library received for the full
+pipeline of the sample product Payments Hub, service `gateway`, generated with the two requests of `dso-config.sh`
+from a portal that held that product. The JSON is the same document as the YAML, pretty-printed; the key itself does not appear in either.
+The document has four parts: `pipeline` (type, entry point, product, the service in `projectNames` and the agent
+labels), `platform` and `defaults` (from the library defaults) and `projects.gateway` (the service's build, scans, tests,
+OpenShift targets, Bitbucket repository and InfluxDB tags). It names Jenkins credentials IDs, never their secrets.
+`defaults.build.node` holds the Node.js installation and npm registry of the library defaults. `gateway` builds its
+`console` frontend with Node.js first (`build.node`, rendered only while it is switched on), names its AppScan scan
+(`sast.scanName`) and the credential of its SonarQube badges (`tools.sonar.badgeCredentialsId`), and lists the shared
+BOM `bom/pom.xml` in `goldenFix.versionCatalogs`. Its build is delivered to Nexus, so the document has no
+`deploy.openshift.rd.nexusDeliveryEnabled`; a service that is not delivered renders it as `false`.
+`platform.jenkinsUrl` is the Jenkins URL of the library defaults. Run `api/dso-config.sh` to see the configuration
+of the portal you run. The [user and administrator guide](../docs/documentation.md#20-field-reference-from-the-portal-to-devsecops_configyaml)
+lists every key with the field that sets it.
+
+`config/orders-db-full.json` and `config/orders-db-full.yaml` are the configuration of the full pipeline of the
+Liquibase service with database changes `orders-db` of `new-database-product.json`, with Library defaults that allow
+its databases and name the Nexus repositories of the database packages. `defaults.tools.liquibase`,
+`defaults.tools.oracleJdbc`, `defaults.tools.utplsql` and `defaults.database` hold those Library defaults; they are
+rendered only while they are set. The project has `buildTool: liquibase` and a `database` block after its build
+settings: the changelog, a changelog parameter, the group ID of the package, and the three databases `test`, `rd` and
+`qc`, each with its JDBC URL and the ID of the Jenkins credential of its database user. The test database runs the
+utPLSQL tests, and QC sets its own value of the parameter. The project has no `build.liquibase` command, because the
+database changes check and package the changelog themselves, and no `deployTarget`, `deploy` or `delivery`, because
+the pipelines deploy the database changes themselves. Like every service it names the Nexus IQ server
+(`tools.nexusIq.serverUrl`, `tools.nexusIq.credentialsId`), but no Nexus IQ application, so its Nexus IQ stage is not
+required. It holds no user and no password. [Chapter 7 of the guide](../docs/documentation.md#7-sql-and-plsql-changes-with-liquibase)
+describes Liquibase services with and without database changes.
+
+## Screenshots
+
+`screenshots/v1` to `screenshots/v18` hold screenshots of the DevSecOps Management Portal UI across versions:
+- `v7` shows the departments.
+- `v8` shows the demo integrations with the charts of Product Management and Pipeline Monitoring.
+- `v10` shows the Self-service wizard and the Admin tabs of DevSecOps Management.
+- `v11` shows the Nexus IQ GoldenFix pipeline: the Self-service wizard choosing it, the product and pipeline pages of DevSecOps Admin and Pipeline Monitoring, and two pages of the DSOEnhanced report of the new pipeline.
+- `v15` shows the Pipelines tab of a department filtered and sorted in its headers, the page of a pipeline with its key, settings, Jenkinsfile and recent runs, a pipeline with an invalidated key, the Self-service wizard with the defaults of the library and the service template, Pipeline Monitoring, and the Admin tabs with the pipeline form filled from the template and the Service template page itself.
+- `v16` shows step 2 of the Self-service wizard with the pipelines in their order and names: SAST (Static Application Security Tests) - HCL AppScan, OSA (Open Source Analysis) (NexusIQ with Golden Fix and Golden Pull Request), Security and Full.
+- `v18` shows Pipeline Monitoring reading a real InfluxDB: the overview with the delivery performance, a product and a pipeline over 30 days, and the pipeline page with the dashboard cards of two Grafana instances.
+

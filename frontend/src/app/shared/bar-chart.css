@@ -1,0 +1,37 @@
+.dso-bar-chart {
+  display: block;
+}
+
+.dso-bar-chart .highcharts-axis-labels text {
+  fill: var(--dso-muted);
+  font-size: 12px;
+}
+
+.dso-bar-chart .highcharts-series.success .highcharts-point {
+  fill: var(--dso-run-success);
+}
+
+.dso-bar-chart .highcharts-series.unstable .highcharts-point {
+  fill: var(--dso-run-unstable);
+}
+
+.dso-bar-chart .highcharts-series.failure .highcharts-point {
+  fill: var(--dso-run-failure);
+}
+
+.dso-bar-chart .highcharts-series.disabled .highcharts-point {
+  fill: #f28b82;
+}
+
+.dso-bar-chart .highcharts-series.aborted .highcharts-point,
+.dso-bar-chart .highcharts-series.not_built .highcharts-point {
+  fill: var(--dso-run-idle);
+}
+
+.dso-bar-chart .highcharts-series.no_data .highcharts-point {
+  fill: var(--dso-run-none);
+}
+
+.dso-bar-chart .highcharts-series.active .highcharts-point {
+  fill: var(--dso-navy);
+}

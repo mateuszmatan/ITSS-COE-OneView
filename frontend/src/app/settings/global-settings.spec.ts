@@ -1,0 +1,502 @@
+import { provideHttpClient } from '@angular/common/http';
+import { HttpTestingController, provideHttpClientTesting } from '@angular/common/http/testing';
+import { ComponentFixture, TestBed } from '@angular/core/testing';
+import { Dialog, DialogRef } from '@angular/cdk/dialog';
+import { provideRouter } from '@angular/router';
+import { of } from 'rxjs';
+import {
+  buttonOf,
+  checkboxOf,
+  fieldOf,
+  helpOf,
+  optionsOf,
+  selectOf,
+  text,
+  toast,
+  unexplained,
+} from '@common/testing/dom';
+import { globalSettings } from '../testing/fixtures';
+import { GlobalSettingsPage } from './global-settings';
+
+describe('GlobalSettingsPage', () => {
+  let fixture: ComponentFixture<GlobalSettingsPage>;
+  let http: HttpTestingController;
+
+  beforeEach(() => {
+    TestBed.configureTestingModule({
+      imports: [GlobalSettingsPage],
+      providers: [provideHttpClient(), provideHttpClientTesting(), provideRouter([])],
+    });
+    http = TestBed.inject(HttpTestingController);
+    fixture = TestBed.createComponent(GlobalSettingsPage);
+  });
+
+  afterEach(() => http.verify());
+
+  const settingsPage = () => fixture.componentInstance;
+  const form = () => settingsPage()['form'];
+  const page = () => fixture.nativeElement as HTMLElement;
+
+  async function load() {
+    await fixture.whenStable();
+    http.expectOne({ method: 'GET', url: '/api/settings' }).flush(globalSettings());
+    await fixture.whenStable();
+  }
+
+  async function submit() {
+    page().querySelector<HTMLButtonElement>('button[type=submit]')!.click();
+    await fixture.whenStable();
+  }
+
+  it('says who should change the defaults, what a service may replace and lists its sections', async () => {
+    await load();
+
+    expect(page().querySelector('h1')).toBeNull();
+    expect(text(page().querySelector('.tab-header .lead'))).toBe(
+      'Only change these settings if the DevSecOps team asks you to. They apply to every pipeline from its next run.',
+    );
+    expect(text(page().querySelector('.tab-header .meta'))).toBe(
+      'The BBH tools every pipeline uses, the security limits it must meet and the defaults a new service starts with. A service can set its own SonarQube, Nexus IQ, InfluxDB, deployment, service and GoldenFix values in the product editor. Fields marked * are required.',
+    );
+    expect(
+      [...page().querySelectorAll('.toc-item')].map((item) => item.textContent?.trim()),
+    ).toEqual([
+      'Tools and servers',
+      'Deployment defaults',
+      'Security limits',
+      'Scans and coverage',
+      'Release gate',
+      'Service defaults',
+      'Liquibase database changes',
+      'GoldenFix defaults',
+    ]);
+    expect(
+      [...page().querySelectorAll('section.section')].map((section) => [
+        text(section.querySelector('h2')),
+        !!text(section.querySelector('.section-head .section-help')),
+      ]),
+    ).toEqual([...page().querySelectorAll('.toc-item')].map((item) => [text(item), true]));
+    const hint = (label: string) => text(fieldOf(page(), label)?.querySelector('dso-hint'));
+    expect(hint('Jenkins URL')).toBe(
+      'The portal links the Jenkins job of each pipeline from it · platform.jenkinsUrl',
+    );
+    expect(hint('OIS host')).toBe('platform.oisHost');
+    expect(hint('Result file')).toBe(
+      'Kept with each build as proof of the check; the library reads only this name · releaseGate.stateFile',
+    );
+    expect(page().querySelector(':not(.dso-help-trigger) > svg-icon')).toBeNull();
+    expect(text(page().querySelector('.save-bar .saved'))).toMatch(/^Last saved .+ \(version 4\)$/);
+    expect(form().controls.platform.controls.jenkinsUrl.value).toBe('https://jenkins.bbh.com');
+    expect(settingsPage().hasUnsavedChanges()).toBe(false);
+  });
+
+  it('explains every field, scanner and the gate scans with a help text', async () => {
+    await load();
+
+    expect(unexplained(page())).toEqual([]);
+    expect(helpOf(fieldOf(page(), 'OIS host')!)).toBe(
+      'The host name of the Safeguard appliance the pipelines fetch the proxy password from. Left empty, the library uses oisapi.bbh.com.',
+    );
+    expect(
+      [...page().querySelectorAll('.limits-row .scanner')].map((scanner) => !!helpOf(scanner)),
+    ).toEqual([true, true, true, true]);
+    expect(helpOf(page().querySelector('.gate .field-label')!)).toContain(
+      'The scans whose findings the gate compares with their security limits.',
+    );
+  });
+
+  it('measures the line coverage of a service with several coverage reports by their average', async () => {
+    await load();
+
+    expect(helpOf(fieldOf(page(), 'Minimum line coverage (%)')!)).toContain(
+      'A service with several coverage reports is measured by the average of its reports.',
+    );
+    expect(text(page().querySelector('#settings-releaseGate .section-help'))).toContain(
+      'when the line coverage of a service is below the minimum',
+    );
+    expect(
+      helpOf(checkboxOf(page(), 'Also require the minimum line coverage').closest('dso-checkbox')!),
+    ).toContain(
+      'Lists each service whose line coverage, the average of its coverage reports, is below the minimum',
+    );
+  });
+
+  it('runs the static and the dynamic stages at the same time unless a box under Speed is unticked', async () => {
+    await load();
+    const section = page().querySelector('#settings-scans')!;
+    const block = [...section.querySelectorAll('.form-block')].find(
+      (candidate) => text(candidate.querySelector('h3')) === 'Speed',
+    )!;
+    const staticBox = checkboxOf(
+      block,
+      'Run unit tests, Nexus IQ, SAST and SonarQube at the same time',
+    );
+    const dynamicBox = checkboxOf(
+      block,
+      'Run the regression, smoke and performance tests and DAST at the same time',
+    );
+
+    expect(text(section.querySelector('.section-help'))).toBe(
+      'How much of the code the unit tests must cover, how long the pipelines wait for each scan before they give up, and which stages run at the same time. The waiting times rarely need to change.',
+    );
+    expect(text(block.querySelector('header p'))).toBe(
+      'Which stages the pipelines run at the same time.',
+    );
+    expect(text(block)).toContain('staticAnalysis.parallel');
+    expect(text(block)).toContain('dynamicAnalysis.parallel');
+    expect(helpOf(staticBox.closest('dso-checkbox')!)).toBe(
+      'Ticked, the full and security pipelines run the unit tests, Nexus IQ, SAST and SonarQube at the same time, as parallel branches of the Jenkins stage Static analysis. SAST compiles and queues its scans in a copy of the workspace, and SonarQube starts a service once its unit tests have written the coverage. The findings, the release gate and the metrics stay the same; the report shows how long the stages took one after another and in parallel. Unticked, the four stages run one after another, as before. A Windows agent always runs them one after another. The Jenkins environment variable DSO_STATIC_ANALYSIS_PARALLEL, when set to true or false, overrides this box. A Jenkinsfile without a key does not follow this box: it runs the stages at the same time unless DSO_STATIC_ANALYSIS_PARALLEL is false or a service of the run sets staticAnalysis.parallel: false in devsecops_config.yaml.',
+    );
+    expect(helpOf(dynamicBox.closest('dso-checkbox')!)).toBe(
+      'Ticked, the full and extended pipelines run the regression, smoke and performance tests and DAST at the same time, as parallel branches of the Jenkins stage Dynamic analysis. Each test stage keeps its own limit of jobs at the same time, and the results and the release gate stay the same. Unticked, they run one after another, as before. The Jenkins environment variable DSO_DYNAMIC_ANALYSIS_PARALLEL, when set to true or false, overrides this box. A Jenkinsfile without a key does not follow this box: it runs them at the same time unless DSO_DYNAMIC_ANALYSIS_PARALLEL is false or a service of the run sets dynamicAnalysis.parallel: false in devsecops_config.yaml.',
+    );
+    expect(staticBox.checked).toBe(true);
+    expect(dynamicBox.checked).toBe(true);
+
+    staticBox.click();
+    dynamicBox.click();
+    await submit();
+
+    const request = http.expectOne({ method: 'PUT', url: '/api/settings' });
+    expect(request.request.body.scans).toEqual({
+      ...globalSettings().scans,
+      parallelStaticAnalysis: false,
+      parallelDynamicAnalysis: false,
+    });
+    request.flush(globalSettings());
+    await fixture.whenStable();
+  });
+
+  it('shows why the settings cannot be read and loads them again on request', async () => {
+    await fixture.whenStable();
+    http
+      .expectOne('/api/settings')
+      .flush({ detail: 'Database unavailable' }, { status: 503, statusText: 'Unavailable' });
+    await fixture.whenStable();
+
+    expect(page().querySelector('.banner')?.textContent).toContain('Database unavailable');
+    expect(page().querySelector('form')).toBeNull();
+
+    expect(text(page().querySelector('.banner .banner-text'))).toBe(
+      'The library defaults could not be loaded. Database unavailable',
+    );
+    buttonOf(page().querySelector('.banner')!, 'Try again').click();
+    await load();
+    expect(page().querySelector('form')).not.toBeNull();
+  });
+
+  it('saves the changes with the version they were made at', async () => {
+    await load();
+    form().controls.scans.controls.coverageMinLine.setValue(70);
+    form().markAsDirty();
+    expect(settingsPage().hasUnsavedChanges()).toBe(true);
+
+    await submit();
+
+    const request = http.expectOne({ method: 'PUT', url: '/api/settings' });
+    expect(request.request.body.version).toBe(4);
+    expect(request.request.body.scans.coverageMinLine).toBe(70);
+    request.flush(
+      globalSettings({
+        version: 5,
+        scans: { ...globalSettings().scans, coverageMinLine: 70 },
+      }),
+    );
+    await fixture.whenStable();
+
+    expect(settingsPage().hasUnsavedChanges()).toBe(false);
+    expect(text(page().querySelector('.save-bar .saved'))).toContain('(version 5)');
+    expect(text(toast())).toContain(
+      'Library defaults saved. Every pipeline gets them the next time it runs.',
+    );
+  });
+
+  it('offers the Node.js build defaults with the service defaults and sends a blank one as null', async () => {
+    await load();
+    const section = page().querySelector('#settings-serviceDefaults')!;
+    const hint = (label: string) => text(fieldOf(section, label)?.querySelector('dso-hint'));
+
+    expect(text(section.querySelector('.form-block h3'))).toBe('Node.js build');
+    expect(hint('Node.js installation')).toBe('build.node.installationName');
+    expect(hint('npm registry')).toBe('build.node.registry');
+    expect(hint('.npmrc credentials ID')).toBe('build.node.npmrcCredentialsId');
+    expect(helpOf(fieldOf(section, '.npmrc credentials ID')!)).toContain(
+      'which npm reads as its user configuration',
+    );
+
+    form().controls.serviceDefaults.patchValue({
+      nodeInstallationName: ' ',
+      npmRegistry: 'https://tools.bbh.com/nexus/repository/npm-group/',
+    });
+    await submit();
+
+    const request = http.expectOne({ method: 'PUT', url: '/api/settings' });
+    expect(request.request.body.serviceDefaults).toMatchObject({
+      nodeInstallationName: null,
+      npmRegistry: 'https://tools.bbh.com/nexus/repository/npm-group/',
+      npmrcCredentialsId: null,
+    });
+    request.flush(globalSettings());
+    await fixture.whenStable();
+  });
+
+  it('offers the plugin repositories of the BBH Nexus with the service defaults, refuses an address with a quote and sends an empty one as null', async () => {
+    await load();
+    const section = page().querySelector('#settings-serviceDefaults')!;
+    const hint = (label: string) => text(fieldOf(section, label)?.querySelector('dso-hint'));
+    const headings = [...section.querySelectorAll('.form-block h3')].map((h) => text(h));
+    const c = form().controls.serviceDefaults.controls;
+
+    expect(headings).toEqual(['Node.js build', 'Gradle and Maven plugins']);
+    expect(text(section)).toContain(
+      'Retry a Gradle or Maven step with these repositories when a plugin is missing',
+    );
+    expect(text(section)).toContain('pluginRepositories.enabled');
+    expect(hint('Gradle plugin repository')).toBe('pluginRepositories.gradle');
+    expect(hint('Maven plugin repository')).toBe('pluginRepositories.maven');
+    expect(c.pluginRepositoriesEnabled.value).toBe(true);
+    expect(c.gradlePluginRepository.value).toBe(
+      'https://tools.bbh.com/nexus/repository/gradle-plugins/',
+    );
+    expect(helpOf(fieldOf(section, 'Gradle plugin repository')!)).toContain(
+      'Empty: the repository of the library defaults',
+    );
+
+    c.gradlePluginRepository.setValue("https://tools.bbh.com/nexus/'; rm -rf /");
+    expect(c.gradlePluginRepository.hasError('pattern')).toBe(true);
+
+    form().controls.serviceDefaults.patchValue({
+      pluginRepositoriesEnabled: false,
+      gradlePluginRepository: '',
+      mavenPluginRepository: 'https://tools.bbh.com/nexus/repository/maven-plugins/',
+    });
+    await submit();
+
+    const request = http.expectOne({ method: 'PUT', url: '/api/settings' });
+    expect(request.request.body.serviceDefaults).toMatchObject({
+      pluginRepositoriesEnabled: false,
+      gradlePluginRepository: null,
+      mavenPluginRepository: 'https://tools.bbh.com/nexus/repository/maven-plugins/',
+    });
+    request.flush(globalSettings());
+    await fixture.whenStable();
+  });
+
+  it('sets the tools, the allowed databases and the package repositories of Liquibase database changes', async () => {
+    await load();
+    const section = page().querySelector('#settings-database')!;
+    const type = (label: string, value: string) => {
+      const input = fieldOf(section, label)!.querySelector<HTMLInputElement>('input, textarea')!;
+      input.value = value;
+      input.dispatchEvent(new Event('input'));
+    };
+
+    expect(text(section.querySelector('h2'))).toBe('Liquibase database changes');
+    expect([...section.querySelectorAll('.form-block h3')].map(text)).toEqual([
+      'Liquibase',
+      'Oracle JDBC driver',
+      'utPLSQL',
+      'Allowed databases',
+      'Nexus repositories of the database packages',
+    ]);
+    expect(text(fieldOf(section, 'Allowed databases')?.querySelector('dso-hint'))).toBe(
+      'database.allowedTargets',
+    );
+    expect(
+      optionsOf(selectOf(page().querySelector('#settings-serviceDefaults')!, 'Build tool')),
+    ).toEqual([
+      'Gradle',
+      'Maven',
+      'Flutter',
+      'C# / .NET (dotnet or MSBuild)',
+      'npm (Angular, Node.js)',
+      'pip (Python)',
+      'Android (Gradle)',
+      'iOS (Xcode)',
+    ]);
+
+    type('Liquibase folder on the agent', ' /opt/liquibase/4.33.0 ');
+    type('Allowed databases', 'rd-db*.bbh.com\nqc-db.bbh.com/ORDERS_QC');
+    type('Release repository ID', 'bbh-db-releases');
+    await submit();
+
+    const request = http.expectOne({ method: 'PUT', url: '/api/settings' });
+    expect(request.request.body.database).toEqual(
+      expect.objectContaining({
+        liquibaseHome: '/opt/liquibase/4.33.0',
+        liquibaseUrl: null,
+        allowedTargets: ['rd-db*.bbh.com', 'qc-db.bbh.com/ORDERS_QC'],
+        releaseRepositoryId: 'bbh-db-releases',
+      }),
+    );
+    request.flush(globalSettings());
+    await fixture.whenStable();
+  });
+
+  it('names the licence of each Liquibase version (library 19.5, the licence note)', async () => {
+    await load();
+
+    expect(helpOf(fieldOf(page(), 'Liquibase download')!)).toBe(
+      'The Nexus address of a Liquibase .tar.gz, .tgz or .zip. Use Liquibase 4.33.0, or 5.0 only after the BBH open-source office has accepted its licence, FSL-1.1-ALv2.',
+    );
+  });
+
+  it('recommends Liquibase 4.33.0 installed on the agent (library 19.2, chapter 14.2 Before you start)', async () => {
+    await load();
+
+    expect(text(page().querySelector('#settings-database .form-block p'))).toBe(
+      'Where the agents find the Liquibase CLI: a folder on the agent, or a download from Nexus with its checksum. Installing Liquibase 4.33.0 on the agent is recommended.',
+    );
+  });
+
+  it('sends nothing while values are invalid and marks their section', async () => {
+    await load();
+    form().controls.deployment.controls.rdHost.setValue('');
+
+    await submit();
+
+    http.expectNone({ method: 'PUT', url: '/api/settings' });
+    expect(page().querySelector('.save-error')?.textContent).toContain(
+      'Some fields need your attention.',
+    );
+    expect(page().querySelector('.toc-item.problem')?.textContent).toContain('Deployment defaults');
+  });
+
+  it('explains a concurrent change and reloads the current settings', async () => {
+    await load();
+    form().controls.scans.controls.coverageMinLine.setValue(70);
+    form().markAsDirty();
+    await submit();
+
+    http
+      .expectOne({ method: 'PUT', url: '/api/settings' })
+      .flush(
+        { detail: 'The record was changed by someone else.' },
+        { status: 409, statusText: 'Conflict' },
+      );
+    await fixture.whenStable();
+
+    const banner = page().querySelector('.banner.conflict');
+    expect(banner?.textContent).toContain(
+      'Someone else saved the settings after you opened this page.',
+    );
+    expect(page().querySelector<HTMLButtonElement>('button[type=submit]')!.disabled).toBe(true);
+
+    banner!.querySelector<HTMLButtonElement>('button')!.click();
+    await fixture.whenStable();
+    http.expectOne({ method: 'GET', url: '/api/settings' }).flush(globalSettings({ version: 6 }));
+    await fixture.whenStable();
+
+    expect(page().querySelector('.banner.conflict')).toBeNull();
+    expect(form().controls.scans.controls.coverageMinLine.value).toBe(60);
+    expect(text(page().querySelector('.save-bar .saved'))).toContain('(version 6)');
+  });
+
+  it('marks the values the API refused and lists the problems without a field', async () => {
+    await load();
+    form().markAsDirty();
+    await submit();
+
+    http.expectOne({ method: 'PUT', url: '/api/settings' }).flush(
+      {
+        detail: 'The request has invalid values',
+        errors: [
+          { field: 'limits[DAST].maxHigh', message: 'must be at most 100000' },
+          { field: 'unknownField', message: 'is not supported' },
+        ],
+      },
+      { status: 400, statusText: 'Bad Request' },
+    );
+    await fixture.whenStable();
+
+    expect(form().controls.limits.controls.DAST.controls.maxHigh.errors).toEqual({
+      server: 'must be at most 100000',
+    });
+    expect(page().querySelector('.problems')?.textContent).toContain(
+      'unknownField: is not supported',
+    );
+    expect(page().querySelector('.toc-item.problem')?.textContent).toContain('Security limits');
+    expect(page().querySelector('.save-error')?.textContent).toContain(
+      'The portal did not accept some values. They are marked in the form.',
+    );
+  });
+
+  it('toggles the scanners the release gate checks and needs at least one', async () => {
+    await load();
+    const group = page().querySelector<HTMLElement>(
+      'dso-toggle-group[aria-label="Scans the release gate checks"]',
+    )!;
+    const toggles = () => [...group.querySelectorAll('button')];
+    const pressed = () => toggles().map((toggle) => toggle.getAttribute('aria-pressed'));
+
+    expect(toggles().map(text)).toEqual(['SAST', 'SCA', 'Nexus IQ', 'DAST']);
+    expect(pressed()).toEqual(['true', 'true', 'true', 'true']);
+
+    toggles().forEach((toggle) => toggle.click());
+    await fixture.whenStable();
+
+    expect(form().controls.releaseGate.controls.scanners.value).toEqual([]);
+    expect(pressed()).toEqual(['false', 'false', 'false', 'false']);
+    expect(text(page().querySelector('.gate .field-error'))).toBe('Select at least one scanner');
+    expect(settingsPage().hasUnsavedChanges()).toBe(true);
+
+    buttonOf(group, 'Nexus IQ').click();
+    await fixture.whenStable();
+
+    expect(form().controls.releaseGate.controls.scanners.value).toEqual(['NEXUS_IQ']);
+    expect(pressed()).toEqual(['false', 'false', 'true', 'false']);
+    expect(page().querySelector('.gate .field-error')).toBeNull();
+  });
+
+  it('discards the changes made on the page', async () => {
+    await load();
+    form().controls.platform.controls.jenkinsLibrary.setValue('Other');
+    form().markAsDirty();
+    await fixture.whenStable();
+
+    page().querySelectorAll<HTMLButtonElement>('.save-bar button')[0].click();
+    await fixture.whenStable();
+
+    expect(form().controls.platform.controls.jenkinsLibrary.value).toBe('DevSecOpsJenkinsLibrary');
+    expect(settingsPage().hasUnsavedChanges()).toBe(false);
+  });
+
+  it('previews the generated global configuration', async () => {
+    await load();
+    const open = vi
+      .spyOn(TestBed.inject(Dialog), 'open')
+      .mockReturnValue({ closed: of(undefined) } as unknown as DialogRef<unknown>);
+
+    buttonOf(page().querySelector('.tab-header')!, 'Show settings sent to Jenkins').click();
+    await fixture.whenStable();
+    const request = http.expectOne((r) => r.url === '/api/settings/config');
+    expect(request.request.params.get('format')).toBe('yaml');
+    request.flush('platform:\n  jenkinsLibrary: DevSecOpsJenkinsLibrary\n');
+    await fixture.whenStable();
+
+    expect(open).toHaveBeenCalledTimes(1);
+    expect(open.mock.calls[0][1]?.data).toMatchObject({
+      title: 'Shared settings sent to Jenkins (devsecops_config.yaml format)',
+      subtitle:
+        'The part of the settings every pipeline with a key receives along with the settings of its own ' +
+        'service, built from the saved library defaults. A Jenkinsfile without a key receives only the ' +
+        'defaults part, from the copy kept in the DevSecOps library; it never receives the platform part. ' +
+        'That copy leaves out staticAnalysis.parallel and dynamicAnalysis.parallel, which are true by default.',
+      code: 'platform:\n  jenkinsLibrary: DevSecOpsJenkinsLibrary\n',
+      fileName: 'devsecops-global.yaml',
+    });
+  });
+
+  it('scrolls to a section chosen in its table of contents', async () => {
+    await load();
+    const section = page().querySelector<HTMLElement>('#settings-releaseGate')!;
+    const scroll = vi.fn();
+    section.scrollIntoView = scroll;
+
+    [...page().querySelectorAll<HTMLButtonElement>('.toc-item')]
+      .find((item) => item.textContent?.includes('Release gate'))!
+      .click();
+
+    expect(scroll).toHaveBeenCalledWith({ behavior: 'smooth', block: 'start' });
+  });
+});
