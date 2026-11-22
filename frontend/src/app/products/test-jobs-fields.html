@@ -1,6 +1,6 @@
 @let f = form();
 <div class="form-fields">
-  <dso-fields [group]="f.controls.tests" [fields]="parallelFields()" />
+  <ov-fields [group]="f.controls.tests" [fields]="parallelFields()" />
 </div>
 
 @if (f.controls.testJobs.errors?.['server']; as message) {
@@ -13,12 +13,12 @@
       <h4>
         {{ stage.label }} <span class="count">{{ jobsOf(stage.value).length }}</span>
       </h4>
-      <dso-help
+      <ov-help
         [label]="stage.label"
         text="The Full and Extended pipelines run this stage after the deployment to the lower test region. It starts the jobs in the order of the list, up to the parallel limit at a time."
       />
       <div class="stage-options">
-        <dso-fields [group]="f.controls.tests" [fields]="stageFields(stage)" />
+        <ov-fields [group]="f.controls.tests" [fields]="stageFields(stage)" />
       </div>
       <span class="spacer"></span>
       <button type="button" class="btn btn-outline-primary" (click)="add(stage.value)">
@@ -60,7 +60,7 @@
           </button>
         </div>
         <div class="form-fields">
-          <dso-fields [group]="job" [fields]="jobFields(job, stage)" />
+          <ov-fields [group]="job" [fields]="jobFields(job, stage)" />
         </div>
       </div>
     } @empty {

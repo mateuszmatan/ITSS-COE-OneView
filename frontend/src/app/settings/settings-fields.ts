@@ -169,32 +169,32 @@ export const SETTINGS_PAGE: SettingsSection[] = [
         heading: 'Portal monitoring (InfluxDB & Grafana)',
         note: 'Where the portal reads pipeline statistics and DORA metrics from InfluxDB, and the Grafana dashboards linked on the Pipeline Monitoring pages. Leave empty to use the server environment defaults.',
         fields: [
-          mono('influxUrl', 'InfluxDB read URL', 'dso.influx.url', 6, {
+          mono('influxUrl', 'InfluxDB read URL', 'oneview.influx.url', 6, {
             placeholder: 'http://qcwsecopsmon1.testbbh.com:8086',
             hint: 'The InfluxDB v2 address the portal queries for pipeline runs and DORA metrics',
             help: 'The base address only: the portal adds /api/v2/query itself.',
           }),
-          mono('influxOrg', 'InfluxDB organization', 'dso.influx.org', 3, {
+          mono('influxOrg', 'InfluxDB organization', 'oneview.influx.org', 3, {
             placeholder: 'DevSecOps',
             help: 'The InfluxDB organization that owns the bucket.',
           }),
-          mono('influxBucket', 'InfluxDB bucket', 'dso.influx.bucket', 3, {
+          mono('influxBucket', 'InfluxDB bucket', 'oneview.influx.bucket', 3, {
             placeholder: 'DORA-metrics',
             help: 'The bucket the pipelines write their results to, as in the bucket parameter of the InfluxDB write URL.',
           }),
-          mono('influxToken', 'InfluxDB read token', 'dso.influx.token', 12, {
+          mono('influxToken', 'InfluxDB read token', 'oneview.influx.token', 12, {
             type: 'password',
             hint: 'Stored and never shown again. Leave empty to keep the stored token; a new InfluxDB URL needs its token again.',
             help: 'An InfluxDB API token with read access to the bucket.',
           }),
-          mono('grafanaName', 'Grafana instance name', 'dso.grafana.instances[0].name', 4, {
+          mono('grafanaName', 'Grafana instance name', 'oneview.grafana.instances[0].name', 4, {
             placeholder: 'Grafana',
             help: 'The title of the dashboards of this instance on the Pipeline Monitoring pages. Left empty: Grafana.',
           }),
           mono(
             'grafanaDashboardUrl',
             'Grafana pipeline dashboard URL',
-            'dso.grafana.instances[0].dashboard-url',
+            'oneview.grafana.instances[0].dashboard-url',
             4,
             {
               placeholder: 'https://grafana.bbh.com/d/adzfc54123/devsecops-pipeline-long',
@@ -204,21 +204,21 @@ export const SETTINGS_PAGE: SettingsSection[] = [
           mono(
             'grafanaSecurityDashboardUrl',
             'Grafana security dashboard URL',
-            'dso.grafana.instances[0].security-dashboard-url',
+            'oneview.grafana.instances[0].security-dashboard-url',
             4,
             {
               placeholder: 'https://grafana.bbh.com/d/ad2trcm/devsecops-security',
               help: 'The dashboard embedded on the monitoring page of a Security, SAST scanning or Nexus IQ GoldenFix pipeline. Left empty, those pages show the pipeline dashboard.',
             },
           ),
-          mono('grafana2Name', 'Second Grafana instance name', 'dso.grafana.instances[1].name', 4, {
+          mono('grafana2Name', 'Second Grafana instance name', 'oneview.grafana.instances[1].name', 4, {
             placeholder: 'Grafana prod',
             help: 'The title of the dashboards of a second Grafana instance, shown after those of the first. Left empty: Grafana.',
           }),
           mono(
             'grafana2DashboardUrl',
             'Second Grafana pipeline dashboard URL',
-            'dso.grafana.instances[1].dashboard-url',
+            'oneview.grafana.instances[1].dashboard-url',
             4,
             {
               help: 'Embedded after the pipeline dashboard of the first instance, with the same project and period.',
@@ -227,7 +227,7 @@ export const SETTINGS_PAGE: SettingsSection[] = [
           mono(
             'grafana2SecurityDashboardUrl',
             'Second Grafana security dashboard URL',
-            'dso.grafana.instances[1].security-dashboard-url',
+            'oneview.grafana.instances[1].security-dashboard-url',
             4,
             {
               help: 'The security dashboard of the second Grafana instance. Left empty, its pipeline dashboard is shown.',

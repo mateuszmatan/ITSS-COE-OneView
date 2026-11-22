@@ -24,14 +24,14 @@
 }
 
 .summary {
-  color: var(--dso-muted);
+  color: var(--ov-muted);
   font-size: 12px;
 }
 
 .section-help {
   margin: 0;
   padding: 0 12px 8px;
-  border-bottom: 1px solid var(--dso-border);
+  border-bottom: 1px solid var(--ov-border);
 }
 
 .banner {
@@ -40,7 +40,7 @@
 
 .name {
   font-weight: 600;
-  color: var(--dso-navy);
+  color: var(--ov-navy);
 }
 
 .actions {

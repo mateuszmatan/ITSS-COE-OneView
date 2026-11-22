@@ -15,7 +15,7 @@ import {
   mono,
   tristate,
 } from '@common/shared/fields';
-import { DsoHelp } from '@common/ui/help';
+import { OvHelp } from '@common/ui/help';
 import {
   ServiceForm,
   UrbanCodeApplicationForm,
@@ -166,8 +166,8 @@ export const URBAN_CODE_COMPONENT: Field[] = [
 ];
 
 @Component({
-  selector: 'dso-urban-code-fields',
-  imports: [ReactiveFormsModule, Fields, DsoHelp],
+  selector: 'ov-urban-code-fields',
+  imports: [ReactiveFormsModule, Fields, OvHelp],
   changeDetection: ChangeDetectionStrategy.Eager,
   templateUrl: './urban-code-fields.html',
   styles: `
@@ -181,7 +181,7 @@ export const URBAN_CODE_COMPONENT: Field[] = [
       position: relative;
       margin-top: 6px;
       padding: 8px 88px 6px 10px;
-      border: 1px solid var(--dso-border);
+      border: 1px solid var(--ov-border);
       background: #fbfcfd;
 
       .remove {

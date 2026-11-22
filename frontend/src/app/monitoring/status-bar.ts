@@ -23,7 +23,7 @@ export function statusSummary(counts: StatusCounts): string {
 }
 
 @Component({
-  selector: 'dso-status-bar',
+  selector: 'ov-status-bar',
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
     <div class="bar" role="img" [attr.aria-label]="summary()">
@@ -45,7 +45,7 @@ export function statusSummary(counts: StatusCounts): string {
       gap: 2px;
       height: 8px;
       overflow: hidden;
-      background: var(--dso-neutral-bg);
+      background: var(--ov-neutral-bg);
     }
     .segment {
       flex-basis: 0;

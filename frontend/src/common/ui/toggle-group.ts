@@ -16,19 +16,19 @@ import { ControlValueAccessor, NG_VALUE_ACCESSOR } from '@angular/forms';
 const ARROWS: Record<string, number> = { ArrowRight: 1, ArrowDown: 1, ArrowLeft: -1, ArrowUp: -1 };
 
 @Component({
-  selector: 'dso-toggle-group',
+  selector: 'ov-toggle-group',
   changeDetection: ChangeDetectionStrategy.OnPush,
   providers: [
-    { provide: NG_VALUE_ACCESSOR, useExisting: forwardRef(() => DsoToggleGroup), multi: true },
+    { provide: NG_VALUE_ACCESSOR, useExisting: forwardRef(() => OvToggleGroup), multi: true },
   ],
   host: {
-    class: 'btn-group btn-group-sm dso-toggle-group',
+    class: 'btn-group btn-group-sm ov-toggle-group',
     '[attr.role]': "multiple() ? 'group' : 'radiogroup'",
     '(keydown)': 'move($event)',
   },
   template: '<ng-content />',
 })
-export class DsoToggleGroup implements ControlValueAccessor {
+export class OvToggleGroup implements ControlValueAccessor {
   readonly value = model<unknown>(null);
   readonly multiple = input(false, { transform: booleanAttribute });
 
@@ -92,7 +92,7 @@ export class DsoToggleGroup implements ControlValueAccessor {
 }
 
 @Directive({
-  selector: 'button[dsoToggle]',
+  selector: 'button[ovToggle]',
   host: {
     type: 'button',
     class: 'btn btn-outline-primary',
@@ -104,11 +104,11 @@ export class DsoToggleGroup implements ControlValueAccessor {
     '(click)': 'group.pick(value())',
   },
 })
-export class DsoToggle {
-  readonly value = input.required<unknown>({ alias: 'dsoToggle' });
+export class OvToggle {
+  readonly value = input.required<unknown>({ alias: 'ovToggle' });
 
-  protected readonly group = inject(DsoToggleGroup);
+  protected readonly group = inject(OvToggleGroup);
   protected readonly selected = computed(() => this.group.selected(this.value()));
 }
 
-export const TOGGLES = [DsoToggleGroup, DsoToggle] as const;
+export const TOGGLES = [OvToggleGroup, OvToggle] as const;

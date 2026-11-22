@@ -48,7 +48,7 @@ import {
 import { CountedPipe } from '@common/shared/formatting';
 import { buildDefaults } from '../shared/service-template';
 import { LoadError } from '@common/ui/load-error';
-import { DsoLoading, DsoSpinner } from '@common/ui/loading';
+import { OvLoading, OvSpinner } from '@common/ui/loading';
 import { MENU_AT_END } from '@common/ui/menu';
 import { PANEL } from '@common/ui/panel';
 import { TARGET_LABELS, TOOL_LABELS } from '../shared/build-options';
@@ -132,7 +132,7 @@ const productFields = (departments: readonly Department[], creating: boolean): F
 ];
 
 @Component({
-  selector: 'dso-product-editor',
+  selector: 'ov-product-editor',
   imports: [
     ReactiveFormsModule,
     RouterLink,
@@ -140,8 +140,8 @@ const productFields = (departments: readonly Department[], creating: boolean): F
     CdkMenuItem,
     CdkMenuTrigger,
     PANEL,
-    DsoLoading,
-    DsoSpinner,
+    OvLoading,
+    OvSpinner,
     LoadError,
     CountedPipe,
     Fields,
@@ -479,7 +479,7 @@ export class ProductEditor implements OnInit, HasUnsavedChanges {
     afterNextRender(
       () => {
         const field = document.querySelector(
-          '.product-fields .dso-form-field.has-error, .dso-panel.expanded .dso-form-field.has-error',
+          '.product-fields .ov-form-field.has-error, .ov-panel.expanded .ov-form-field.has-error',
         );
         field?.scrollIntoView?.({ behavior: 'smooth', block: 'center' });
       },

@@ -107,13 +107,13 @@ describe('SelfService', () => {
       'Review',
       'Next steps',
     ]);
-    expect(text(page().querySelector('.fields dso-label'))).toBe('Business Service');
+    expect(text(page().querySelector('.fields ov-label'))).toBe('Business Service');
     expect(text(page().querySelector('.step-actions .btn-primary'))).toBe('Next: Pipeline');
 
     await next();
 
     expect(wizard()['step']()).toBe(0);
-    expect(text(fieldOf(page(), 'Business Service')?.querySelector('dso-error'))).toBe('Required');
+    expect(text(fieldOf(page(), 'Business Service')?.querySelector('ov-error'))).toBe('Required');
 
     wizard()['productForm'].patchValue({
       departmentId: 5,
@@ -169,7 +169,7 @@ describe('SelfService', () => {
       ['Fund Services', [3]],
       ['Not in a business service', [2]],
     ]);
-    expect(text(fieldOf(page(), 'Product')?.querySelector('dso-hint'))).toBe(
+    expect(text(fieldOf(page(), 'Product')?.querySelector('ov-hint'))).toBe(
       '2 products to choose from',
     );
 
@@ -179,7 +179,7 @@ describe('SelfService', () => {
     http.expectOne('/api/products/2/pipelines').flush([servicePipelines()]);
     await fixture.whenStable();
 
-    expect(text(fieldOf(page(), 'Business Service')?.querySelector('dso-hint'))).toBe(
+    expect(text(fieldOf(page(), 'Business Service')?.querySelector('ov-hint'))).toBe(
       'Saving moves the product into this business service',
     );
     expect(review()).toEqual(['Owner team', 'Services']);
@@ -593,7 +593,7 @@ describe('SelfService', () => {
   it('keeps the department of a product in the portal', async () => {
     await chooseProduct(3);
 
-    expect(text(fieldOf(page(), 'Business Service')?.querySelector('dso-hint'))).toBe('');
+    expect(text(fieldOf(page(), 'Business Service')?.querySelector('ov-hint'))).toBe('');
     expect(review()).toEqual(['Owner team', 'Services']);
     expect(wizard()['departmentName']()).toBe('Corporate Technology');
     expect(fieldOf(page(), 'AppScan API key ID')).toBeNull();
@@ -609,7 +609,7 @@ describe('SelfService', () => {
     await next();
 
     expect(wizard()['step']()).toBe(1);
-    expect(text(fieldOf(page(), 'Jenkins agents')?.querySelector('dso-error'))).toBe(
+    expect(text(fieldOf(page(), 'Jenkins agents')?.querySelector('ov-error'))).toBe(
       `At most 100 characters per label: ${'x'.repeat(101)}`,
     );
 
@@ -1027,7 +1027,7 @@ describe('SelfService in your department', () => {
     await next();
 
     expect(wizard()['step']()).toBe(0);
-    expect(text(fieldOf(page(), 'Business Service')?.querySelector('dso-error'))).toBe('Required');
+    expect(text(fieldOf(page(), 'Business Service')?.querySelector('ov-error'))).toBe('Required');
 
     wizard()['restart']();
     TestBed.tick();

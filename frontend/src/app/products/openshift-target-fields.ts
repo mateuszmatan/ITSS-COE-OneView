@@ -133,20 +133,20 @@ const PINNED_NOTE: Record<Region, { delivered: string; undelivered: string }> = 
 };
 
 @Component({
-  selector: 'dso-openshift-target-fields',
+  selector: 'ov-openshift-target-fields',
   imports: [TOGGLES, Fields],
   changeDetection: ChangeDetectionStrategy.Eager,
   template: `
-    <dso-toggle-group class="regions" [(value)]="region" aria-label="Region">
+    <ov-toggle-group class="regions" [(value)]="region" aria-label="Region">
       @for (option of regions; track option) {
-        <button [dsoToggle]="option">
+        <button [ovToggle]="option">
           {{ option }} region
           @if (target(option).invalid) {
             <span class="problem-mark" role="img" aria-label="Needs your attention"></span>
           }
         </button>
       }
-    </dso-toggle-group>
+    </ov-toggle-group>
     <p class="region-note">
       @if (region() === 'RD') {
         The lower test region, where the run builds the image. Keys under
@@ -163,17 +163,17 @@ const PINNED_NOTE: Record<Region, { delivered: string; undelivered: string }> = 
     <div class="form-fields">
       @if (region() === 'RD' ? delivers() : hasImageBuild(t)) {
         <h5 class="sub-heading span-12">Image build</h5>
-        <dso-fields [group]="t" [fields]="imageBuild" />
+        <ov-fields [group]="t" [fields]="imageBuild" />
       }
       <h5 class="sub-heading span-12">Image registry</h5>
-      <dso-fields [group]="t" [fields]="shown(registry, region())" />
+      <ov-fields [group]="t" [fields]="shown(registry, region())" />
       <h5 class="sub-heading span-12">Deployment</h5>
-      <dso-fields [group]="t" [fields]="deployment" />
+      <ov-fields [group]="t" [fields]="deployment" />
       <h5 class="sub-heading span-12">Deployment repository</h5>
-      <dso-fields [group]="t" [fields]="repository" />
+      <ov-fields [group]="t" [fields]="repository" />
       <h5 class="sub-heading span-12">Pinned image</h5>
       <p class="note span-12">{{ pinnedNote(region()) }}</p>
-      <dso-fields [group]="t" [fields]="shown(pinnedImage[region()], region())" />
+      <ov-fields [group]="t" [fields]="shown(pinnedImage[region()], region())" />
     </div>
   `,
   styles: `
@@ -190,7 +190,7 @@ const PINNED_NOTE: Record<Region, { delivered: string; undelivered: string }> = 
     .region-note {
       margin: 6px 0 2px;
       font-size: 12px;
-      color: var(--dso-muted);
+      color: var(--ov-muted);
     }
   `,
 })

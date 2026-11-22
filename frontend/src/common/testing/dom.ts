@@ -3,8 +3,8 @@ export const text = (element: ParentNode | null | undefined): string =>
 
 export function fieldOf(root: ParentNode, label: string): HTMLElement | null {
   return (
-    [...root.querySelectorAll<HTMLElement>('dso-form-field')].find(
-      (field) => field.querySelector('dso-label')?.textContent?.trim() === label,
+    [...root.querySelectorAll<HTMLElement>('ov-form-field')].find(
+      (field) => field.querySelector('ov-label')?.textContent?.trim() === label,
     ) ?? null
   );
 }
@@ -31,14 +31,14 @@ export function optionsOf(select: HTMLSelectElement): string[] {
 }
 
 export function checkboxOf(root: ParentNode, label: string): HTMLInputElement {
-  const box = [...root.querySelectorAll<HTMLElement>('dso-checkbox')].find((checkbox) =>
+  const box = [...root.querySelectorAll<HTMLElement>('ov-checkbox')].find((checkbox) =>
     text(checkbox).startsWith(label),
   );
   return box?.querySelector<HTMLInputElement>('input')!;
 }
 
 export function helpOf(root: ParentNode): string {
-  const trigger = root.querySelector('.dso-help-trigger');
+  const trigger = root.querySelector('.ov-help-trigger');
   return (trigger?.getAttribute('aria-describedby') ?? '')
     .split(' ')
     .map((id) => text(document.getElementById(id)))
@@ -46,7 +46,7 @@ export function helpOf(root: ParentNode): string {
 }
 
 export function unexplained(root: ParentNode): string[] {
-  return [...root.querySelectorAll('dso-form-field, dso-checkbox')]
+  return [...root.querySelectorAll('ov-form-field, ov-checkbox')]
     .map((field) => ({ label: text(field.querySelector('label')), help: helpOf(field) }))
     .filter((field) => field.label && !field.help)
     .map((field) => field.label);
@@ -90,5 +90,5 @@ export function settleGrid(): Promise<void> {
 }
 
 export function toast(): HTMLElement | null {
-  return document.querySelector('dso-toast');
+  return document.querySelector('ov-toast');
 }

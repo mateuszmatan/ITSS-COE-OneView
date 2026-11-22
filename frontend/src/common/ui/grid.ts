@@ -74,16 +74,13 @@ export function compare(x: string | number, y: string | number): number {
     : String(x).localeCompare(String(y), 'en', { numeric: true });
 }
 
-@Directive({ selector: 'ng-template[dsoCell]' })
-export class DsoCell<T> {
-  readonly key = input.required<string>({ alias: 'dsoCell' });
+@Directive({ selector: 'ng-template[ovCell]' })
+export class OvCell<T> {
+  readonly key = input.required<string>({ alias: 'ovCell' });
   readonly rows = input<readonly T[]>();
   readonly template = inject<TemplateRef<{ $implicit: T }>>(TemplateRef);
 
-  static ngTemplateContextGuard<T>(
-    cell: DsoCell<T>,
-    context: unknown,
-  ): context is { $implicit: T } {
+  static ngTemplateContextGuard<T>(cell: OvCell<T>, context: unknown): context is { $implicit: T } {
     return true;
   }
 }
@@ -93,7 +90,7 @@ interface CellParams<T> extends ICellRendererParams<T> {
 }
 
 @Component({
-  selector: 'dso-grid-cell',
+  selector: 'ov-grid-cell',
   imports: [NgTemplateOutlet],
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `<ng-container *ngTemplateOutlet="template(); context: { $implicit: row() }" />`,
@@ -118,7 +115,7 @@ interface FilterParams extends IFloatingFilterParams {
 }
 
 @Component({
-  selector: 'dso-grid-filter',
+  selector: 'ov-grid-filter',
   imports: [ReactiveFormsModule],
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
@@ -187,10 +184,10 @@ const INTERACTIVE = 'a, button, input, select, textarea, label';
 const WRAP_WIDTH = 240;
 
 @Component({
-  selector: 'dso-grid',
+  selector: 'ov-grid',
   imports: [AgGridAngular],
   changeDetection: ChangeDetectionStrategy.OnPush,
-  host: { class: 'dso-grid', role: 'region', '[attr.aria-label]': 'label()' },
+  host: { class: 'ov-grid', role: 'region', '[attr.aria-label]': 'label()' },
   template: `
     <ag-grid-angular
       [class]="theme"
@@ -210,24 +207,24 @@ const WRAP_WIDTH = 240;
     }
   `,
 })
-export class DsoGrid<T> {
+export class OvGrid<T> {
   readonly rows = input.required<readonly T[]>();
   readonly columns = input.required<readonly GridColumn<T>[]>();
   readonly rowId = input.required<(row: T) => string | number>();
   readonly rowClass = input<(row: T) => string | string[] | undefined>();
   readonly empty = input('');
   readonly label = input<string>();
-  readonly templates = input<readonly DsoCell<T>[], readonly DsoCell<T>[] | undefined>([], {
+  readonly templates = input<readonly OvCell<T>[], readonly OvCell<T>[] | undefined>([], {
     transform: (templates) => templates ?? [],
   });
   readonly rowClick = output<T>();
 
-  private readonly cells = contentChildren<DsoCell<T>>(DsoCell);
+  private readonly cells = contentChildren<OvCell<T>>(OvCell);
 
   protected readonly theme = GRID_THEME;
   protected readonly rowData = computed(() => [...this.rows()]);
   protected readonly emptyTemplate = computed(
-    () => `<span class="dso-grid-empty">${plainText(this.empty())}</span>`,
+    () => `<span class="ov-grid-empty">${plainText(this.empty())}</span>`,
   );
 
   protected readonly options: GridOptions<T> = {
@@ -321,4 +318,4 @@ function sortKey<T>(read: (row: T) => unknown, row: T | undefined): string | num
   return typeof value === 'number' ? value : String(value ?? '');
 }
 
-export const GRID = [DsoGrid, DsoCell] as const;
+export const GRID = [OvGrid, OvCell] as const;

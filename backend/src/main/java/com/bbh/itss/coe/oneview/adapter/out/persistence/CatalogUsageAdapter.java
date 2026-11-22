@@ -1,0 +1,32 @@
+package com.bbh.itss.coe.oneview.adapter.out.persistence;
+
+import com.bbh.itss.coe.oneview.application.catalog.port.out.DepartmentUsagePort;
+import com.bbh.itss.coe.oneview.domain.catalog.CatalogUsage;
+import lombok.RequiredArgsConstructor;
+import org.springframework.stereotype.Component;
+
+import java.util.Map;
+
+import static com.bbh.itss.coe.oneview.adapter.out.persistence.Counts.perId;
+import static java.util.function.Function.identity;
+import static java.util.stream.Collectors.toMap;
+
+@Component
+@RequiredArgsConstructor
+class CatalogUsageAdapter implements DepartmentUsagePort {
+
+    private final ProductJpaRepository products;
+    private final ServiceJpaRepository services;
+    private final PipelineJpaRepository pipelines;
+
+    @Override
+    public Map<Long, CatalogUsage> perDepartment() {
+        Map<Long, Long> productCounts = perId(products.countByDepartment());
+        Map<Long, Long> serviceCounts = perId(services.countByDepartment());
+        Map<Long, Long> pipelineCounts = perId(pipelines.countByDepartment());
+        Map<Long, Long> activeCounts = perId(pipelines.countWithActiveKeyByDepartment());
+        return productCounts.keySet().stream().collect(toMap(identity(), department -> new CatalogUsage(
+                productCounts.get(department), serviceCounts.getOrDefault(department, 0L),
+                pipelineCounts.getOrDefault(department, 0L), activeCounts.getOrDefault(department, 0L))));
+    }
+}

@@ -12,9 +12,9 @@
   </nav>
 
   @if (resource.error(); as error) {
-    <dso-load-error what="The pipeline" [error]="error" (retry)="resource.reload()">
+    <ov-load-error what="The pipeline" [error]="error" (retry)="resource.reload()">
       <a class="btn btn-link" [routerLink]="section.path">Back to monitoring</a>
-    </dso-load-error>
+    </ov-load-error>
   } @else if (data(); as d) {
     <header class="page-header">
       <div>
@@ -23,7 +23,7 @@
             <span class="mono">{{ d.pipeline.serviceName }}</span> ·
             {{ typeLabel(d.pipeline.type) }} pipeline
           </h1>
-          <dso-status-chip [status]="d.status" />
+          <ov-status-chip [status]="d.status" />
         </div>
         <p class="page-description">
           How this pipeline of {{ d.pipeline.productName }} is doing: its latest run, how often and
@@ -62,23 +62,23 @@
         until a new key is issued under Manage pipeline. Its earlier runs are still shown.
       </div>
     }
-    <dso-metrics-banner [metricsError]="d.metricsError" />
+    <ov-metrics-banner [metricsError]="d.metricsError" />
 
     <div class="toolbar">
       <span class="period-label" id="period-label">Period</span>
-      <dso-help
+      <ov-help
         label="Period"
         text="How far back the DORA metrics, the runs per day, the recent runs and the Grafana dashboards of this page reach."
       />
-      <dso-toggle-group
+      <ov-toggle-group
         [value]="selectedRange()"
         (valueChange)="selectRange($any($event))"
         aria-labelledby="period-label"
       >
         @for (range of ranges; track range.value) {
-          <button [dsoToggle]="range.value">{{ range.label }}</button>
+          <button [ovToggle]="range.value">{{ range.label }}</button>
         }
-      </dso-toggle-group>
+      </ov-toggle-group>
       <button
         type="button"
         class="btn btn-outline-primary"
@@ -91,10 +91,10 @@
       <span class="muted zone">{{ timeZoneNote }}</span>
     </div>
     @if (resource.isLoading()) {
-      <dso-loading class="loading" />
+      <ov-loading class="loading" />
     }
 
-    <dso-dora-tiles [dora]="d.dora" />
+    <ov-dora-tiles [dora]="d.dora" />
 
     <div class="split">
       <section class="card activity">
@@ -105,7 +105,7 @@
             {{ d.dora.averageDurationSeconds | duration }}</span
           >
         </header>
-        <dso-activity-chart [daily]="d.dora.daily" />
+        <ov-activity-chart [daily]="d.dora.daily" />
       </section>
 
       <section class="card last-run">
@@ -113,12 +113,12 @@
         @if (d.lastRun; as run) {
           <dl class="rows">
             <dt>Result</dt>
-            <dd><dso-status-chip [status]="run.result" /></dd>
+            <dd><ov-status-chip [status]="run.result" /></dd>
             <dt>Finished</dt>
             <dd>{{ run.time | date: 'd MMM y, HH:mm' }} · {{ run.time | relative }}</dd>
             <dt>Build</dt>
             <dd>
-              <dso-build-link [run]="run" />
+              <ov-build-link [run]="run" />
             </dd>
             <dt>Branch</dt>
             <dd class="mono">{{ run.branch ?? '–' }}</dd>
@@ -210,10 +210,10 @@
       @if (d.recentRuns.length === 0) {
         <div class="empty-state small-empty"><p>No runs in this period.</p></div>
       } @else {
-        <dso-run-grid label="Recent runs" [runs]="d.recentRuns" [details]="['commit', 'stages']" />
+        <ov-run-grid label="Recent runs" [runs]="d.recentRuns" [details]="['commit', 'stages']" />
       }
     </section>
   } @else {
-    <dso-loading />
+    <ov-loading />
   }
 </div>

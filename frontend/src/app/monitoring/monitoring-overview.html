@@ -16,7 +16,7 @@
     </div>
   </header>
 
-  <dso-metrics-banner
+  <ov-metrics-banner
     [status]="status.hasValue() ? status.value() : undefined"
     [metricsError]="overview.hasValue() ? overview.value().metricsError : null"
   />
@@ -41,7 +41,7 @@
       @if (departmentStatus().length) {
         <div class="by-department">
           <h3>By business service</h3>
-          <dso-bar-chart [rows]="departmentStatus()" />
+          <ov-bar-chart [rows]="departmentStatus()" />
           <div class="legend" aria-label="What the colours mean">
             @for (entry of statusOrder; track entry.status) {
               <span
@@ -60,23 +60,23 @@
       @if (overview.hasValue()) {
         <span class="muted">{{ products().length | counted: 'product' }}</span>
       }
-      <dso-form-field class="search">
+      <ov-form-field class="search">
         <input
-          dsoInput
+          ovInput
           [formControl]="search"
           placeholder="Filter by name, code or team"
           aria-label="Filter products"
         />
-      </dso-form-field>
+      </ov-form-field>
     </header>
     <p class="section-help">Open a product to see each of its pipelines and their latest runs.</p>
 
     @if (overview.isLoading() || departments.isLoading()) {
-      <dso-loading />
+      <ov-loading />
     }
 
     @if (overview.error() ?? departments.error(); as error) {
-      <dso-load-error what="The products" [error]="error" (retry)="refresh()" />
+      <ov-load-error what="The products" [error]="error" (retry)="refresh()" />
     } @else if (overview.hasValue() && departments.hasValue()) {
       @if (products().length === 0) {
         <div class="empty-state">
@@ -108,8 +108,8 @@
                   <span class="mono muted">{{ product.code }}</span>
                 </span>
                 <span class="muted team">{{ product.ownerTeam ?? 'No owner team' }}</span>
-                <span class="status"><dso-status-chip [status]="product.overall" /></span>
-                <dso-status-bar [counts]="product.statusCounts" />
+                <span class="status"><ov-status-chip [status]="product.overall" /></span>
+                <ov-status-bar [counts]="product.statusCounts" />
                 <span class="sizes"
                   >{{ product.pipelineCount | counted: 'pipeline' }} ·
                   {{ product.serviceCount | counted: 'service' }}</span
@@ -130,7 +130,7 @@
       <header class="card-header">
         <h2>Delivery performance (DORA)</h2>
       </header>
-      <dso-load-error
+      <ov-load-error
         what="Delivery performance and runs per day"
         [error]="problem"
         (retry)="activity.reload()"
@@ -138,7 +138,7 @@
     </section>
   } @else if (activity.hasValue() && activity.value().dora.runs > 0) {
     @let dora = activity.value().dora;
-    <dso-dora-tiles [dora]="dora">
+    <ov-dora-tiles [dora]="dora">
       <section class="portfolio">
         <header class="card-header">
           <h3>Runs per day</h3>
@@ -147,8 +147,8 @@
             {{ dora.rangeDays | counted: 'day' }}</span
           >
         </header>
-        <dso-activity-chart [daily]="dora.daily" />
+        <ov-activity-chart [daily]="dora.daily" />
       </section>
-    </dso-dora-tiles>
+    </ov-dora-tiles>
   }
 </div>

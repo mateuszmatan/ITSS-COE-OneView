@@ -14,7 +14,7 @@ import {
   line,
   mono,
 } from '@common/shared/fields';
-import { DsoHelp } from '@common/ui/help';
+import { OvHelp } from '@common/ui/help';
 import {
   ServiceForm,
   TestJobForm,
@@ -104,8 +104,8 @@ const REMOTE: Field[] = [
 ];
 
 @Component({
-  selector: 'dso-test-jobs-fields',
-  imports: [Fields, DsoHelp],
+  selector: 'ov-test-jobs-fields',
+  imports: [Fields, OvHelp],
   changeDetection: ChangeDetectionStrategy.Eager,
   templateUrl: './test-jobs-fields.html',
   styles: `
@@ -118,7 +118,7 @@ const REMOTE: Field[] = [
       align-items: center;
       gap: 4px 12px;
 
-      dso-form-field {
+      ov-form-field {
         width: 170px;
       }
     }

@@ -65,10 +65,10 @@ describe('PipelineDepartments', () => {
       'Active',
       'Key invalidated',
     ]);
-    expect(chart.querySelector('dso-chart')?.getAttribute('aria-label')).toBe(
+    expect(chart.querySelector('ov-chart')?.getAttribute('aria-label')).toBe(
       'Corporate Technology: 2 active, 1 key invalidated; Fund Services: none',
     );
-    expect(chartOptions(chart.querySelector('dso-chart')).xAxis[1].categories).toEqual([
+    expect(chartOptions(chart.querySelector('ov-chart')).xAxis[1].categories).toEqual([
       '3 pipelines, 1 key invalidated',
       '0 pipelines',
     ]);

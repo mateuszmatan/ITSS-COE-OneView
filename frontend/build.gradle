@@ -1,4 +1,4 @@
-description = 'DevSecOps Management Portal - Angular Frontend'
+description = 'ITSS COE OneView - Angular Frontend'
 
 apply plugin: 'base'
 apply plugin: 'groovy'

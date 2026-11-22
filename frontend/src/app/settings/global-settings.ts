@@ -22,9 +22,9 @@ import { Fields, chips } from '@common/shared/fields';
 import { revalidateAll, saveFailure } from '@common/shared/form-controls';
 import { errorText } from '@common/shared/form-errors';
 import { RelativeTimePipe } from '@common/shared/formatting';
-import { DsoHelp } from '@common/ui/help';
+import { OvHelp } from '@common/ui/help';
 import { LoadError } from '@common/ui/load-error';
-import { DsoLoading, DsoSpinner } from '@common/ui/loading';
+import { OvLoading, OvSpinner } from '@common/ui/loading';
 import { TOGGLES } from '@common/ui/toggle-group';
 import {
   GOLDEN_FIX_ENABLED,
@@ -76,13 +76,13 @@ const SCANNER_INFO: Record<
 };
 
 @Component({
-  selector: 'dso-global-settings',
+  selector: 'ov-global-settings',
   imports: [
     ReactiveFormsModule,
     TOGGLES,
-    DsoHelp,
-    DsoLoading,
-    DsoSpinner,
+    OvHelp,
+    OvLoading,
+    OvSpinner,
     LoadError,
     Fields,
     GoldenFixFields,
@@ -262,7 +262,7 @@ export class GlobalSettingsPage implements OnInit, HasUnsavedChanges {
       () => {
         const target = section && document.getElementById(`settings-${section}`);
         const field =
-          target?.querySelector('.dso-form-field.has-error, .field-error') ??
+          target?.querySelector('.ov-form-field.has-error, .field-error') ??
           (this.unmatchedProblems().length ? document.querySelector('.settings .problems') : null);
         (field ?? target)?.scrollIntoView?.({ behavior: 'smooth', block: 'center' });
       },

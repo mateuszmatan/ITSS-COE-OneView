@@ -12,13 +12,13 @@
   </nav>
 
   @if (product.isLoading() && !product.hasValue()) {
-    <dso-loading />
+    <ov-loading />
   }
 
   @if (product.error(); as error) {
-    <dso-load-error what="The product" [error]="error" (retry)="reload()">
+    <ov-load-error what="The product" [error]="error" (retry)="reload()">
       <a class="btn btn-link" [routerLink]="tab.path">Back to products</a>
-    </dso-load-error>
+    </ov-load-error>
   } @else if (product.hasValue()) {
     @let p = product.value();
     <header class="page-header">
@@ -83,7 +83,7 @@
           More
         </button>
         <ng-template #productMenu>
-          <div cdkMenu class="dropdown-menu dso-menu">
+          <div cdkMenu class="dropdown-menu ov-menu">
             <button
               type="button"
               cdkMenuItem
@@ -123,7 +123,7 @@
     }
 
     @if (services.error(); as error) {
-      <dso-load-error
+      <ov-load-error
         what="The services and pipelines"
         [error]="error"
         (retry)="services.reload()"
@@ -372,7 +372,7 @@
                   More
                 </button>
                 <ng-template #pipelineMenu>
-                  <div cdkMenu class="dropdown-menu dso-menu">
+                  <div cdkMenu class="dropdown-menu ov-menu">
                     <a
                       cdkMenuItem
                       class="dropdown-item"
@@ -476,7 +476,7 @@
         </section>
       }
     } @else {
-      <dso-loading />
+      <ov-loading />
     }
   }
 </div>

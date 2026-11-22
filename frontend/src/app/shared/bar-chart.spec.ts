@@ -32,7 +32,7 @@ describe('BarChart', () => {
       },
     ]);
 
-    const chart = page.querySelector('dso-chart');
+    const chart = page.querySelector('ov-chart');
     const options = chartOptions(chart);
     expect(options.chart.type).toBe('bar');
     expect(options.plotOptions.series.stacking).toBe('normal');
@@ -51,8 +51,8 @@ describe('BarChart', () => {
   it('names a row without any count and redraws when the rows change', async () => {
     const page = await render([{ label: 'Fund Services', note: '0 pipelines', segments: [] }]);
 
-    expect(page.querySelector('dso-chart')?.getAttribute('aria-label')).toBe('Fund Services: none');
-    expect(chartOptions(page.querySelector('dso-chart')).series).toEqual([]);
+    expect(page.querySelector('ov-chart')?.getAttribute('aria-label')).toBe('Fund Services: none');
+    expect(chartOptions(page.querySelector('ov-chart')).series).toEqual([]);
 
     fixture.componentRef.setInput('rows', [
       {
@@ -63,6 +63,6 @@ describe('BarChart', () => {
     ]);
     await fixture.whenStable();
 
-    expect(chartOptions(page.querySelector('dso-chart')).xAxis[0].categories).toEqual(['Custody']);
+    expect(chartOptions(page.querySelector('ov-chart')).xAxis[0].categories).toEqual(['Custody']);
   });
 });

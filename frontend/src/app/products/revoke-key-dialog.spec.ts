@@ -53,7 +53,7 @@ describe('RevokeKeyDialog', () => {
     await submit('');
 
     http.expectNone('/api/pipelines/100/keys/revoke');
-    expect(page().querySelector('dso-error')?.textContent).toBe('Required');
+    expect(page().querySelector('ov-error')?.textContent).toBe('Required');
   });
 
   it('invalidates the key with the trimmed reason and closes with the updated pipeline', async () => {

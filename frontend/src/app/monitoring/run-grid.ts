@@ -46,21 +46,21 @@ const COLUMNS: GridColumn<PipelineRun>[] = [
 ];
 
 @Component({
-  selector: 'dso-run-grid',
+  selector: 'ov-run-grid',
   imports: [DatePipe, GRID, BuildLink, StatusChip],
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
-    <dso-grid [label]="label()" [rows]="runs()" [columns]="columns()" [rowId]="runId">
-      <ng-template dsoCell="time" let-run>
+    <ov-grid [label]="label()" [rows]="runs()" [columns]="columns()" [rowId]="runId">
+      <ng-template ovCell="time" let-run>
         <span [title]="run.time | date: 'd MMM y, HH:mm:ss'">{{
           run.time | date: 'd MMM, HH:mm'
         }}</span>
       </ng-template>
-      <ng-template dsoCell="result" let-run>
-        <dso-status-chip [status]="run.result" />
+      <ng-template ovCell="result" let-run>
+        <ov-status-chip [status]="run.result" />
       </ng-template>
-      <ng-template dsoCell="build" let-run><dso-build-link [run]="run" /></ng-template>
-    </dso-grid>
+      <ng-template ovCell="build" let-run><ov-build-link [run]="run" /></ng-template>
+    </ov-grid>
   `,
 })
 export class RunGrid {

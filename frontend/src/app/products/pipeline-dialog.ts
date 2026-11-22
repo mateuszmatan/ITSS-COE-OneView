@@ -27,7 +27,7 @@ import {
 import { agentLabels } from '../shared/build-options';
 import { fillTemplate } from '../shared/service-template';
 import { DIALOG } from '@common/ui/dialog';
-import { DsoSpinner } from '@common/ui/loading';
+import { OvSpinner } from '@common/ui/loading';
 
 export interface PipelineDialogData {
   service: Pick<ServicePipelines, 'serviceId' | 'serviceName' | 'pipelines'>;
@@ -53,8 +53,8 @@ function settingsOf(pipeline: Pipeline | undefined) {
 }
 
 @Component({
-  selector: 'dso-pipeline-dialog',
-  imports: [ReactiveFormsModule, DIALOG, DsoSpinner, Fields],
+  selector: 'ov-pipeline-dialog',
+  imports: [ReactiveFormsModule, DIALOG, OvSpinner, Fields],
   changeDetection: ChangeDetectionStrategy.OnPush,
   templateUrl: './pipeline-dialog.html',
   styleUrl: './pipeline-dialog.scss',

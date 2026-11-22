@@ -46,13 +46,13 @@ const DEFAULTS = {
 };
 
 @Component({
-  selector: 'dso-chart',
+  selector: 'ov-chart',
   changeDetection: ChangeDetectionStrategy.OnPush,
-  host: { class: 'dso-chart', role: 'img', '[attr.aria-label]': 'label()' },
+  host: { class: 'ov-chart', role: 'img', '[attr.aria-label]': 'label()' },
   template: '',
   styles: ':host { display: block; }',
 })
-export class DsoChart {
+export class OvChart {
   readonly options = input.required<Record<string, unknown>>();
   readonly label = input.required<string>();
 

@@ -3,10 +3,10 @@ import { ChangeDetectionStrategy, Component, input, output } from '@angular/core
 export type ToastKind = 'info' | 'error';
 
 @Component({
-  selector: 'dso-toast',
+  selector: 'ov-toast',
   changeDetection: ChangeDetectionStrategy.OnPush,
   host: {
-    class: 'toast show dso-toast',
+    class: 'toast show ov-toast',
     '[class.error]': "kind() === 'error'",
   },
   template: `

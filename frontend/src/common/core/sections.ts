@@ -1,16 +1,22 @@
-export interface PortalSection {
+export interface OneViewSection {
   path: string;
   label: string;
   heading: string;
   description: string;
 }
 
-export interface PortalTab {
+export interface OneViewTab {
   path: string;
   label: string;
 }
 
 export interface AdminArea {
-  section: PortalSection;
-  tabs: readonly PortalTab[];
+  section: OneViewSection;
+  tabs: readonly OneViewTab[];
+}
+
+export interface OneViewArea {
+  key: string;
+  label: string;
+  sections: readonly OneViewSection[];
 }

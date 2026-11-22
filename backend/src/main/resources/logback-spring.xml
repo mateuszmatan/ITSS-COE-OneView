@@ -11,7 +11,7 @@
     <property name="FILE_LOG_PATTERN" value="${CONSOLE_LOG_PATTERN}"/>
     <include resource="org/springframework/boot/logging/logback/console-appender.xml"/>
 
-    <property name="LOG_FILE" value="${LOG_PATH:-logs}/dso-portal.log"/>
+    <property name="LOG_FILE" value="${LOG_PATH:-logs}/oneview.log"/>
     <property name="LOGBACK_ROLLINGPOLICY_MAX_FILE_SIZE" value="10MB"/>
     <property name="LOGBACK_ROLLINGPOLICY_MAX_HISTORY" value="30"/>
     <property name="LOGBACK_ROLLINGPOLICY_TOTAL_SIZE_CAP" value="2GB"/>

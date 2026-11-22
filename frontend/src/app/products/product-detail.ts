@@ -29,7 +29,7 @@ import { bitbucketRepositoryUrl } from '../shared/bitbucket';
 import { CONFIG_FILE } from '../shared/config-file';
 import { RelativeTimePipe, counted, listed } from '@common/shared/formatting';
 import { LoadError } from '@common/ui/load-error';
-import { DsoLoading } from '@common/ui/loading';
+import { OvLoading } from '@common/ui/loading';
 import { MENU_AT_END } from '@common/ui/menu';
 import { TARGET_LABELS, TOOL_LABELS } from '../shared/build-options';
 import { GeneratedKeys } from './generated-keys';
@@ -38,7 +38,7 @@ import { pipelineTally } from './pipeline-tally';
 import { DepartmentsApi } from '@common/core/api';
 
 @Component({
-  selector: 'dso-product-detail',
+  selector: 'ov-product-detail',
   imports: [
     ClipboardModule,
     RouterLink,
@@ -46,7 +46,7 @@ import { DepartmentsApi } from '@common/core/api';
     CdkMenuItem,
     CdkMenuTrigger,
     DatePipe,
-    DsoLoading,
+    OvLoading,
     LoadError,
     RelativeTimePipe,
   ],

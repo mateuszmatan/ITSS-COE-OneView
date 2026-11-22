@@ -10,7 +10,7 @@ import { Option, counted, labelOf } from '@common/shared/formatting';
 import { FORM_FIELD } from '@common/ui/form-field';
 import { GRID, GridColumn } from '@common/ui/grid';
 import { LoadError } from '@common/ui/load-error';
-import { DsoLoading } from '@common/ui/loading';
+import { OvLoading } from '@common/ui/loading';
 
 export const ACTION_OPTIONS: Option<string>[] = [
   { value: 'ALL', label: 'All actions' },
@@ -47,8 +47,8 @@ export const STATUS_OPTIONS: Option<string>[] = [
 ];
 
 @Component({
-  selector: 'dso-action-history',
-  imports: [ReactiveFormsModule, DatePipe, FORM_FIELD, GRID, DsoLoading, LoadError],
+  selector: 'ov-action-history',
+  imports: [ReactiveFormsModule, DatePipe, FORM_FIELD, GRID, OvLoading, LoadError],
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
     <div class="page">
@@ -64,56 +64,56 @@ export const STATUS_OPTIONS: Option<string>[] = [
 
       <section class="card toolbar">
         <form [formGroup]="filters" class="filters-row">
-          <dso-form-field
+          <ov-form-field
             class="search-field"
             help="Shows the actions whose user, e-mail address, business service, action, resource name or details contain this text, in any letter case."
           >
-            <dso-label>Search</dso-label>
-            <input dsoInput formControlName="search" placeholder="User, resource, details..." autocomplete="off" />
-          </dso-form-field>
+            <ov-label>Search</ov-label>
+            <input ovInput formControlName="search" placeholder="User, resource, details..." autocomplete="off" />
+          </ov-form-field>
 
-          <dso-form-field
+          <ov-form-field
             class="select-field"
             help="Shows only one kind of action, for example product updates or issued pipeline keys."
           >
-            <dso-label>Action</dso-label>
-            <select dsoInput formControlName="actionType">
+            <ov-label>Action</ov-label>
+            <select ovInput formControlName="actionType">
               @for (option of actionOptions; track option.value) {
                 <option [value]="option.value">{{ option.label }}</option>
               }
             </select>
-          </dso-form-field>
+          </ov-form-field>
 
-          <dso-form-field
+          <ov-form-field
             class="select-field"
             help="Shows only the actions on one kind of resource, such as products, pipelines or business services."
           >
-            <dso-label>Resource</dso-label>
-            <select dsoInput formControlName="resourceType">
+            <ov-label>Resource</ov-label>
+            <select ovInput formControlName="resourceType">
               @for (option of resourceOptions; track option.value) {
                 <option [value]="option.value">{{ option.label }}</option>
               }
             </select>
-          </dso-form-field>
+          </ov-form-field>
 
-          <dso-form-field
+          <ov-form-field
             class="select-field"
             help="Shows only the actions that succeeded, or only those that failed. A failed action gives its reason under Details."
           >
-            <dso-label>Status</dso-label>
-            <select dsoInput formControlName="status">
+            <ov-label>Status</ov-label>
+            <select ovInput formControlName="status">
               @for (option of statusOptions; track option.value) {
                 <option [value]="option.value">{{ option.label }}</option>
               }
             </select>
-          </dso-form-field>
+          </ov-form-field>
         </form>
       </section>
 
       @if (logsResource.isLoading() && !logsResource.hasValue()) {
-        <dso-loading />
+        <ov-loading />
       } @else if (logsResource.error(); as error) {
-        <dso-load-error what="The action history" [error]="error" (retry)="reload()" />
+        <ov-load-error what="The action history" [error]="error" (retry)="reload()" />
       } @else {
         @if (all().length) {
           <section class="card list">
@@ -121,27 +121,27 @@ export const STATUS_OPTIONS: Option<string>[] = [
               <h2>Actions</h2>
               <span class="muted shown">{{ shown() }}</span>
             </header>
-            <dso-grid
+            <ov-grid
               label="Action history"
               empty="No action matches the filters."
               [rows]="filteredRows()"
               [columns]="columns"
               [rowId]="rowId"
             >
-              <ng-template dsoCell="time" let-row>
+              <ng-template ovCell="time" let-row>
                 <span class="time-cell">{{ row.createdAt | date: 'd MMM y, HH:mm:ss' }}</span>
               </ng-template>
-              <ng-template dsoCell="user" let-row>
+              <ng-template ovCell="user" let-row>
                 <strong [title]="row.userEmail ?? ''">{{ row.userDisplayName || row.username }}</strong>
               </ng-template>
-              <ng-template dsoCell="resource" let-row>
+              <ng-template ovCell="resource" let-row>
                 <span class="resource-type">{{ resourceLabel(row) }}</span>
                 {{ row.resourceName || '–' }}
               </ng-template>
-              <ng-template dsoCell="status" let-row>
+              <ng-template ovCell="status" let-row>
                 <span class="status" [class.failure]="row.status !== 'SUCCESS'">{{ statusLabel(row) }}</span>
               </ng-template>
-            </dso-grid>
+            </ov-grid>
           </section>
         } @else {
           <div class="card empty-state">
@@ -187,16 +187,16 @@ export const STATUS_OPTIONS: Option<string>[] = [
     }
 
     .resource-type {
-      color: var(--dso-muted);
+      color: var(--ov-muted);
       margin-right: 6px;
     }
 
     .status {
       font-weight: 500;
-      color: var(--dso-success);
+      color: var(--ov-success);
 
       &.failure {
-        color: var(--dso-danger);
+        color: var(--ov-danger);
       }
     }
   `,

@@ -1,8 +1,18 @@
 # Changelog
 
-All notable changes to the DevSecOps Management Portal are documented in this file.
+All notable changes to ITSS COE OneView are documented in this file.
 
 ## [Unreleased]
+
+### Renamed
+- **The portal is ITSS COE OneView.** DevSecOps Management Portal was its working name. The root package is `com.bbh.itss.coe.oneview` (was `com.bbh.itss.dso.portal`), the Gradle group `com.bbh.itss.coe`, the root project `ITSS-COE-OneView`, the application class `OneViewApplication`, the jar `oneview-<version>.jar`, the Spring application, the container image, the OpenShift Deployment, Service, Route, ConfigMap and Secrets `oneview` (`oneview-config`, `oneview-db`, `oneview-influx`, manifests in `deploy/openshift/oneview`), the log file `logs/oneview.log`, the settings prefix `oneview.` (was `dso.`), the local database `~/bbh-itss-coe/oneview/oneview.mv.db` with `ONEVIEW_DATA_DIR` (was `~/bbh-devsecops/dso-portal/dso-portal.mv.db` with `DSO_DATA_DIR`), and the prefix of the Angular components and style variables `ov` (was `dso`). Changeset `046-oneview-name` renames the first entry of the action history.
+- **Kept for the library and for existing databases:** the API of the library (`/api/dso/...`), the Jenkins variable `DSO_PORTAL_URL` that DSOEnhanced reads, `devsecops_config.yaml`, the tables `DSO_...` and the author `dso-portal` of the changesets 001 to 045. A Jenkinsfile, a `config.yaml` and a `devsecops_config.yaml` work unchanged.
+
+### Added
+- **Areas DevSecOps, QA and Agile**: the header has an area switch, and the menu shows the sections of the area of the current page. DevSecOps holds every section there was (Pipelines, Self-service, Pipeline Monitoring, OWASP SAMM, Action history, Admin). QA (`/qa`, QA Metrics) and Agile (`/agile`, Agile Maturity) each have a page that names what is planned, and the packages `domain.qa`, `application.qa`, `domain.agile` and `application.agile`; their functions are open work in `TODO.md`.
+
+### Fixed
+- A reload of `/samm` is answered with the Angular page: `samm` was missing from the pages of the GUI the service forwards.
 
 ### Documentation
 - The user guides, `TODO.md` and `docs/MANAGEMENT_OVERVIEW.md` follow the library: the pipeline report ends with the table *Manual Actions vs DevSecOps* (one line per step in the order of the pipeline, the time by hand, the time with DevSecOps, the time gained in percent and a summary in seconds, minutes and percent), which replaces *Manual actions vs DevSecOps Automated Actions* and the table of the time one after another and in parallel. The minutes of the manual steps stay `report.manualEffort` of the library defaults and are no Global Settings value.
@@ -52,7 +62,7 @@ All notable changes to the DevSecOps Management Portal are documented in this fi
     - Verification: Security Testing (AppScan SAST & DAST), Requirements-Driven Testing (unit tests, Cypress, code coverage >= 60%).
     - Operations: Environment Management (version catalog pinning, environment segregation), Operational Monitoring (execution reports, InfluxDB telemetry).
   - Practice scoring (0.0 to 3.0), domain scoring, overall scoring, and maturity levels: Level 0 (Initial), Level 1 (Foundational), Level 2 (Defined), Level 3 (Optimized).
-  - Hexagonal backend architecture: domain model (`com.bbh.itss.dso.portal.domain.samm`), inbound use case port (`GetSammMaturityUseCase`), application service (`SammMaturityService`), and REST controller (`SammMaturityController`) exposing `/api/samm/overview`, `/api/samm/departments`, `/api/samm/departments/{id}`, and `/api/samm/pipelines/{id}`.
+  - Hexagonal backend architecture: domain model (`com.bbh.itss.coe.oneview.domain.samm`), inbound use case port (`GetSammMaturityUseCase`), application service (`SammMaturityService`), and REST controller (`SammMaturityController`) exposing `/api/samm/overview`, `/api/samm/departments`, `/api/samm/departments/{id}`, and `/api/samm/pipelines/{id}`.
   - Dedicated global OWASP SAMM section in the frontend navigation (`/samm`, `samm-overview` component):
     - Executive overview card: organization average score, level badge, total applications, and maturity level distribution.
     - 5 Domain posture cards with visual meters and practice scores.
@@ -61,7 +71,7 @@ All notable changes to the DevSecOps Management Portal are documented in this fi
     - Detailed application scorecard modal displaying practice scores, criteria checklists, and remediation roadmaps.
     - Deep linking from Pipeline Monitoring cards ("OWASP SAMM Scorecard" button) directly opening the application's scorecard modal.
 - **SQL / PL/SQL Build Tool Support via Liquibase (`buildTool: liquibase`)**:
-  - Added `LIQUIBASE` to the `BuildTool` enum in the backend catalog domain (`com.bbh.itss.dso.portal.domain.catalog.BuildTool`) and frontend TypeScript models (`BuildTool` in `models.ts`).
+  - Added `LIQUIBASE` to the `BuildTool` enum in the backend catalog domain (`com.bbh.itss.coe.oneview.domain.catalog.BuildTool`) and frontend TypeScript models (`BuildTool` in `models.ts`).
   - Full command mapping for Liquibase across all pipeline stages:
     - Build stage (`build.liquibase.commands`, `build.liquibase.flags`, `build.liquibase.dir`, `build.liquibase.env`, `build.liquibase.label`, `build.liquibase.returnStdout`).
     - Unit tests and verification stage (`tests.unitTests.liquibase.*`, plus JUnit XML result pattern `tests.unitTests.unitTestResult` and coverage report path `coverage.reportPath` for utPLSQL / SQL test runners).
@@ -107,7 +117,7 @@ All notable changes to the DevSecOps Management Portal are documented in this fi
   - Added `goldenFix.versionCatalogs` ("Shared version catalogs") to the GoldenFix section and combined multi-service `Jenkinsfile` generation (`pipelineKeys`) for multi-module repositories.
 - **Library Defaults Pre-Population & Interactive Field Tooltips**:
   - Automatically pre-populated new service forms with values from Library defaults (Global Settings) and displayed "Library default: ..." hints and `devsecops_config.yaml` key chips on every field.
-  - Added help icons (`dso-help`) with descriptive tooltips across all form fields in the portal.
+  - Added help icons (`ov-help`) with descriptive tooltips across all form fields in the portal.
 
 ### Changed
 - **Disable Nexus Delivery** is rendered as `delivery.nexusDeliveryEnabled: false` instead of `deploy.<target>.rd.nexusDeliveryEnabled: false`. The library reads the new key first and the old one without it, so existing configs keep working, and the import reads both, noting an old key that the new one overrides.

@@ -101,7 +101,7 @@ describe('MonitoringOverview', () => {
     expect(cards()[1].textContent).toContain('No runs yet');
     expect(cards()[1].classList).toContain('overall-disabled');
     expect(headings()).toEqual(['Corporate Technology', 'Fund Services']);
-    const chart = page().querySelector('.by-department dso-chart');
+    const chart = page().querySelector('.by-department ov-chart');
     expect(chart?.getAttribute('aria-label')).toBe(
       'Corporate Technology: 1 failed, 2 passed; Fund Services: 1 passed with warnings, 1 key invalidated',
     );
@@ -114,21 +114,21 @@ describe('MonitoringOverview', () => {
   it('charts the DORA metrics and daily runs of all pipelines over 30 days', async () => {
     await load();
 
-    expect(text(page().querySelector('dso-dora-tiles h2'))).toBe('Delivery performance (DORA)');
-    expect(text(page().querySelector('dso-dora-tiles .section-help'))).toBe(
+    expect(text(page().querySelector('ov-dora-tiles h2'))).toBe('Delivery performance (DORA)');
+    expect(text(page().querySelector('ov-dora-tiles .section-help'))).toBe(
       'Four industry measures of how often and how safely changes reach production. Each is rated Elite, High, Medium or Low; Elite is best.',
     );
-    expect([...page().querySelectorAll('dso-dora-tiles .tile-title')].map(text)).toEqual([
+    expect([...page().querySelectorAll('ov-dora-tiles .tile-title')].map(text)).toEqual([
       'Deployment frequency',
       'Lead time for changes',
       'Change failure rate',
       'Time to restore',
     ]);
-    expect(text(page().querySelector('dso-dora-tiles .portfolio h3'))).toBe('Runs per day');
+    expect(text(page().querySelector('ov-dora-tiles .portfolio h3'))).toBe('Runs per day');
     expect(text(page().querySelector('.portfolio .card-header .muted'))).toBe(
       '40 runs of all pipelines in the last 30 days',
     );
-    expect(page().querySelector('.portfolio dso-activity-chart dso-chart')?.classList).toContain(
+    expect(page().querySelector('.portfolio ov-activity-chart ov-chart')?.classList).toContain(
       'drawn',
     );
   });
@@ -141,7 +141,7 @@ describe('MonitoringOverview', () => {
       [],
     );
 
-    expect(page().querySelector('dso-dora-tiles')).toBeNull();
+    expect(page().querySelector('ov-dora-tiles')).toBeNull();
     expect(page().querySelector('.portfolio')).toBeNull();
     expect(headings()).toEqual(['Not in a business service']);
     expect(cards().length).toBe(1);
@@ -218,7 +218,7 @@ describe('MonitoringOverview', () => {
     );
 
     const notice = () => page().querySelector('.dora-unavailable');
-    expect(page().querySelector('dso-dora-tiles')).toBeNull();
+    expect(page().querySelector('ov-dora-tiles')).toBeNull();
     expect(text(notice()!.querySelector('h2'))).toBe('Delivery performance (DORA)');
     expect(text(notice()!.querySelector('.banner span'))).toBe(
       'Delivery performance and runs per day could not be loaded. The run results could not be read (InfluxDB could not be read: timeout). Try again in a moment; if it keeps failing, tell the portal administrator.',
@@ -241,7 +241,7 @@ describe('MonitoringOverview', () => {
     await fixture.whenStable();
 
     expect(notice()).toBeNull();
-    expect(page().querySelector('dso-dora-tiles')).not.toBeNull();
+    expect(page().querySelector('ov-dora-tiles')).not.toBeNull();
   });
 
   it('explains unreachable metrics once', async () => {
@@ -275,14 +275,14 @@ describe('MonitoringOverview', () => {
       }),
     );
 
-    const banner = page().querySelector('dso-metrics-banner .banner.info')!;
+    const banner = page().querySelector('ov-metrics-banner .banner.info')!;
     expect(text(banner)).toContain(
       "Run results are not shown: the portal is not connected to InfluxDB, where the pipelines report their runs, so it only knows whether each pipeline's key is valid.",
     );
     expect(text(banner.querySelector('.admin'))).toBe(
       'For the administrator: set the InfluxDB connection under Admin, Library defaults.',
     );
-    expect(page().querySelectorAll('dso-metrics-banner .banner')).toHaveLength(1);
+    expect(page().querySelectorAll('ov-metrics-banner .banner')).toHaveLength(1);
     expect(page().querySelector('.dora-unavailable')).toBeNull();
   });
 

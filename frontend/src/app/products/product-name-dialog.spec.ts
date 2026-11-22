@@ -53,7 +53,7 @@ describe('ProductNameDialog', () => {
 
     expect(departmentId().value).toBeNull();
     expect(close).not.toHaveBeenCalled();
-    expect(text(page().querySelector('dso-error'))).toBe('Required');
+    expect(text(page().querySelector('ov-error'))).toBe('Required');
 
     expect(optionsOf(selectOf(page(), 'Business Service'))).toEqual([
       'Corporate Technology',
@@ -71,6 +71,6 @@ describe('ProductNameDialog', () => {
     await submit('   ');
 
     expect(close).not.toHaveBeenCalled();
-    expect(page().querySelector('dso-error')?.textContent).toBe('Required');
+    expect(page().querySelector('ov-error')?.textContent).toBe('Required');
   });
 });

@@ -9,17 +9,17 @@ import { CountedPipe, RelativeTimePipe, formatDuration } from '@common/shared/fo
 import { RUN_LOOK, StatusChip } from '../shared/status-chip';
 import { GRID, GridColumn } from '@common/ui/grid';
 import { LoadError } from '@common/ui/load-error';
-import { DsoLoading } from '@common/ui/loading';
+import { OvLoading } from '@common/ui/loading';
 import { MetricsBanner } from './metrics-banner';
 import { stageProblems, stagesPassed } from './stages';
 import { StatusBar, statusSummary } from './status-bar';
 
 @Component({
-  selector: 'dso-product-monitoring',
+  selector: 'ov-product-monitoring',
   imports: [
     RouterLink,
     GRID,
-    DsoLoading,
+    OvLoading,
     LoadError,
     BuildLink,
     CountedPipe,

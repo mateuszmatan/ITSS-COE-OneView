@@ -5,7 +5,7 @@ import {
   computed,
   input,
 } from '@angular/core';
-import { DsoChart } from '@common/ui/chart';
+import { OvChart } from '@common/ui/chart';
 
 export interface BarSegment {
   swatch: string;
@@ -70,13 +70,13 @@ export function barOptions(rows: readonly BarRow[]): Record<string, unknown> {
 }
 
 @Component({
-  selector: 'dso-bar-chart',
-  imports: [DsoChart],
+  selector: 'ov-bar-chart',
+  imports: [OvChart],
   changeDetection: ChangeDetectionStrategy.OnPush,
   encapsulation: ViewEncapsulation.None,
   styleUrl: './bar-chart.css',
-  host: { class: 'dso-bar-chart' },
-  template: `<dso-chart [options]="options()" [label]="summary()" />`,
+  host: { class: 'ov-bar-chart' },
+  template: `<ov-chart [options]="options()" [label]="summary()" />`,
 })
 export class BarChart {
   readonly rows = input.required<BarRow[]>();

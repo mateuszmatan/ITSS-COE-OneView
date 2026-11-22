@@ -2,7 +2,7 @@ import { ChangeDetectionStrategy, Component, input } from '@angular/core';
 import { DoraLevel } from '../core/models';
 
 @Component({
-  selector: 'dso-dora-level',
+  selector: 'ov-dora-level',
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `@if (level(); as value) {
     <span class="chip level" [class]="value.toLowerCase()">{{

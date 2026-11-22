@@ -18,7 +18,7 @@ import { Notifier } from '@common/core/notifier';
 import { joinWords } from '@common/shared/form-controls';
 import { capitalized } from '@common/shared/formatting';
 import { DIALOG } from '@common/ui/dialog';
-import { DsoHelp } from '@common/ui/help';
+import { OvHelp } from '@common/ui/help';
 import { CONFIG_FILE, CONFIG_FILE_NAMES, configFileOf } from '../shared/config-file';
 import { ServiceForm, createServiceForm } from './product-form-model';
 
@@ -69,25 +69,25 @@ export function prefillAgents(
 }
 
 @Component({
-  selector: 'dso-config-service-picker',
+  selector: 'ov-config-service-picker',
   imports: [DIALOG],
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
     <div class="modal-header">
-      <h2 dsoDialogTitle>Choose the service to import</h2>
+      <h2 ovDialogTitle>Choose the service to import</h2>
     </div>
     <div class="modal-body">
       <p>The file describes {{ services.length }} services. Choose the one to import.</p>
       <div class="choices">
         @for (service of services; track $index) {
-          <button type="button" class="btn btn-outline-primary mono" [dsoDialogClose]="service">
+          <button type="button" class="btn btn-outline-primary mono" [ovDialogClose]="service">
             {{ service.name || 'Unnamed service' }}
           </button>
         }
       </div>
     </div>
     <div class="modal-footer">
-      <button type="button" class="btn btn-link" dsoDialogClose>Cancel</button>
+      <button type="button" class="btn btn-link" ovDialogClose>Cancel</button>
     </div>
   `,
   styles: `
@@ -124,10 +124,10 @@ const skippedNotes = (file: File, skipped: readonly File[]): FieldProblem[] =>
     : [];
 
 @Component({
-  selector: 'dso-config-import',
-  imports: [DsoHelp],
+  selector: 'ov-config-import',
+  imports: [OvHelp],
   changeDetection: ChangeDetectionStrategy.OnPush,
-  host: { class: 'dso-config-import' },
+  host: { class: 'ov-config-import' },
   template: `
     <button
       type="button"
@@ -137,7 +137,7 @@ const skippedNotes = (file: File, skipped: readonly File[]): FieldProblem[] =>
     >
       Import devsecops_config.yaml
     </button>
-    <dso-help
+    <ov-help
       label="Import devsecops_config.yaml"
       text="Reads a devsecops_config.yaml, a config.yaml (its former name), a configuration the portal rendered or its JSON form. Choose several files, for example both files of a repository, and the import reads devsecops_config.yaml, else config.yaml, as the DevSecOps library does."
     />
@@ -233,7 +233,7 @@ export class ConfigImport {
 }
 
 @Component({
-  selector: 'dso-import-notes',
+  selector: 'ov-import-notes',
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
     <div class="banner info" role="status">
@@ -264,7 +264,7 @@ export class ConfigImport {
   styles: `
     .banner {
       align-items: flex-start;
-      color: var(--dso-navy);
+      color: var(--ov-navy);
     }
     h5 {
       margin: 6px 0 2px;

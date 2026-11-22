@@ -1,0 +1,223 @@
+package com.bbh.itss.coe.oneview.frontend.regression
+
+import com.bbh.itss.coe.oneview.frontend.support.OvSpecification
+import com.bbh.itss.coe.oneview.frontend.support.RecordedRequest
+import com.microsoft.playwright.Locator
+import com.microsoft.playwright.Page
+import groovy.json.JsonSlurper
+
+import static com.bbh.itss.coe.oneview.frontend.support.StubApi.fixture
+import static com.bbh.itss.coe.oneview.frontend.support.StubApi.fixtureText
+import static com.bbh.itss.coe.oneview.frontend.support.StubResponse.json
+import static com.bbh.itss.coe.oneview.frontend.support.StubResponse.problem
+import static com.bbh.itss.coe.oneview.frontend.support.StubResponse.yaml
+import static com.microsoft.playwright.assertions.PlaywrightAssertions.assertThat
+import static com.microsoft.playwright.options.AriaRole.CHECKBOX
+
+class GlobalSettingsSpec extends OvSpecification {
+
+    static final String SAVED_AT = '2026-10-05T11:00:00Z'
+
+    static final String SHOW_CONFIG = 'Show settings sent to Jenkins'
+
+    Map stored
+
+    def setup() {
+        stored = fixture('settings.json') as Map
+        api.get('/api/settings') { json(stored) }
+        api.on('PUT', '/api/settings') { RecordedRequest request ->
+            def body = request.json() as Map
+            if (body.version != stored.version) {
+                return problem(409, 'Conflict', 'The settings were changed by someone else')
+            }
+            stored = body + [version: (stored.version as int) + 1, updatedAt: SAVED_AT]
+            json(stored)
+        }
+    }
+
+    def "saving the settings unchanged sends back what was loaded with its version"() {
+        given:
+        def loaded = fixture('settings.json') as Map
+        open('/admin/settings')
+
+        expect:
+        assertThat(page.locator('.tab-header .lead')).hasText(
+                'Only change these settings if the DevSecOps team asks you to. They apply to every pipeline from its next run.')
+        assertThat(saved()).containsText('(version 1)')
+
+        when:
+        button('Save settings', true).click()
+
+        then:
+        assertThat(snackBar()).containsText('Library defaults saved. Every pipeline gets them the next time it runs.')
+        awaitRequest('PUT', '/api/settings').json() == loaded.findAll { it.key != 'updatedAt' }
+        assertThat(saved()).containsText('(version 2)')
+        ownErrors().isEmpty()
+    }
+
+    def "an edited setting is saved with the loaded version and the page shows the saved values"() {
+        given:
+        open('/admin/settings')
+
+        when:
+        field('Jenkins URL').fill('https://jenkins2.bbh.com/')
+        page.getByRole(CHECKBOX, new Page.GetByRoleOptions().setName('GoldenFix runs by default')).uncheck()
+
+        then:
+        assertThat(page.locator('.save-bar')).containsText('Unsaved changes')
+
+        when:
+        button('Save settings', true).click()
+
+        then:
+        def body = awaitRequest('PUT', '/api/settings').json() as Map
+        body.version == 1
+        body.platform.jenkinsUrl == 'https://jenkins2.bbh.com/'
+        body.goldenFix.enabled == false
+        body.findAll { !(it.key in ['platform', 'goldenFix']) } ==
+                (fixture('settings.json') as Map).findAll { !(it.key in ['platform', 'goldenFix', 'updatedAt']) }
+        assertThat(saved()).containsText('(version 2)')
+        assertThat(page.locator('.save-bar')).not().containsText('Unsaved changes')
+        assertThat(field('Jenkins URL')).hasValue('https://jenkins2.bbh.com/')
+        ownErrors().isEmpty()
+    }
+
+    def "a save over someone else's newer settings is refused with a conflict message and recovered by reloading"() {
+        given:
+        open('/admin/settings')
+        stored = stored + [version: 2, updatedAt: SAVED_AT, platform: (stored.platform as Map) + [oisHost: 'ois2.bbh.com']]
+
+        when:
+        field('Jenkins URL').fill('https://jenkins2.bbh.com/')
+        button('Save settings', true).click()
+
+        then:
+        assertThat(page.locator('.banner.conflict')).containsText('Someone else saved the settings after you opened this page.')
+        assertThat(page.locator('.banner.conflict')).containsText('Your changes were not saved, so nothing was overwritten.')
+        assertThat(page.locator('.save-bar .save-error')).hasText('Not saved: the settings were changed by someone else.')
+        assertThat(button('Save settings', true)).isDisabled()
+        awaitRequest('PUT', '/api/settings').json().version == 1
+
+        when:
+        buttonIn(page.locator('.banner.conflict'), 'Reload', false).click()
+
+        then:
+        assertThat(page.locator('.banner.conflict')).hasCount(0)
+        assertThat(field('OIS host')).hasValue('ois2.bbh.com')
+        assertThat(field('Jenkins URL')).hasValue('https://jenkins.bbh.com')
+        assertThat(saved()).containsText('(version 2)')
+        assertThat(button('Save settings', true)).isEnabled()
+
+        when:
+        field('Jenkins URL').fill('https://jenkins2.bbh.com/')
+        button('Save settings', true).click()
+
+        then:
+        assertThat(snackBar()).containsText('Library defaults saved. Every pipeline gets them the next time it runs.')
+        awaitRequest('PUT', '/api/settings', 2).json().version == 2
+        stored.version == 3
+        ownErrors().findAll { !it.contains('409') }.isEmpty()
+    }
+
+    def "the settings sent to Jenkins are the saved global section, and a failure names its problem"() {
+        given:
+        open('/admin/settings')
+
+        when:
+        button(SHOW_CONFIG, true).click()
+
+        then:
+        assertThat(dialog().locator('h2')).hasText('Shared settings sent to Jenkins (devsecops_config.yaml format)')
+        dialog().locator('pre.code-block').textContent() == fixtureText('settings-config.yaml')
+        awaitRequest('GET', '/api/settings/config').params() == [format: 'yaml']
+
+        when:
+        dialogButton('Close').click()
+        field('Jenkins URL').fill('https://jenkins2.bbh.com/')
+        button(SHOW_CONFIG, true).click()
+
+        then:
+        assertThat(dialog().locator('.subtitle')).containsText('Your unsaved changes are not included.')
+
+        when:
+        dialogButton('Close').click()
+        api.respond('GET', '/api/settings/config', problem(503, 'Service Unavailable', 'The configuration renderer is restarting'))
+        button(SHOW_CONFIG, true).click()
+
+        then:
+        assertThat(snackBar()).containsText('The configuration renderer is restarting')
+        ownErrors().findAll { !it.contains('503') }.isEmpty()
+    }
+
+    def "unticking the stages at the same time is saved and reaches the settings sent to Jenkins"() {
+        given:
+        api.get('/api/settings/config') {
+            yaml(fixtureText('settings-config.yaml')
+                    .replace('staticAnalysis:\n    parallel: true', "staticAnalysis:\n    parallel: ${stored.scans.parallelStaticAnalysis}")
+                    .replace('dynamicAnalysis:\n    parallel: true', "dynamicAnalysis:\n    parallel: ${stored.scans.parallelDynamicAnalysis}"))
+        }
+        open('/admin/settings')
+        def box = page.getByRole(CHECKBOX, new Page.GetByRoleOptions().setName('Run unit tests, Nexus IQ, SAST and SonarQube at the same time'))
+        def testsBox = page.getByRole(CHECKBOX, new Page.GetByRoleOptions().setName('Run the regression, smoke and performance tests and DAST at the same time'))
+        assertThat(box).isChecked()
+        assertThat(testsBox).isChecked()
+
+        when:
+        button(SHOW_CONFIG, true).click()
+
+        then:
+        assertThat(dialog().locator('pre.code-block')).containsText('platform:')
+        dialog().locator('pre.code-block').textContent() == fixtureText('settings-config.yaml')
+
+        when:
+        dialogButton('Close').click()
+        box.uncheck()
+        testsBox.uncheck()
+        button('Save settings', true).click()
+
+        then:
+        def body = awaitRequest('PUT', '/api/settings').json() as Map
+        body.scans == (fixture('settings.json') as Map).scans + [parallelStaticAnalysis: false, parallelDynamicAnalysis: false]
+        body.findAll { it.key != 'scans' } == (fixture('settings.json') as Map).findAll { !(it.key in ['scans', 'updatedAt']) }
+        assertThat(saved()).containsText('(version 2)')
+
+        when:
+        button(SHOW_CONFIG, true).click()
+
+        then:
+        assertThat(dialog().locator('pre.code-block')).containsText('parallel: false')
+        dialog().locator('pre.code-block').textContent() ==
+                fixtureText('settings-config.yaml').replace('parallel: true', 'parallel: false')
+        ownErrors().isEmpty()
+    }
+
+    def "the Liquibase database changes section saves its tools, allowed databases and package repositories"() {
+        given:
+        open('/admin/settings')
+        def section = page.locator('#settings-database')
+        def block = { String heading -> holding(section.locator('.form-block'), "h3:text-is('${heading}')") }
+
+        when:
+        input(block('Liquibase'), 'Liquibase folder on the agent').fill('/opt/liquibase/4.33.0')
+        input(block('Oracle JDBC driver'), 'Driver on the agent').fill('/opt/oracle/ojdbc11.jar')
+        fillIn(block('utPLSQL'), ['utPLSQL-cli download': 'https://tools.bbh.com/nexus/repository/raw-tools/utplsql/utPLSQL-cli/3.2.2/utPLSQL-cli.zip',
+                                  'Its SHA-256'         : '15a3addd921b7f2e415537b47c18a4a9d3e0b70ff0e403943fd4c03b0ba02006'])
+        fillIn(section, ['Allowed databases'      : 'dev-db.bbh.com\nrd-db.bbh.com\nqc-db.bbh.com',
+                         'Snapshot repository ID' : 'bbh-db-snapshots',
+                         'Snapshot repository URL': 'https://tools.bbh.com/nexus/repository/db-snapshots',
+                         'Release repository ID'  : 'bbh-db-releases',
+                         'Release repository URL' : 'https://tools.bbh.com/nexus/repository/db-releases'])
+        button('Save settings', true).click()
+
+        then:
+        assertThat(snackBar()).containsText('Library defaults saved. Every pipeline gets them the next time it runs.')
+        awaitRequest('PUT', '/api/settings').json() == new JsonSlurper().parse(getClass().getResource('settings-with-database-request.json'))
+        assertThat(saved()).containsText('(version 2)')
+        assertThat(input(section, 'Allowed databases')).hasValue('dev-db.bbh.com\nrd-db.bbh.com\nqc-db.bbh.com')
+        ownErrors().isEmpty()
+    }
+
+    Locator saved() {
+        page.locator('.save-bar .saved')
+    }
+}

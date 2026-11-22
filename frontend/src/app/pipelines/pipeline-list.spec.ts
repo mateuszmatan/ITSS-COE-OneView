@@ -154,10 +154,10 @@ describe('PipelineList', () => {
     expect(selectOf(page(), 'Your business service').selectedOptions[0].textContent?.trim()).toBe(
       'Choose your business service',
     );
-    expect(text(page().querySelector('.department dso-hint'))).toBe(
+    expect(text(page().querySelector('.department ov-hint'))).toBe(
       'Only the pipelines of this business service are listed. This browser remembers your choice.',
     );
-    expect(page().querySelector('dso-grid')).toBeNull();
+    expect(page().querySelector('ov-grid')).toBeNull();
 
     await pick(selectOf(page(), 'Your business service'), 'Fund Services');
     expect(localStorage.getItem(MY_DEPARTMENT_KEY)).toBe('5');
@@ -237,7 +237,7 @@ describe('PipelineList', () => {
     expect(shownServices()).toEqual(['gateway']);
     await filter('service', 'gui');
     expect(gridRows(page())).toEqual([]);
-    expect(text(page().querySelector('.dso-grid-empty'))).toBe('No pipeline matches the filters.');
+    expect(text(page().querySelector('.ov-grid-empty'))).toBe('No pipeline matches the filters.');
     await filter('service', '');
     await pick(gridFilter(page(), 'last run'), 'All');
     await filter('Jenkins job', 'api-');
@@ -280,7 +280,7 @@ describe('PipelineList', () => {
   it('says when the metrics or the pipelines could not be read', async () => {
     await listed([gui], 'InfluxDB timed out');
 
-    expect(text(page().querySelector('dso-metrics-banner'))).toContain('InfluxDB timed out');
+    expect(text(page().querySelector('ov-metrics-banner'))).toContain('InfluxDB timed out');
 
     await pick(selectOf(page(), 'Your business service'), 'Fund Services');
     http

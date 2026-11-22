@@ -13,7 +13,7 @@ import { CountedPipe, RelativeTimePipe, counted } from '@common/shared/formattin
 import { StatusChip } from '../shared/status-chip';
 import { FORM_FIELD } from '@common/ui/form-field';
 import { LoadError } from '@common/ui/load-error';
-import { DsoLoading } from '@common/ui/loading';
+import { OvLoading } from '@common/ui/loading';
 import { ActivityChart } from './activity-chart';
 import { DoraTiles } from './dora-tiles';
 import { MetricsBanner } from './metrics-banner';
@@ -23,12 +23,12 @@ import { DepartmentsApi } from '@common/core/api';
 const ACTIVITY_RANGE = '30d';
 
 @Component({
-  selector: 'dso-monitoring-overview',
+  selector: 'ov-monitoring-overview',
   imports: [
     ReactiveFormsModule,
     RouterLink,
     FORM_FIELD,
-    DsoLoading,
+    OvLoading,
     LoadError,
     ActivityChart,
     BarChart,

@@ -97,7 +97,7 @@ describe('docs/documentation.md', () => {
       page.querySelectorAll<HTMLButtonElement>('.rail-item')[index].click();
       await settle(fixture);
       pane()
-        .querySelectorAll<HTMLButtonElement>('dso-advanced-settings .accordion-button.collapsed')
+        .querySelectorAll<HTMLButtonElement>('ov-advanced-settings .accordion-button.collapsed')
         .forEach((toggle) => toggle.click());
       await settle(fixture);
       codes.push(...chipsIn(pane()));

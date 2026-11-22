@@ -1,25 +1,25 @@
 import { ChangeDetectionStrategy, Component } from '@angular/core';
 
 @Component({
-  selector: 'dso-loading',
+  selector: 'ov-loading',
   changeDetection: ChangeDetectionStrategy.OnPush,
   host: {
-    class: 'progress dso-loading',
+    class: 'progress ov-loading',
     role: 'progressbar',
     'aria-label': 'Loading',
   },
   template: `<div class="progress-bar progress-bar-striped progress-bar-animated w-100"></div>`,
 })
-export class DsoLoading {}
+export class OvLoading {}
 
 @Component({
-  selector: 'dso-spinner',
+  selector: 'ov-spinner',
   changeDetection: ChangeDetectionStrategy.OnPush,
   host: {
-    class: 'spinner-border spinner-border-sm dso-spinner',
+    class: 'spinner-border spinner-border-sm ov-spinner',
     role: 'status',
     'aria-label': 'Loading',
   },
   template: '',
 })
-export class DsoSpinner {}
+export class OvSpinner {}

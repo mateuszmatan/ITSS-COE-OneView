@@ -107,12 +107,12 @@ describe('ProductMonitoringPage', () => {
     refresh.click();
     TestBed.tick();
 
-    expect(page().querySelector('dso-loading')).not.toBeNull();
+    expect(page().querySelector('ov-loading')).not.toBeNull();
     expect(refresh.disabled).toBe(true);
     http.expectOne('/api/monitoring/products/1').flush(productMonitoring());
     await fixture.whenStable();
 
-    expect(page().querySelector('dso-loading')).toBeNull();
+    expect(page().querySelector('ov-loading')).toBeNull();
     expect(page().querySelector('h1')?.textContent).toBe('CertScanner');
   });
 });

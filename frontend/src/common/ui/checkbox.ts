@@ -8,16 +8,16 @@ import {
 } from '@angular/core';
 import { ControlValueAccessor, NG_VALUE_ACCESSOR } from '@angular/forms';
 import { uniqueId } from './form-field';
-import { DsoHelp } from './help';
+import { OvHelp } from './help';
 
 @Component({
-  selector: 'dso-checkbox',
-  imports: [DsoHelp],
+  selector: 'ov-checkbox',
+  imports: [OvHelp],
   changeDetection: ChangeDetectionStrategy.OnPush,
   providers: [
-    { provide: NG_VALUE_ACCESSOR, useExisting: forwardRef(() => DsoCheckbox), multi: true },
+    { provide: NG_VALUE_ACCESSOR, useExisting: forwardRef(() => OvCheckbox), multi: true },
   ],
-  host: { class: 'form-check dso-checkbox' },
+  host: { class: 'form-check ov-checkbox' },
   template: `
     <input
       class="form-check-input"
@@ -30,15 +30,15 @@ import { DsoHelp } from './help';
     />
     <label class="form-check-label" [for]="id"><ng-content /></label>
     @if (help(); as text) {
-      <dso-help [text]="text" />
+      <ov-help [text]="text" />
     }
   `,
 })
-export class DsoCheckbox implements ControlValueAccessor {
+export class OvCheckbox implements ControlValueAccessor {
   readonly checked = model(false);
   readonly help = input<string | null | undefined>();
 
-  protected readonly id = uniqueId('dso-checkbox');
+  protected readonly id = uniqueId('ov-checkbox');
   protected readonly disabled = signal(false);
   private changed: (value: boolean) => void = () => undefined;
   protected touched: () => void = () => undefined;

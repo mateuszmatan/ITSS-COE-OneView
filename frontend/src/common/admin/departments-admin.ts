@@ -8,9 +8,9 @@ import { Notifier } from '../core/notifier';
 import { DepartmentDialog } from '../departments/department-dialog';
 import { askToConfirm } from '../shared/confirm-dialog';
 import { counted } from '../shared/formatting';
-import { DsoCell, GRID, GridColumn } from '../ui/grid';
+import { OvCell, GRID, GridColumn } from '../ui/grid';
 import { LoadError } from '../ui/load-error';
-import { DsoLoading } from '../ui/loading';
+import { OvLoading } from '../ui/loading';
 
 export interface DepartmentCount<D> {
   noun: string;
@@ -24,15 +24,15 @@ export interface DepartmentUsage<D extends Department = Department> {
 }
 
 @Component({
-  selector: 'dso-departments-admin',
-  imports: [GRID, DsoLoading, LoadError],
+  selector: 'ov-departments-admin',
+  imports: [GRID, OvLoading, LoadError],
   changeDetection: ChangeDetectionStrategy.OnPush,
   templateUrl: './departments-admin.html',
   styleUrl: './departments-admin.scss',
 })
 export class DepartmentsAdmin<D extends Department = Department> {
   readonly usage = input.required<DepartmentUsage<D>>();
-  readonly cells = input<readonly DsoCell<D>[]>([]);
+  readonly cells = input<readonly OvCell<D>[]>([]);
 
   private readonly api = inject(DepartmentsApi);
   private readonly dialog = inject(Dialog);

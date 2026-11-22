@@ -15,7 +15,7 @@ import { Notifier } from '@common/core/notifier';
 import { errorMessage } from '@common/core/errors';
 import { DIALOG } from '@common/ui/dialog';
 import { LoadError } from '@common/ui/load-error';
-import { DsoLoading, DsoSpinner } from '@common/ui/loading';
+import { OvLoading, OvSpinner } from '@common/ui/loading';
 import { revalidateAll } from '@common/shared/form-controls';
 import {
   ServiceForm,
@@ -33,12 +33,12 @@ export interface ServiceConfigDialogData {
 }
 
 @Component({
-  selector: 'dso-service-config-dialog',
-  imports: [ReactiveFormsModule, DIALOG, DsoLoading, DsoSpinner, LoadError, ServiceFields],
+  selector: 'ov-service-config-dialog',
+  imports: [ReactiveFormsModule, DIALOG, OvLoading, OvSpinner, LoadError, ServiceFields],
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
     <div class="modal-header">
-      <h2 dsoDialogTitle>Configure {{ data.pipeline.serviceName }}</h2>
+      <h2 ovDialogTitle>Configure {{ data.pipeline.serviceName }}</h2>
     </div>
 
     <div class="modal-body">
@@ -49,9 +49,9 @@ export interface ServiceConfigDialogData {
         }
       </p>
       @if (productResource.isLoading()) {
-        <dso-loading />
+        <ov-loading />
       } @else if (productResource.error(); as error) {
-        <dso-load-error
+        <ov-load-error
           what="The service settings"
           [error]="error"
           (retry)="productResource.reload()"
@@ -60,7 +60,7 @@ export interface ServiceConfigDialogData {
         @if (saveError()) {
           <div class="banner danger" role="alert">{{ saveError() }}</div>
         }
-        <dso-service-fields
+        <ov-service-fields
           #fields
           [form]="form"
           [pipeline]="data.allSections ? null : data.pipeline.type"
@@ -75,7 +75,7 @@ export interface ServiceConfigDialogData {
     </div>
 
     <div class="modal-footer">
-      <button type="button" class="btn btn-link" [disabled]="saving()" dsoDialogClose>Cancel</button>
+      <button type="button" class="btn btn-link" [disabled]="saving()" ovDialogClose>Cancel</button>
       <button
         type="button"
         class="btn btn-primary"
@@ -83,7 +83,7 @@ export interface ServiceConfigDialogData {
         (click)="save()"
       >
         @if (saving()) {
-          <dso-spinner />
+          <ov-spinner />
         }
         Save service configuration
       </button>

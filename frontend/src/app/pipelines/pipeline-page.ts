@@ -20,7 +20,7 @@ import { bitbucketRepositoryUrl } from '../shared/bitbucket';
 import { CountedPipe, TIME_ZONE_NOTE, capitalized, listed } from '@common/shared/formatting';
 import { StatusChip } from '../shared/status-chip';
 import { LoadError } from '@common/ui/load-error';
-import { DsoLoading } from '@common/ui/loading';
+import { OvLoading } from '@common/ui/loading';
 import { MENU_AT_END } from '@common/ui/menu';
 import { PipelineActions } from './pipeline-actions';
 import { JENKINSFILE_HELP, KEY_MEANING, pipelineName } from './pipeline-texts';
@@ -28,7 +28,7 @@ import { JENKINSFILE_HELP, KEY_MEANING, pipelineName } from './pipeline-texts';
 const RECENT_RUNS = 5;
 
 @Component({
-  selector: 'dso-pipeline-page',
+  selector: 'ov-pipeline-page',
   imports: [
     ClipboardModule,
     CdkMenu,
@@ -36,7 +36,7 @@ const RECENT_RUNS = 5;
     CdkMenuTrigger,
     DatePipe,
     RouterLink,
-    DsoLoading,
+    OvLoading,
     LoadError,
     MetricsBanner,
     CountedPipe,
@@ -60,13 +60,13 @@ const RECENT_RUNS = 5;
       </nav>
 
       @if (pipeline.isLoading() && !pipeline.hasValue()) {
-        <dso-loading />
+        <ov-loading />
       }
 
       @if (pipeline.error(); as error) {
-        <dso-load-error what="The pipeline" [error]="error" (retry)="pipeline.reload()">
+        <ov-load-error what="The pipeline" [error]="error" (retry)="pipeline.reload()">
           <a class="btn btn-link" [routerLink]="section.path">Back to pipelines</a>
-        </dso-load-error>
+        </ov-load-error>
       } @else if (pipeline.hasValue()) {
         @let p = pipeline.value();
         <header class="page-header">
@@ -80,7 +80,7 @@ const RECENT_RUNS = 5;
                   @if (h.status !== 'DISABLED') {
                     <span class="muted">Last run</span>
                   }
-                  <dso-status-chip [status]="h.status" />
+                  <ov-status-chip [status]="h.status" />
                 </span>
               }
             </div>
@@ -106,7 +106,7 @@ const RECENT_RUNS = 5;
               More
             </button>
             <ng-template #more>
-              <div cdkMenu class="dropdown-menu dso-menu">
+              <div cdkMenu class="dropdown-menu ov-menu">
                 <button cdkMenuItem class="dropdown-item" (click)="editServiceConfig(p)">
                   Configure service
                 </button>
@@ -308,18 +308,18 @@ const RECENT_RUNS = 5;
             {{ timeZoneNote }}
           </p>
           @if (monitoring.error(); as error) {
-            <dso-load-error what="The latest runs" [error]="error" (retry)="monitoring.reload()" />
+            <ov-load-error what="The latest runs" [error]="error" (retry)="monitoring.reload()" />
           } @else if (!monitoring.hasValue()) {
-            <dso-loading />
+            <ov-loading />
           } @else {
-            <dso-metrics-banner [metricsError]="monitoring.value().metricsError" />
+            <ov-metrics-banner [metricsError]="monitoring.value().metricsError" />
             @if (runs().length === 0) {
               <div class="empty-state small-empty">
                 <h3>No runs in the past 30 days</h3>
                 <p>Runs show here once Jenkins runs this pipeline with its Jenkinsfile.</p>
               </div>
             } @else {
-              <dso-run-grid label="Latest runs" [runs]="runs()" />
+              <ov-run-grid label="Latest runs" [runs]="runs()" />
             }
           }
         </section>
@@ -381,13 +381,13 @@ const RECENT_RUNS = 5;
 
     .explain {
       display: block;
-      color: var(--dso-muted);
+      color: var(--ov-muted);
       font-size: 11.5px;
     }
 
     .no-key {
       margin: 0;
-      color: var(--dso-muted);
+      color: var(--ov-muted);
     }
 
     .small-empty {

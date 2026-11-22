@@ -109,8 +109,8 @@ describe('ProductEditor', () => {
   }
 
   const names = () =>
-    [...page().querySelectorAll('dso-panel .service-name')].map((name) => name.textContent?.trim());
-  const panels = () => [...page().querySelectorAll<HTMLElement>('dso-panel.service-panel')];
+    [...page().querySelectorAll('ov-panel .service-name')].map((name) => name.textContent?.trim());
+  const panels = () => [...page().querySelectorAll<HTMLElement>('ov-panel.service-panel')];
   const expandedPanels = () => panels().filter((panel) => panel.classList.contains('expanded'));
 
   const imageBuild = {
@@ -324,14 +324,14 @@ describe('ProductEditor', () => {
     expect(text(page().querySelector('.banner .banner-text'))).toBe(
       'The business services could not be loaded. The database is not available',
     );
-    expect(page().querySelector('dso-load-error a')?.getAttribute('href')).toBe('/admin/products');
+    expect(page().querySelector('ov-load-error a')?.getAttribute('href')).toBe('/admin/products');
 
-    buttonOf(page().querySelector('dso-load-error')!, 'Try again').click();
+    buttonOf(page().querySelector('ov-load-error')!, 'Try again').click();
     await fixture.whenStable();
     http.expectOne('/api/departments').flush(departments);
     await fixture.whenStable();
 
-    expect(page().querySelector('dso-load-error')).toBeNull();
+    expect(page().querySelector('ov-load-error')).toBeNull();
     expect(open).toHaveBeenCalledOnce();
   });
 
@@ -423,7 +423,7 @@ describe('ProductEditor', () => {
     expect(page().querySelector('.problems')?.textContent).toContain(
       'serviceTemplate: is not configured',
     );
-    expect(page().querySelector('.dso-panel.expanded .rail-item.active')?.textContent).toContain(
+    expect(page().querySelector('.ov-panel.expanded .rail-item.active')?.textContent).toContain(
       'SonarQube',
     );
   });
@@ -438,7 +438,7 @@ describe('ProductEditor', () => {
     http.expectNone('/api/products');
     expect(text(page().querySelector('.save-error'))).toBe('Some fields need your attention.');
     expect(text(panels()[0].querySelector('.tag.error'))).toBe('Needs attention');
-    expect(text(page().querySelector('.dso-panel.expanded .list-error'))).toBe(
+    expect(text(page().querySelector('.ov-panel.expanded .list-error'))).toBe(
       'Add an UrbanCode Deploy application for DV: the Full pipeline uses it to deploy to the lower test region',
     );
 
@@ -699,7 +699,7 @@ describe('ProductEditor', () => {
     const actions = () =>
       [
         ...page().querySelectorAll<HTMLButtonElement>(
-          '.service-actions button:not(.dso-help-trigger)',
+          '.service-actions button:not(.ov-help-trigger)',
         ),
       ].map((button) => `${text(button)}${button.disabled ? ' (disabled)' : ''}`);
     const first = editor()['form'].controls.services.at(0);
@@ -729,7 +729,7 @@ describe('ProductEditor', () => {
     );
     expect(document.activeElement).toBe(inputOf(expandedPanels()[0], 'AppScan application ID'));
     expect(
-      text(fieldOf(expandedPanels()[0], 'AppScan application ID')!.querySelector('dso-error')),
+      text(fieldOf(expandedPanels()[0], 'AppScan application ID')!.querySelector('ov-error')),
     ).toBe('Required');
     expect(fieldOf(expandedPanels()[0], 'AppScan API key ID')).toBeNull();
 
@@ -850,7 +850,7 @@ describe('ProductEditor', () => {
     await fixture.whenStable();
 
     const empty = page().querySelector('.empty-state')!;
-    expect(empty.querySelector('dso-config-import')).not.toBeNull();
+    expect(empty.querySelector('ov-config-import')).not.toBeNull();
     expect(buttonOf(empty as HTMLElement, 'Add service').disabled).toBe(false);
   });
 
@@ -897,9 +897,9 @@ describe('ProductEditor', () => {
 
     buttonOf(page(), 'Copy values from existing service').click();
     await fixture.whenStable();
-    expect([...document.querySelectorAll('.dso-menu button')].map(text)).toEqual(['gui', 'api']);
+    expect([...document.querySelectorAll('.ov-menu button')].map(text)).toEqual(['gui', 'api']);
 
-    buttonOf(document.querySelector('.dso-menu')!, 'api').click();
+    buttonOf(document.querySelector('.ov-menu')!, 'api').click();
     await fixture.whenStable();
     const copy = editor()['form'].controls.services.at(2).getRawValue();
 
@@ -958,9 +958,9 @@ describe('ProductEditor', () => {
 
     buttonOf(page(), 'Copy values from existing service').click();
     await fixture.whenStable();
-    expect([...document.querySelectorAll('.dso-menu button')].map(text)).toEqual(['gui', 'api']);
+    expect([...document.querySelectorAll('.ov-menu button')].map(text)).toEqual(['gui', 'api']);
 
-    buttonOf(document.querySelector('.dso-menu')!, 'gui').click();
+    buttonOf(document.querySelector('.ov-menu')!, 'gui').click();
     await fixture.whenStable();
 
     expect(names()).toEqual(['gui', 'api', 'gui-copy']);
@@ -1025,13 +1025,13 @@ describe('ProductEditor', () => {
     expect(added.controls.id.value).toBeNull();
     expect(added.controls.build.controls.tool.value).toBe(anotherService().build.tool);
     expect(editor()['form'].controls.agentLabels.value).toBe('docker-agent');
-    expect(text(page().querySelector('dso-import-notes li'))).toBe(
+    expect(text(page().querySelector('ov-import-notes li'))).toBe(
       'tools.sonar.foo: The portal has no such setting',
     );
 
-    buttonOf(page().querySelector('dso-import-notes')!, 'Dismiss').click();
+    buttonOf(page().querySelector('ov-import-notes')!, 'Dismiss').click();
     await fixture.whenStable();
 
-    expect(page().querySelector('dso-import-notes')).toBeNull();
+    expect(page().querySelector('ov-import-notes')).toBeNull();
   });
 });

@@ -58,7 +58,7 @@ describe('ServiceFields', () => {
 
   const page = () => fixture.nativeElement as HTMLElement;
   const pane = () => page().querySelector<HTMLElement>('.pane')!;
-  const hints = () => [...pane().querySelectorAll('dso-hint')].map((hint) => text(hint));
+  const hints = () => [...pane().querySelectorAll('ov-hint')].map((hint) => text(hint));
 
   async function open(label: string) {
     const item = [...page().querySelectorAll<HTMLButtonElement>('.rail-item')].find(
@@ -172,7 +172,7 @@ describe('ServiceFields', () => {
         expect(marked.length).toBeGreaterThan(5);
         for (const label of railLabels()) {
           await open(label);
-          const errors = [...pane().querySelectorAll('dso-error')].map((e) =>
+          const errors = [...pane().querySelectorAll('ov-error')].map((e) =>
             e.textContent?.trim(),
           );
           expect(errors.every((error) => !!error)).toBe(true);
@@ -240,7 +240,7 @@ describe('ServiceFields', () => {
       await fixture.whenStable();
 
       expect(pane().querySelector('h3')?.textContent).toBe('Build');
-      expect(text(fieldOf(pane(), 'Step label')?.querySelector('dso-error'))).not.toBe('');
+      expect(text(fieldOf(pane(), 'Step label')?.querySelector('ov-error'))).not.toBe('');
       expect(document.activeElement).toBe(inputOf(pane(), 'Step label'));
     });
   });
@@ -252,8 +252,8 @@ describe('ServiceFields', () => {
       await render(service({ build: { ...service().build, autoSetup: true, javaPath: null } }));
       await open('Build');
       const shown = () =>
-        [...pane().querySelectorAll('dso-form-field dso-label, dso-checkbox label, h4')]
-          .filter((label) => !label.closest('dso-advanced-settings'))
+        [...pane().querySelectorAll('ov-form-field ov-label, ov-checkbox label, h4')]
+          .filter((label) => !label.closest('ov-advanced-settings'))
           .map((label) => text(label).replace(/ \(\S+\)$/, ''));
 
       expect(shown()).toEqual([
@@ -284,15 +284,15 @@ describe('ServiceFields', () => {
       async (tool, labels) => {
         await render(service({ build: { ...service().build, tool, autoSetup: true, javaPath: null } }));
         await open('Build');
-        const shown = [...pane().querySelectorAll('dso-form-field dso-label, dso-checkbox label, h4')]
-          .filter((label) => !label.closest('dso-advanced-settings'))
+        const shown = [...pane().querySelectorAll('ov-form-field ov-label, ov-checkbox label, h4')]
+          .filter((label) => !label.closest('ov-advanced-settings'))
           .map((label) => text(label).replace(/ \(\S+\)$/, ''));
 
         expect(shown.slice(0, labels.length)).toEqual([...labels]);
         expect(shown).not.toContain('JDK path');
 
         await open('SonarQube');
-        const sonar = [...pane().querySelectorAll('dso-form-field dso-label')].map(text);
+        const sonar = [...pane().querySelectorAll('ov-form-field ov-label')].map(text);
         expect(sonar.includes('SonarScanner flags')).toBe(tool !== 'ANDROID');
         expect(sonar.includes('Gradle tasks')).toBe(tool === 'ANDROID');
       },
@@ -306,7 +306,7 @@ describe('ServiceFields', () => {
         'A service in a subfolder of its repository names that folder under Advanced settings.',
       );
       ['Source folder', 'Directory'].forEach((label) =>
-        expect(text(field(label).querySelector('dso-hint')).toLowerCase(), label).toContain(
+        expect(text(field(label).querySelector('ov-hint')).toLowerCase(), label).toContain(
           'for a service in a subfolder: that folder',
         ),
       );
@@ -362,7 +362,7 @@ describe('ServiceFields', () => {
       const box = () => checkboxOf(pane(), 'Build the frontend with Node.js first');
 
       expect([...pane().querySelectorAll('h4')].map(text)).toEqual(['Node.js build (stage 0)']);
-      expect(text(box().closest('dso-checkbox'))).toContain('build.node.enabled');
+      expect(text(box().closest('ov-checkbox'))).toContain('build.node.enabled');
       expect(fieldOf(pane(), 'Folder with package.json')).toBeNull();
 
       box().click();
@@ -379,13 +379,13 @@ describe('ServiceFields', () => {
       );
       expect(inputOf(pane(), 'Commands').placeholder).toBe('npm ci\nnpm run build');
       expect(checkboxOf(pane(), 'Scan the npm dependencies with Nexus IQ').checked).toBe(true);
-      expect(text(pane().querySelector('dso-advanced-settings .panel-description'))).toBe(
+      expect(text(pane().querySelector('ov-advanced-settings .panel-description'))).toBe(
         'Source folder, build command and Node.js options',
       );
-      expect(field('Node.js home on the agent').closest('dso-advanced-settings')).not.toBeNull();
+      expect(field('Node.js home on the agent').closest('ov-advanced-settings')).not.toBeNull();
       form.controls.nodeBuild.controls.nodePath.setValue('/opt/node-20');
       await fixture.whenStable();
-      expect(text(field('Node.js installation').querySelector('dso-hint'))).toBe(
+      expect(text(field('Node.js installation').querySelector('ov-hint'))).toBe(
         'Not used: the Node.js home on the agent is set · build.node.installationName',
       );
       expect(form.controls.nodeBuild.valid).toBe(true);
@@ -415,7 +415,7 @@ describe('ServiceFields', () => {
         fixture.componentRef.setInput('pipeline', pipeline);
         await open('Build');
         const help = helpOf(
-          checkboxOf(pane(), 'Build the frontend with Node.js first').closest('dso-checkbox')!,
+          checkboxOf(pane(), 'Build the frontend with Node.js first').closest('ov-checkbox')!,
         );
 
         expect(help).toContain('extra stage 0, before the Gradle or Maven build');
@@ -434,7 +434,7 @@ describe('ServiceFields', () => {
       expect(form.controls.nodeBuild.controls.nexusIqScan.value).toBe(true);
       expect(
         helpOf(
-          checkboxOf(pane(), 'Build the frontend with Node.js first').closest('dso-checkbox')!,
+          checkboxOf(pane(), 'Build the frontend with Node.js first').closest('ov-checkbox')!,
         ),
       ).toContain(
         'In SAST scanning it runs only while Compile before preparing the IRX is on, and not on Windows agents.',
@@ -467,7 +467,7 @@ describe('ServiceFields', () => {
 
       expect(text(page().querySelector('.rail-item.active span'))).toBe('Build');
       expect(form.controls.nodeBuild.controls.nodePath.errors).toEqual({ rule: NODE_TWICE });
-      expect(pane().querySelector('dso-advanced-settings .has-errors')).not.toBeNull();
+      expect(pane().querySelector('ov-advanced-settings .has-errors')).not.toBeNull();
     });
 
     it.each([
@@ -569,11 +569,11 @@ describe('ServiceFields', () => {
     const withDefaults = (overrides = {}) =>
       globalSettings({ database: databaseDefaults(overrides) });
     const labels = (root: ParentNode, advanced = false) =>
-      [...root.querySelectorAll('dso-form-field dso-label, dso-checkbox label, h4')]
-        .filter((label) => !!label.closest('dso-advanced-settings') === advanced)
+      [...root.querySelectorAll('ov-form-field ov-label, ov-checkbox label, h4')]
+        .filter((label) => !!label.closest('ov-advanced-settings') === advanced)
         .map((label) => text(label).replace(/ \(\S+\)$/, ''));
     const helpFor = (label: string) =>
-      helpOf(fieldOf(pane(), label) ?? checkboxOf(pane(), label).closest('dso-checkbox')!);
+      helpOf(fieldOf(pane(), label) ?? checkboxOf(pane(), label).closest('ov-checkbox')!);
 
     it('opens each section of a database service and explains each field and problem', async () => {
       await render(everyField(), withDefaults());
@@ -582,7 +582,7 @@ describe('ServiceFields', () => {
       for (const label of railLabels()) {
         await open(label);
         pane()
-          .querySelectorAll<HTMLButtonElement>('dso-advanced-settings .accordion-button.collapsed')
+          .querySelectorAll<HTMLButtonElement>('ov-advanced-settings .accordion-button.collapsed')
           .forEach((toggle) => toggle.click());
         await fixture.whenStable();
         expect(pane().querySelector('h3')?.textContent).toBe(label);
@@ -594,7 +594,7 @@ describe('ServiceFields', () => {
       fixture.componentRef.setInput('submitted', true);
       await fixture.whenStable();
       await open('Database changes');
-      const errors = [...pane().querySelectorAll('dso-error')].map((e) => text(e));
+      const errors = [...pane().querySelectorAll('ov-error')].map((e) => text(e));
       expect(errors.length).toBeGreaterThan(5);
       expect(errors.every((error) => !!error)).toBe(true);
     }, 45_000);
@@ -757,7 +757,7 @@ describe('ServiceFields', () => {
         await render({ ...settings, appScan: { ...settings.appScan, compile: true } });
         const commands = async (label: string) => {
           await open(label);
-          return pane().querySelectorAll('dso-tool-command-fields').length;
+          return pane().querySelectorAll('ov-tool-command-fields').length;
         };
 
         expect(await commands('Build')).toBe(2);
@@ -835,7 +835,7 @@ describe('ServiceFields', () => {
           'Timeout',
         ]),
       ]);
-      expect(text(fieldOf(pane(), 'JDBC URL')?.querySelector('dso-hint'))).toBe(
+      expect(text(fieldOf(pane(), 'JDBC URL')?.querySelector('ov-hint'))).toBe(
         'A database of its own, never the RD or QC database · url',
       );
     });
@@ -858,7 +858,7 @@ describe('ServiceFields', () => {
       await open('Database changes');
       const artifact = inputOf(pane(), 'Artifact ID');
       expect(artifact.placeholder).toBe('orders-db');
-      expect(text(fieldOf(pane(), 'Artifact ID')?.querySelector('dso-hint'))).toBe(
+      expect(text(fieldOf(pane(), 'Artifact ID')?.querySelector('ov-hint'))).toBe(
         'Library default: the service name · database.package.artifactId',
       );
 
@@ -885,8 +885,8 @@ describe('ServiceFields', () => {
         'Release repository URL',
       ]);
       const snapshot = fieldOf(pane(), 'Snapshot repository URL')!;
-      expect(snapshot.closest('dso-advanced-settings')).not.toBeNull();
-      expect(text(snapshot.querySelector('dso-hint'))).toBe(
+      expect(snapshot.closest('ov-advanced-settings')).not.toBeNull();
+      expect(text(snapshot.querySelector('ov-hint'))).toBe(
         'Library default: https://tools.bbh.com/nexus/repository/db-snapshots · database.package.snapshotRepository.url',
       );
       expect(helpFor('Release repository URL')).toBe(
@@ -974,7 +974,7 @@ describe('ServiceFields', () => {
         'BBH policy requires 60% line coverage, the average of the coverage reports of the service.',
       );
       expect(field().querySelector('textarea')).not.toBeNull();
-      expect(text(field().querySelector('dso-hint'))).toBe(
+      expect(text(field().querySelector('ov-hint'))).toBe(
         'Usually left empty; one per line, *, ? and ** allowed · coverage.reportPath',
       );
       expect(helpOf(field())).toContain(
@@ -1032,7 +1032,7 @@ describe('ServiceFields', () => {
       await open('Deployment');
       const target = (label: string) => buttonOf(pane(), label);
 
-      expect(pane().querySelector('dso-toggle-group')?.getAttribute('aria-label')).toBe(
+      expect(pane().querySelector('ov-toggle-group')?.getAttribute('aria-label')).toBe(
         'Deployment target',
       );
       expect(target('Virtual machine').getAttribute('aria-checked')).toBe('true');
@@ -1053,12 +1053,12 @@ describe('ServiceFields', () => {
       await render(service({ build: { ...service().build, tool: 'MAVEN' } }));
       await open('Deployment');
       const labels = () =>
-        [...pane().querySelectorAll('dso-form-field dso-label')].map((label) => text(label));
+        [...pane().querySelectorAll('ov-form-field ov-label')].map((label) => text(label));
       const box = () => checkboxOf(pane(), 'Disable Nexus Delivery');
 
-      expect(text(box().closest('dso-checkbox'))).toContain('delivery.nexusDeliveryEnabled');
+      expect(text(box().closest('ov-checkbox'))).toContain('delivery.nexusDeliveryEnabled');
       expect(labels()).toContain('Artifact name');
-      expect(fieldOf(pane(), 'Built file name')?.closest('dso-advanced-settings')).not.toBeNull();
+      expect(fieldOf(pane(), 'Built file name')?.closest('ov-advanced-settings')).not.toBeNull();
       expect(pane().querySelector('.block h4')?.textContent).toBe('Delivery');
 
       box().click();
@@ -1072,7 +1072,7 @@ describe('ServiceFields', () => {
       form.controls.deployment.controls.target.setValue('OPENSHIFT');
       await fixture.whenStable();
 
-      expect(text(box().closest('dso-checkbox'))).toContain('delivery.nexusDeliveryEnabled');
+      expect(text(box().closest('ov-checkbox'))).toContain('delivery.nexusDeliveryEnabled');
       await open('OpenShift targets');
 
       expect(text(pane())).not.toContain('Image build');
@@ -1234,7 +1234,7 @@ describe('ServiceFields', () => {
     it('asks only for the application of the service, no API key, and keeps the scan name and folders under Advanced settings', async () => {
       await render();
       await open('AppScan SAST and DAST');
-      const main = [...pane().querySelectorAll(':scope > .form-fields > dso-fields dso-label')].map(
+      const main = [...pane().querySelectorAll(':scope > .form-fields > ov-fields ov-label')].map(
         (label) => text(label),
       );
 
@@ -1243,9 +1243,9 @@ describe('ServiceFields', () => {
       expect(fieldOf(pane(), 'API key secret credentials ID')).toBeNull();
       expect(text(fieldOf(pane(), 'SAST scan name'))).toContain('sast.scanName');
       ['SAST scan name', 'Included folders', 'Excluded folders'].forEach((label) =>
-        expect(fieldOf(pane(), label)?.closest('dso-advanced-settings'), label).not.toBeNull(),
+        expect(fieldOf(pane(), label)?.closest('ov-advanced-settings'), label).not.toBeNull(),
       );
-      expect(text(pane().querySelector('dso-advanced-settings .panel-description'))).toBe(
+      expect(text(pane().querySelector('ov-advanced-settings .panel-description'))).toBe(
         'Scan name, scanned folders, AppScan client and the options of the static scan',
       );
     });
@@ -1253,7 +1253,7 @@ describe('ServiceFields', () => {
     it('says under the compile command that another command keeps the static scans one after another', async () => {
       await render();
       await open('AppScan SAST and DAST');
-      const notes = () => [...pane().querySelectorAll('dso-advanced-settings .note')].map(text);
+      const notes = () => [...pane().querySelectorAll('ov-advanced-settings .note')].map(text);
       const note =
         'Left empty, the SAST compile runs the build command of the service. Another command makes the full and security pipelines run Nexus IQ, SAST and SonarQube one after another, because it may not rebuild the files Nexus IQ scans.';
 
@@ -1271,19 +1271,19 @@ describe('ServiceFields', () => {
     it('shows the project first, keeps the tokens and badges under Advanced settings and refuses both badge values', async () => {
       await render();
       await open('SonarQube');
-      const main = [...pane().querySelectorAll(':scope > .form-fields > dso-fields dso-label')].map(
+      const main = [...pane().querySelectorAll(':scope > .form-fields > ov-fields ov-label')].map(
         (label) => text(label),
       );
 
       expect(main).toEqual(['Project name', 'Project key', 'Jenkins installation']);
       ['Token credentials ID', 'Badge token', 'Badge token credentials ID'].forEach((label) =>
-        expect(fieldOf(pane(), label)?.closest('dso-advanced-settings'), label).not.toBeNull(),
+        expect(fieldOf(pane(), label)?.closest('ov-advanced-settings'), label).not.toBeNull(),
       );
       expect(text(fieldOf(pane(), 'Project key'))).toContain(
         'Left empty, the scan still runs without dashboard link, issue counts and badges',
       );
       expect(
-        text(checkboxOf(pane(), 'Badges in the Jenkins build description').closest('dso-checkbox')),
+        text(checkboxOf(pane(), 'Badges in the Jenkins build description').closest('ov-checkbox')),
       ).toContain('tools.sonar.addBadges');
 
       form.controls.sonar.controls.badgeCredentialsId.setValue('sonar-badge');
@@ -1293,8 +1293,8 @@ describe('ServiceFields', () => {
       token.dispatchEvent(new Event('blur'));
       await fixture.whenStable();
 
-      expect(text(fieldOf(pane(), 'Badge token')?.querySelector('dso-error'))).toBe(BADGE_TWICE);
-      expect(pane().querySelector('dso-advanced-settings .has-errors')).not.toBeNull();
+      expect(text(fieldOf(pane(), 'Badge token')?.querySelector('ov-error'))).toBe(BADGE_TWICE);
+      expect(pane().querySelector('ov-advanced-settings .has-errors')).not.toBeNull();
     });
   });
 
@@ -1343,7 +1343,7 @@ describe('ServiceFields', () => {
       await fixture.whenStable();
 
       expect(form.controls.goldenFix.controls.inherit.value).toBe(false);
-      expect(pane().querySelector('dso-golden-fix-fields')).not.toBeNull();
+      expect(pane().querySelector('ov-golden-fix-fields')).not.toBeNull();
     });
 
     it('names the Library default in the hints of prefilled fields', async () => {
@@ -1352,7 +1352,7 @@ describe('ServiceFields', () => {
       await open('GoldenFix');
       buttonOf(pane(), 'Override for this service').click();
       await fixture.whenStable();
-      const hintOf = (label: string) => text(fieldOf(pane(), label)?.querySelector('dso-hint'));
+      const hintOf = (label: string) => text(fieldOf(pane(), label)?.querySelector('ov-hint'));
 
       expect(selectOf(pane(), 'Dependencies')).toBeFalsy();
       expect(selectOf(pane(), 'Verification')).toBeFalsy();

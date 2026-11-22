@@ -21,7 +21,7 @@ describe('App', () => {
         provideHttpClient(),
         provideHttpClientTesting(),
         provideRouter([{ path: '**', component: Blank }]),
-        { provide: APP_NAME, useValue: 'DevSecOps Management Portal' },
+        { provide: APP_NAME, useValue: 'ITSS COE OneView' },
       ],
     });
     fixture = TestBed.createComponent(App);
@@ -45,9 +45,7 @@ describe('App', () => {
       .map(text);
 
   it('names the portal in its header and links only the DevSecOps sections', () => {
-    expect(page().querySelector('.brand-name')?.textContent).toBe(
-      'BBH DevSecOps Management Portal',
-    );
+    expect(page().querySelector('.brand-name')?.textContent).toBe('BBH ITSS COE OneView');
     expect(links().map(text)).toEqual([
       'Pipelines',
       'Self-service',
@@ -66,6 +64,33 @@ describe('App', () => {
     ]);
     expect(text(page())).not.toContain('Beadle');
     expect(text(page())).not.toContain('Change Evidence');
+  });
+
+  it('joins the areas DevSecOps, QA and Agile, each with its own sections', async () => {
+    const areas = () => [...page().querySelectorAll<HTMLAnchorElement>('nav.areas a')];
+
+    expect(areas().map(text)).toEqual(['DevSecOps', 'QA', 'Agile']);
+    expect(areas().map((link) => link.getAttribute('href'))).toEqual([
+      '/pipelines',
+      '/qa',
+      '/agile',
+    ]);
+
+    await TestBed.inject(Router).navigateByUrl('/qa');
+    await fixture.whenStable();
+
+    expect(links().map(text)).toEqual(['QA Metrics']);
+    expect(active()).toEqual(['QA Metrics']);
+
+    await TestBed.inject(Router).navigateByUrl('/agile');
+    await fixture.whenStable();
+
+    expect(links().map(text)).toEqual(['Agile Maturity']);
+    expect(
+      areas()
+        .filter((link) => link.classList.contains('active'))
+        .map(text),
+    ).toEqual(['Agile']);
   });
 
   it('gives every section the full DevSecOps name as its page heading', () => {

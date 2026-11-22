@@ -7,7 +7,7 @@ import {
 } from '@angular/core';
 import { DailyActivity } from '../core/models';
 import { counted } from '@common/shared/formatting';
-import { DsoChart } from '@common/ui/chart';
+import { OvChart } from '@common/ui/chart';
 
 const dayFormat = new Intl.DateTimeFormat('en-GB', {
   day: 'numeric',
@@ -70,14 +70,14 @@ export function activityOptions(days: readonly DailyActivity[]): Record<string, 
 }
 
 @Component({
-  selector: 'dso-activity-chart',
-  imports: [DsoChart],
+  selector: 'ov-activity-chart',
+  imports: [OvChart],
   changeDetection: ChangeDetectionStrategy.OnPush,
   encapsulation: ViewEncapsulation.None,
   styleUrl: './activity-chart.css',
-  host: { class: 'dso-activity-chart' },
+  host: { class: 'ov-activity-chart' },
   template: `
-    <dso-chart [options]="options()" [label]="summary()" />
+    <ov-chart [options]="options()" [label]="summary()" />
     <div class="legend">
       <span><i class="swatch runs"></i>Other runs</span>
       <span><i class="swatch failure"></i>Failed deployments</span>

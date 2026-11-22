@@ -27,7 +27,7 @@ describe('Notifier', () => {
     notifier.error(new Error('The portal API cannot be reached.'));
     await settled();
 
-    expect(document.querySelectorAll('dso-toast')).toHaveLength(1);
+    expect(document.querySelectorAll('ov-toast')).toHaveLength(1);
     expect(toast()!.classList).toContain('error');
     expect(announce).toHaveBeenLastCalledWith(expect.any(String), 'assertive');
   });

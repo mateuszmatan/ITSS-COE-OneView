@@ -8,18 +8,18 @@ import { TOGGLES } from './toggle-group';
   imports: [ReactiveFormsModule, TOGGLES],
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
-    <dso-toggle-group [formControl]="target" aria-label="Target">
-      <button [dsoToggle]="'VM'">Virtual machine</button>
-      <button [dsoToggle]="'OPENSHIFT'">OpenShift</button>
-      <button [dsoToggle]="'NONE'">None</button>
-    </dso-toggle-group>
+    <ov-toggle-group [formControl]="target" aria-label="Target">
+      <button [ovToggle]="'VM'">Virtual machine</button>
+      <button [ovToggle]="'OPENSHIFT'">OpenShift</button>
+      <button [ovToggle]="'NONE'">None</button>
+    </ov-toggle-group>
   `,
 })
 class Host {
   readonly target = new FormControl('VM');
 }
 
-describe('DsoToggleGroup', () => {
+describe('OvToggleGroup', () => {
   let fixture: ComponentFixture<Host>;
 
   beforeEach(async () => {

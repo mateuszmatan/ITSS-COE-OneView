@@ -11,24 +11,24 @@ export interface ConfirmDialogData {
 }
 
 @Component({
-  selector: 'dso-confirm-dialog',
+  selector: 'ov-confirm-dialog',
   imports: [DIALOG],
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
     <div class="modal-header">
-      <h2 dsoDialogTitle>{{ data.title }}</h2>
+      <h2 ovDialogTitle>{{ data.title }}</h2>
     </div>
     <div class="modal-body">
       <p class="message">{{ data.message }}</p>
     </div>
     <div class="modal-footer">
-      <button type="button" class="btn btn-link" dsoDialogClose>Cancel</button>
+      <button type="button" class="btn btn-link" ovDialogClose>Cancel</button>
       <button
         type="button"
         class="btn"
         [class.btn-primary]="!data.danger"
         [class.btn-danger]="data.danger"
-        [dsoDialogClose]="true"
+        [ovDialogClose]="true"
       >
         {{ data.confirmLabel }}
       </button>

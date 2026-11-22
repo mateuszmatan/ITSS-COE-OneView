@@ -8,7 +8,7 @@ export interface Choice<T> {
 }
 
 @Component({
-  selector: 'dso-choice-tiles',
+  selector: 'ov-choice-tiles',
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
     <div
@@ -52,33 +52,33 @@ export interface Choice<T> {
       align-items: flex-start;
       gap: 3px;
       padding: 10px 12px;
-      border: 1px solid var(--dso-border);
-      background: var(--dso-card);
+      border: 1px solid var(--ov-border);
+      background: var(--ov-card);
       color: inherit;
       font: inherit;
       text-align: left;
       cursor: pointer;
 
       &:hover {
-        border-color: var(--dso-navy-light);
+        border-color: var(--ov-navy-light);
       }
 
       &:focus-visible {
-        outline: 2px solid var(--dso-navy);
+        outline: 2px solid var(--ov-navy);
         outline-offset: 1px;
       }
 
       &.selected {
-        border-color: var(--dso-navy);
-        box-shadow: inset 0 0 0 1px var(--dso-navy);
-        background: var(--dso-info-bg);
+        border-color: var(--ov-navy);
+        box-shadow: inset 0 0 0 1px var(--ov-navy);
+        background: var(--ov-info-bg);
       }
     }
 
     .tile-label {
       font-size: 14px;
       font-weight: 600;
-      color: var(--dso-navy);
+      color: var(--ov-navy);
     }
 
     .tile-note {
@@ -86,7 +86,7 @@ export interface Choice<T> {
     }
 
     .tile-description {
-      color: var(--dso-muted);
+      color: var(--ov-muted);
       font-size: 12px;
     }
 

@@ -62,7 +62,7 @@ export interface ServiceDialogData {
 }
 
 @Component({
-  selector: 'dso-service-dialog',
+  selector: 'ov-service-dialog',
   imports: [
     ReactiveFormsModule,
     DIALOG,
@@ -75,7 +75,7 @@ export interface ServiceDialogData {
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
     <div class="modal-header">
-      <h2 dsoDialogTitle>{{ title() }}</h2>
+      <h2 ovDialogTitle>{{ title() }}</h2>
     </div>
     <div class="modal-body">
       <p class="subtitle">
@@ -84,28 +84,28 @@ export interface ServiceDialogData {
       @if (!data.service) {
         <div class="start">
           @if (sources.length) {
-            <dso-form-field
+            <ov-form-field
               help="Replaces the settings below with those of another service of the product. What identifies that service is not copied: the SonarQube project, monitoring project tag and SAST scan name stay empty, and the OpenShift application name, image repositories and Nexus IQ application are set from the name typed here."
             >
-              <dso-label>Copy values from</dso-label>
-              <select dsoInput [formControl]="copyFrom">
+              <ov-label>Copy values from</ov-label>
+              <select ovInput [formControl]="copyFrom">
                 <option [ngValue]="null">No service</option>
                 @for (source of sources; track $index) {
                   <option [ngValue]="source">{{ source.name }}</option>
                 }
               </select>
-            </dso-form-field>
+            </ov-form-field>
           }
-          <dso-config-import
+          <ov-config-import
             [serviceName]="serviceForm().controls.name.value"
             (imported)="importConfig($event)"
           />
         </div>
         @if (imported(); as notes) {
-          <dso-import-notes [imported]="notes" (closed)="imported.set(null)" />
+          <ov-import-notes [imported]="notes" (closed)="imported.set(null)" />
         }
       }
-      <dso-service-fields
+      <ov-service-fields
         #fields
         [form]="serviceForm()"
         [pipeline]="data.pipeline"
@@ -118,11 +118,11 @@ export interface ServiceDialogData {
       @if (missing().length) {
         <p class="missing" role="status">
           Complete these fields first:
-          <dso-missing-fields [missing]="missing()" (open)="fieldsComponent()?.reveal($event)" />
+          <ov-missing-fields [missing]="missing()" (open)="fieldsComponent()?.reveal($event)" />
           <span>.</span>
         </p>
       }
-      <button type="button" class="btn btn-link" dsoDialogClose>Cancel</button>
+      <button type="button" class="btn btn-link" ovDialogClose>Cancel</button>
       <button
         type="button"
         class="btn btn-primary"
@@ -145,14 +145,14 @@ export interface ServiceDialogData {
       gap: 8px 16px;
       margin-bottom: 10px;
 
-      dso-form-field {
+      ov-form-field {
         flex: 0 1 320px;
       }
     }
     .missing {
       flex: 1;
       margin: 0;
-      color: var(--dso-danger);
+      color: var(--ov-danger);
       font-size: 12px;
     }
   `,

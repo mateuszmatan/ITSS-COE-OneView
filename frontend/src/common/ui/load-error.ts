@@ -2,7 +2,7 @@ import { ChangeDetectionStrategy, Component, computed, input, output } from '@an
 import { errorMessage } from '../core/errors';
 
 @Component({
-  selector: 'dso-load-error',
+  selector: 'ov-load-error',
   changeDetection: ChangeDetectionStrategy.OnPush,
   host: { class: 'banner danger', role: 'alert' },
   template: `

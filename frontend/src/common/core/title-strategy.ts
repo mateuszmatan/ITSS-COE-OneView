@@ -4,7 +4,7 @@ import { RouterStateSnapshot, TitleStrategy } from '@angular/router';
 import { APP_NAME } from './app-name';
 
 @Injectable()
-export class PortalTitleStrategy extends TitleStrategy {
+export class OneViewTitleStrategy extends TitleStrategy {
   private readonly title = inject(Title);
   private readonly app = `BBH ${inject(APP_NAME)}`;
 

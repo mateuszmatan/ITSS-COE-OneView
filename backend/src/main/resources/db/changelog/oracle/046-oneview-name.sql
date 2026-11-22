@@ -1,0 +1,6 @@
+--liquibase formatted sql
+
+--changeset oneview:046-oneview-name dbms:oracle,h2
+UPDATE DSO_ACTION_LOG SET RESOURCE_NAME = 'ITSS COE OneView'
+ WHERE ACTION_TYPE = 'INITIALIZE_PORTAL' AND RESOURCE_NAME = 'DevSecOps Portal';
+--rollback UPDATE DSO_ACTION_LOG SET RESOURCE_NAME = 'DevSecOps Portal' WHERE ACTION_TYPE = 'INITIALIZE_PORTAL' AND RESOURCE_NAME = 'ITSS COE OneView';

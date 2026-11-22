@@ -18,6 +18,8 @@ import { ActionHistoryPage } from './history/action-history';
 import { GlobalSettingsPage } from './settings/global-settings';
 import { ServiceTemplatePage } from './settings/service-template-page';
 import { SammOverviewPage } from './samm/samm-overview';
+import { QaOverviewPage } from './qa/qa-overview';
+import { AgileOverviewPage } from './agile/agile-overview';
 
 @Component({ template: '' })
 class Blank {}
@@ -51,6 +53,8 @@ describe('routes', () => {
       'monitoring/products/:id': ProductMonitoringPage,
       'monitoring/pipelines/:id': PipelineMonitoringPage,
       samm: SammOverviewPage,
+      qa: QaOverviewPage,
+      agile: AgileOverviewPage,
       history: ActionHistoryPage,
       'admin/products/new': ProductEditor,
       'admin/products/:id': ProductDetail,

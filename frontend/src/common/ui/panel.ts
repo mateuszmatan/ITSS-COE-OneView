@@ -11,17 +11,17 @@ import {
 import { NgTemplateOutlet } from '@angular/common';
 import { uniqueId } from './form-field';
 
-@Directive({ selector: 'ng-template[dsoPanelContent]' })
-export class DsoPanelContent {
+@Directive({ selector: 'ng-template[ovPanelContent]' })
+export class OvPanelContent {
   readonly template = inject(TemplateRef);
 }
 
 @Component({
-  selector: 'dso-panel',
-  exportAs: 'dsoPanel',
+  selector: 'ov-panel',
+  exportAs: 'ovPanel',
   imports: [NgTemplateOutlet],
   changeDetection: ChangeDetectionStrategy.OnPush,
-  host: { class: 'accordion-item dso-panel', '[class.expanded]': 'expanded()' },
+  host: { class: 'accordion-item ov-panel', '[class.expanded]': 'expanded()' },
   template: `
     <h3 class="accordion-header">
       <button
@@ -33,7 +33,7 @@ export class DsoPanelContent {
         [attr.aria-controls]="bodyId"
         (click)="toggle()"
       >
-        <ng-content select="dso-panel-header" />
+        <ng-content select="ov-panel-header" />
       </button>
     </h3>
     <div
@@ -52,12 +52,12 @@ export class DsoPanelContent {
     </div>
   `,
 })
-export class DsoPanel {
+export class OvPanel {
   readonly expanded = model(false);
 
-  protected readonly headerId = uniqueId('dso-panel-header');
-  protected readonly bodyId = uniqueId('dso-panel-body');
-  protected readonly lazy = contentChild(DsoPanelContent);
+  protected readonly headerId = uniqueId('ov-panel-header');
+  protected readonly bodyId = uniqueId('ov-panel-body');
+  protected readonly lazy = contentChild(OvPanelContent);
   protected readonly rendered = linkedSignal<boolean, boolean>({
     source: this.expanded,
     computation: (expanded, previous) => expanded || !!previous?.value,
@@ -69,10 +69,10 @@ export class DsoPanel {
 }
 
 @Component({
-  selector: 'dso-panel-header',
+  selector: 'ov-panel-header',
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: '<ng-content />',
 })
-export class DsoPanelHeader {}
+export class OvPanelHeader {}
 
-export const PANEL = [DsoPanel, DsoPanelHeader, DsoPanelContent] as const;
+export const PANEL = [OvPanel, OvPanelHeader, OvPanelContent] as const;

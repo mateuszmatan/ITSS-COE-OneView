@@ -1,0 +1,39 @@
+package com.bbh.itss.coe.oneview.adapter.out.persistence;
+
+import com.bbh.itss.coe.oneview.adapter.RecordMapper;
+import com.bbh.itss.coe.oneview.domain.settings.ServiceTemplate;
+import com.bbh.itss.coe.oneview.domain.settings.StoredServiceTemplate;
+import jakarta.persistence.Convert;
+import jakarta.persistence.Embeddable;
+import jakarta.persistence.Entity;
+import jakarta.persistence.Table;
+import lombok.NoArgsConstructor;
+
+import java.util.List;
+
+import static lombok.AccessLevel.PROTECTED;
+
+@Entity
+@Table(name = "DSO_SERVICE_TEMPLATE")
+@NoArgsConstructor(access = PROTECTED)
+public class ServiceTemplateEntity extends SingletonEntity {
+
+    private TemplateEmbeddable template;
+
+    StoredServiceTemplate toDomain() {
+        return new StoredServiceTemplate(RecordMapper.map(template, ServiceTemplate.class), version(), updatedAt());
+    }
+
+    void apply(ServiceTemplate source) {
+        template = RecordMapper.map(source, TemplateEmbeddable.class);
+    }
+
+    @Embeddable
+    public record TemplateEmbeddable(
+            @Convert(converter = DelimitedListConverter.Commas.class) List<String> agentLabels,
+            String jenkinsJob, String gradleTasks, String gradleArtifact, String gradleScanPattern, String mavenTasks,
+            String mavenArtifact, String mavenScanPattern, String flutterScanPattern, String deliveryTasks,
+            String nexusIqApplication, String repositoryUrl, String bitbucketCredentialsId, String openShiftProject,
+            String imageRegistry, String healthCheckUrl) {
+    }
+}

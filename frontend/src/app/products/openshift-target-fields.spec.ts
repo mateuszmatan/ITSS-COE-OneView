@@ -27,7 +27,7 @@ describe('OpenShiftTargetFields', () => {
   const headings = () =>
     [...page().querySelectorAll('.sub-heading')].map((heading) => heading.textContent?.trim());
   const toggle = (label: string) =>
-    [...page().querySelectorAll<HTMLButtonElement>('dso-toggle-group button')].find((button) =>
+    [...page().querySelectorAll<HTMLButtonElement>('ov-toggle-group button')].find((button) =>
       button.textContent?.includes(label),
     )!;
 
@@ -54,8 +54,8 @@ describe('OpenShiftTargetFields', () => {
     const projectBuild = field('Build project')!;
     projectBuild.querySelector('input')!.dispatchEvent(new Event('blur'));
     await fixture.whenStable();
-    expect(projectBuild.querySelector('dso-error')?.textContent).toBe('Required');
-    expect(field('File added to the image')!.querySelector('dso-error')).toBeNull();
+    expect(projectBuild.querySelector('ov-error')?.textContent).toBe('Required');
+    expect(field('File added to the image')!.querySelector('ov-error')).toBeNull();
 
     form.controls.openShiftTargets.controls.RD.patchValue({
       projectBuild: 'cert-build',

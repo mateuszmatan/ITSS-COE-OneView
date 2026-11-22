@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>DevSecOps Management Portal &amp; DSOEnhanced - BBH DevSecOps</title>
+  <title>ITSS COE OneView &amp; DSOEnhanced - BBH DevSecOps</title>
   <style>
 :root {
   --primary: #0a2540;
@@ -423,7 +423,7 @@ pre code {
     <main class="main-wrapper">
       <div class="content-container">
         <header class="doc-header">
-          <h1>DevSecOps Management Portal &amp; DSOEnhanced</h1>
+          <h1>ITSS COE OneView &amp; DSOEnhanced</h1>
           <p>User Guide (Portal-Integrated Version)</p>
           <div class="doc-meta">
             <span class="meta-chip">Brown Brothers Harriman</span>
@@ -434,9 +434,9 @@ pre code {
         </header>
 
         <div class="doc-card">
-          <h1 id="devsecops-management-portal-dsoenhanced-user-guide">DevSecOps Management Portal &amp; DSOEnhanced – User Guide</h1>
+          <h1 id="itss-coe-oneview-dsoenhanced-user-guide">ITSS COE OneView &amp; DSOEnhanced – User Guide</h1>
 <blockquote>
-<p><strong>Comprehensive Guide for the Portal-Integrated Version (<code>DevSecOpsManagementPortal</code> + <code>DSOEnhanced</code> library on <code>main</code> branch).</strong>
+<p><strong>Comprehensive Guide for the Portal-Integrated Version (<code>ITSS-COE-OneView</code> + <code>DSOEnhanced</code> library on <code>main</code> branch).</strong>
 Designed for non-technical users, Product Owners, business analysts, and engineers onboarding applications at Brown Brothers Harriman (BBH).</p>
 </blockquote>
 <hr />
@@ -463,7 +463,7 @@ Designed for non-technical users, Product Owners, business analysts, and enginee
 </ul>
 <hr />
 <h2 id="1-overview-and-architecture">1. Overview and Architecture</h2>
-<p>The DevSecOps Management Portal is the central management interface for BBH delivery pipelines.</p>
+<p>ITSS COE OneView is the central management interface for BBH delivery pipelines.</p>
 <h3 id="key-principles">Key Principles:</h3>
 <ul>
 <li><strong>No secrets in source code:</strong> No API keys, passwords, or tokens are ever committed to Git repositories. Credentials reference secure Jenkins credentials store IDs.</li>
@@ -1163,7 +1163,7 @@ Provide <strong>either</strong> direct badge token OR Jenkins credentials ID. Do
 </ol>
 <hr />
 <h2 id="14-owasp-samm-software-assurance-maturity-model">14. OWASP SAMM Software Assurance Maturity Model</h2>
-<p>The DevSecOps Management Portal includes a dedicated <strong>OWASP SAMM</strong> section assessing software assurance maturity across all applications and business services.</p>
+<p>ITSS COE OneView includes a dedicated <strong>OWASP SAMM</strong> section assessing software assurance maturity across all applications and business services.</p>
 <h3 id="core-capabilities">Core Capabilities:</h3>
 <ul>
 <li><strong>Continuous Maturity Assessment:</strong> SAMM v2.0 posture across 5 business functions (Governance, Design, Implementation, Verification, Operations) and 11 automated practices.</li>
@@ -1418,7 +1418,7 @@ Provide <strong>either</strong> direct badge token OR Jenkins credentials ID. Do
 <h2 id="18-deployment-modes-and-configuration-guide">18. Deployment Modes and Configuration Guide</h2>
 <h3 id="mode-1-with-portal-main-branch">Mode 1: With Portal (<code>main</code> branch)</h3>
 <ul>
-<li><strong>Configuration Source:</strong> Centrally managed in DevSecOps Management Portal.</li>
+<li><strong>Configuration Source:</strong> Centrally managed in ITSS COE OneView.</li>
 <li><strong>Onboarding:</strong> Use <strong>Scan &amp; Auto-fill</strong> in the service editor to auto-populate fields from Bitbucket: the build tool, the build and unit test commands, the Node.js build switch, the deployment target and an empty SonarQube project key. A service with database changes keeps all of them except the SonarQube project key.</li>
 <li><strong>Pipeline Execution:</strong> Application repository requires only a single-line <code>Jenkinsfile</code>:
   <code>groovy

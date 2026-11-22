@@ -13,7 +13,7 @@ import {
 } from '@angular/core';
 import { AbstractControl, FormGroupDirective, NgControl, NgForm, Validators } from '@angular/forms';
 import { Subscription, merge } from 'rxjs';
-import { DsoHelp } from './help';
+import { OvHelp } from './help';
 
 let nextId = 0;
 
@@ -21,7 +21,7 @@ export const uniqueId = (prefix: string) => `${prefix}-${nextId++}`;
 
 /** A form control. The first one takes the initial focus of a dialog, ahead of the help icons before it. */
 @Directive({
-  selector: 'input[dsoInput], textarea[dsoInput], select[dsoInput]',
+  selector: 'input[ovInput], textarea[ovInput], select[ovInput]',
   host: {
     cdkFocusInitial: '',
     '[id]': 'id',
@@ -34,8 +34,8 @@ export const uniqueId = (prefix: string) => `${prefix}-${nextId++}`;
     '[attr.aria-describedby]': 'describedBy()',
   },
 })
-export class DsoInput implements DoCheck {
-  readonly id = uniqueId('dso-input');
+export class OvInput implements DoCheck {
+  readonly id = uniqueId('ov-input');
   readonly element =
     inject<ElementRef<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>>(ElementRef)
       .nativeElement;
@@ -50,7 +50,7 @@ export class DsoInput implements DoCheck {
   private subscription?: Subscription;
   private snapshot = '';
 
-  private readonly field = inject(DsoFormField, { optional: true });
+  private readonly field = inject(OvFormField, { optional: true });
 
   readonly errorState = computed(() => {
     this.revision();
@@ -93,76 +93,76 @@ export class DsoInput implements DoCheck {
 }
 
 @Component({
-  selector: 'dso-label',
+  selector: 'ov-label',
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: '<ng-content />',
 })
-export class DsoLabel {}
+export class OvLabel {}
 
 @Component({
-  selector: 'dso-hint',
+  selector: 'ov-hint',
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: '<ng-content />',
 })
-export class DsoHint {}
+export class OvHint {}
 
 @Component({
-  selector: 'dso-error',
+  selector: 'ov-error',
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: '<ng-content />',
 })
-export class DsoError {}
+export class OvError {}
 
 @Directive({
-  selector: '[dsoSuffix]',
-  host: { class: 'dso-suffix' },
+  selector: '[ovSuffix]',
+  host: { class: 'ov-suffix' },
 })
-export class DsoSuffix {}
+export class OvSuffix {}
 
 @Component({
-  selector: 'dso-form-field',
-  imports: [DsoHelp],
+  selector: 'ov-form-field',
+  imports: [OvHelp],
   changeDetection: ChangeDetectionStrategy.Eager,
   host: {
-    class: 'dso-form-field',
+    class: 'ov-form-field',
     '[class.has-error]': 'errorState()',
     '[class.has-suffix]': '!!suffix()',
   },
   template: `
     <div class="form-label-row">
       <label class="form-label" [attr.for]="input()?.id">
-        <ng-content select="dso-label" />
+        <ng-content select="ov-label" />
         @if (input()?.required()) {
           <span class="required-marker" aria-hidden="true"></span>
         }
       </label>
       @if (help(); as text) {
-        <dso-help [text]="text" />
+        <ov-help [text]="text" />
       }
     </div>
     <div class="control">
       <ng-content />
-      <ng-content select="[dsoSuffix]" />
+      <ng-content select="[ovSuffix]" />
     </div>
     @if (errorState()) {
       <div class="invalid-feedback d-block" [id]="errorId">
-        <ng-content select="dso-error" />
+        <ng-content select="ov-error" />
       </div>
     } @else {
       <div class="form-text" [id]="hintId">
-        <ng-content select="dso-hint" />
+        <ng-content select="ov-hint" />
       </div>
     }
   `,
 })
-export class DsoFormField {
+export class OvFormField {
   readonly help = input<string | null | undefined>();
 
-  protected readonly input = contentChild(DsoInput);
-  protected readonly suffix = contentChild(DsoSuffix);
-  readonly hintId = uniqueId('dso-hint');
-  readonly errorId = uniqueId('dso-error');
+  protected readonly input = contentChild(OvInput);
+  protected readonly suffix = contentChild(OvSuffix);
+  readonly hintId = uniqueId('ov-hint');
+  readonly errorId = uniqueId('ov-error');
   protected readonly errorState = computed(() => this.input()?.errorState() ?? false);
 }
 
-export const FORM_FIELD = [DsoFormField, DsoLabel, DsoHint, DsoError, DsoInput, DsoSuffix] as const;
+export const FORM_FIELD = [OvFormField, OvLabel, OvHint, OvError, OvInput, OvSuffix] as const;

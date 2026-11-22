@@ -1,9 +1,16 @@
-# BBH DevSecOps Management Portal
+# BBH ITSS COE OneView
 
-The portal onboards products to DevSecOps, manages their pipelines and pipeline keys, shows how the pipelines are
-doing, and serves the configuration the Jenkins shared library DSOEnhanced
-reads for every build. It is one Spring Boot service (Java 21, Spring Boot 4) with the Angular GUI inside, packaged as
-one jar and one container image.
+ITSS COE OneView is the portal of the ITSS Center of Excellence at BBH. It joins three areas in one place:
+
+| Area | Shows and manages | State |
+|------|-------------------|-------|
+| **DevSecOps** | the products, pipelines and pipeline keys of the Jenkins shared library DSOEnhanced, the configuration every build reads, Pipeline Monitoring with the charts of Grafana and InfluxDB, and the OWASP SAMM maturity | in use |
+| **QA** | the quality assurance metrics of every product, with their charts in Grafana and InfluxDB | page and package layout; see `TODO.md` |
+| **Agile** | the agile maturity of teams and business services | page and package layout; see `TODO.md` |
+
+It is one Spring Boot service (Java 21, Spring Boot 4) with the Angular GUI inside, packaged as one jar and one
+container image. It runs on an embedded H2 database on a laptop and on Oracle in the test and production environments.
+Until 2026-11-22 it had the working name DevSecOps Management Portal.
 
 This README is for developers. The people who use the portal read the
 [user and administrator guide](docs/documentation.md), also published as the page `docs/documentation.html`.
@@ -25,7 +32,7 @@ It needs Java 21, and Node.js 20.19 or a later 20.x with npm 10.8 or a later 10.
 
 | Command | Does | Takes about |
 |---------|------|-------------|
-| `./gradlew :backend:bootJar` | the jar with the GUI inside: `backend/build/libs/dso-portal-<version>.jar` | 1 min the first time, seconds after |
+| `./gradlew :backend:bootJar` | the jar with the GUI inside: `backend/build/libs/oneview-<version>.jar` | 1 min the first time, seconds after |
 | `./gradlew assemble` | the jar without running any test | as above |
 | `./gradlew :backend:test` | backend unit tests, fails below 60% line coverage | 45 s |
 | `./gradlew :frontend:test` | Angular unit tests (Vitest), fails below 60% of lines | 45 s |
@@ -56,10 +63,10 @@ On a BBH laptop the portal runs as a plain Java application on an embedded H2 da
 ./gradlew :backend:bootRun          # GUI and API on http://localhost:8080
 ```
 
-or `java -jar backend/build/libs/dso-portal-0.1.0-SNAPSHOT.jar` after `bootJar`. The database is the file
-`~/bbh-devsecops/dso-portal/dso-portal.mv.db` (`DSO_DATA_DIR` moves the folder); Liquibase creates it on the first
+or `java -jar backend/build/libs/oneview-0.1.0-SNAPSHOT.jar` after `bootJar`. The database is the file
+`~/bbh-itss-coe/oneview/oneview.mv.db` (`ONEVIEW_DATA_DIR` moves the folder); Liquibase creates it on the first
 start with the five BBH Business Services and the BBH library defaults, and keeps the data between starts. Logs go to
-the console and to `logs/dso-portal.log` (10 MB per file, 30 days, 2 GB in all; `LOG_PATH` moves the folder).
+the console and to `logs/oneview.log` (10 MB per file, 30 days, 2 GB in all; `LOG_PATH` moves the folder).
 
 For GUI work, run the service with `-PskipGui` and `npm start` in `frontend/`: the Angular development server on
 http://localhost:4200 rebuilds on every change and sends `/api` to port 8080.
@@ -67,7 +74,7 @@ http://localhost:4200 rebuilds on every change and sends `/api` to port 8080.
 | Variable | Default | Meaning |
 |----------|---------|---------|
 | `PORT` | `8080` | HTTP port |
-| `DSO_DATA_DIR` | `~/bbh-devsecops/dso-portal` | folder of the local H2 database |
+| `ONEVIEW_DATA_DIR` | `~/bbh-itss-coe/oneview` | folder of the local H2 database |
 | `SPRING_PROFILES_ACTIVE` | `local` | `rd`, `qc` or `prod` switch to Oracle (`DB_URL`, `DB_USERNAME`, `DB_PASSWORD`, `DB_POOL_SIZE` of 5, 10 or 20 by default); `rd` logs at DEBUG |
 | `INFLUX_URL`, `INFLUX_TOKEN`, `INFLUX_ORG`, `INFLUX_BUCKET` | empty, empty, `DevSecOps`, `DORA-metrics` | the InfluxDB the pipelines report their runs to |
 | `GRAFANA_DASHBOARD_URL`, `GRAFANA_SECURITY_DASHBOARD_URL`, `GRAFANA_NAME` | empty, empty, `Grafana` | the DSOEnhanced dashboards linked from Pipeline Monitoring; `GRAFANA_2_*` for a second instance |
@@ -80,7 +87,7 @@ only to `INFLUX_URL`, never to another InfluxDB saved in the GUI.
 
 `backend/Dockerfile` builds the image from the boot jar (Red Hat UBI 9 with Java 21, any non-root UID). The test
 environments are Docker and OpenShift: in OpenShift every application of the team runs in one project, each in its own
-pod, and the portal is the `dso-portal` Deployment. RD, QC and prod use Oracle; Liquibase updates the schema at
+pod, and the portal is the `oneview` Deployment. RD, QC and prod use Oracle; Liquibase updates the schema at
 start-up. In the image the logs are written to the console and to `/application/logs`, which the pod keeps on an
 `emptyDir` of 3 GB. [deploy/openshift/README.md](deploy/openshift/README.md) has the commands.
 
@@ -88,7 +95,7 @@ start-up. In the image the logs are written to the console and to `/application/
 
 A Jenkinsfile with a key holds only that key. Before the stages start, the library sends
 `GET $DSO_PORTAL_URL/api/dso/config/<key>?format=json` from a Jenkins agent; `DSO_PORTAL_URL` is a global
-environment variable of Jenkins, for example `https://dso-portal.apps.bbh.com`. Jenkins needs no database account and
+environment variable of Jenkins, for example `https://oneview.apps.bbh.com`. Jenkins needs no database account and
 no other setting.
 
 A Jenkinsfile without a key makes the library read `devsecops_config.yaml`, else `config.yaml`, from the root of the
@@ -153,14 +160,36 @@ not record it.
 
 ## Architecture
 
-The service is hexagonal with MVC at its edge, and ArchUnit tests keep the layers apart:
+The service is hexagonal with MVC at its edge, and the ArchUnit rules of `ArchitectureSpec` keep the layers apart
+(the domain and the use cases know no framework, controllers live only in `adapter/in/web`, JPA only in
+`adapter/out/persistence`, inbound adapters never reach an outbound port or adapter). The root package is
+`com.bbh.itss.coe.oneview`:
 
-- `adapter/in/web`: REST controllers and their request and response records; every change is recorded in the action
-  history by `ActionRecorder`.
+- `adapter/in/web`: the MVC edge, REST controllers and their request and response records; every change is recorded
+  in the action history by `ActionRecorder`.
 - `application/<feature>`: use cases (`@UseCase`, transactional) behind the ports in `port/in` and `port/out`.
 - `domain/<feature>`: the business rules, with no framework.
-- `adapter/out/{persistence,influx,grafana,key}`: JPA on H2 or Oracle, InfluxDB Flux queries, Grafana links, key
-  generation.
+- `adapter/out/{persistence,influx,grafana,bitbucket,key}`: JPA on H2 or Oracle, InfluxDB Flux queries, Grafana
+  links, Bitbucket calls, key generation.
+
+A feature is one package name in every layer, and every feature belongs to an area:
+
+| Area | Features (`domain/<feature>`, `application/<feature>`) | GUI (`frontend/src/app`) |
+|------|---------------------------------------------------------|--------------------------|
+| DevSecOps | `catalog`, `pipeline`, `dsoconfig`, `settings`, `monitoring`, `samm`, `report`, `discovery`, `bitbucket` | `pipelines`, `self-service`, `monitoring`, `samm`, `products`, `departments`, `settings` |
+| QA | `qa` | `qa` |
+| Agile | `agile` | `agile` |
+| shared by the areas | `actionlog`, `user`, `shared` | `history`, `core`, `shared`, and `frontend/src/common` |
+
+The areas are listed in `frontend/src/app/core/sections.ts` (`AREAS`); the header shows the area switch and, under
+it, the sections of the area of the current page. A new page of the GUI also needs its first path segment in
+`oneview.gui.pages` of `application.yml`, so that the service answers a reload of it with the Angular page.
+
+The database is the same Liquibase changelog on both databases (`db/changelog`, `dbms:oracle,h2`): the profile
+`local` runs H2 in Oracle mode in a file, the profiles `rd`, `qc` and `prod` run Oracle (`DB_URL`, `DB_USERNAME`,
+`DB_PASSWORD`). The tables of the DevSecOps area keep the prefix `DSO_`, the API of the library keeps `/api/dso`, and
+the changesets up to 045 keep their author `dso-portal`, so a database of the DevSecOps Management Portal is taken
+over as it is; tables of the QA and Agile areas get the prefixes `QA_` and `AGL_`.
 
 The GUI calls the groups of products Business Services; the API, the code and the database keep their older name,
 department (`/api/departments`, `DSO_DEPARTMENT`).

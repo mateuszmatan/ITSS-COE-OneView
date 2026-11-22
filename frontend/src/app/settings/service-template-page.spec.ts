@@ -120,7 +120,7 @@ describe('ServiceTemplatePage', () => {
         'the pipeline type, in the Jenkins job only: full, security, extended, sast or nexusiq',
       ],
     ]);
-    expect(text(fieldOf(page(), 'Jenkins agents')?.querySelector('dso-hint'))).toBe(
+    expect(text(fieldOf(page(), 'Jenkins agents')?.querySelector('ov-hint'))).toBe(
       'The machines the pipeline runs on, as Jenkins agent labels separated by commas',
     );
     expect(inputOf(page(), 'Jenkins job').value).toBe('DevSecOps/{CODE}/{service}-{type}');
@@ -130,7 +130,7 @@ describe('ServiceTemplatePage', () => {
       ['Bitbucket repository', 'https://bitbucket.bbh.com/projects/CERT/repos/cert-backend-api'],
       ['OpenShift projects', 'cert-backend-api-build, cert-backend-api-rd, cert-backend-api-qc'],
     ]);
-    expect(page().querySelector(':not(.dso-help-trigger) > svg-icon')).toBeNull();
+    expect(page().querySelector(':not(.ov-help-trigger) > svg-icon')).toBeNull();
     expect(templatePage().hasUnsavedChanges()).toBe(false);
   });
 

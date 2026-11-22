@@ -3,7 +3,7 @@ import { RouterLink, RouterLinkActive, RouterOutlet } from '@angular/router';
 import { AdminArea } from '../core/sections';
 
 @Component({
-  selector: 'dso-admin-page',
+  selector: 'ov-admin-page',
   imports: [RouterLink, RouterLinkActive, RouterOutlet],
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
@@ -35,13 +35,13 @@ import { AdminArea } from '../core/sections';
       flex-wrap: wrap;
       gap: 0 22px;
       margin-bottom: 12px;
-      border-bottom: 1px solid var(--dso-border);
+      border-bottom: 1px solid var(--ov-border);
 
       a {
         margin-bottom: -1px;
         padding: 6px 0 5px;
         border-bottom: 2px solid transparent;
-        color: var(--dso-muted);
+        color: var(--ov-muted);
         font-size: 13px;
         font-weight: 500;
         text-decoration: none;
@@ -49,12 +49,12 @@ import { AdminArea } from '../core/sections';
 
         &:hover,
         &:focus-visible {
-          color: var(--dso-navy);
+          color: var(--ov-navy);
         }
 
         &.active {
-          color: var(--dso-navy);
-          border-bottom-color: var(--dso-navy);
+          color: var(--ov-navy);
+          border-bottom-color: var(--ov-navy);
         }
       }
     }

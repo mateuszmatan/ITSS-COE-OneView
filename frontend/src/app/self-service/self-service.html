@@ -32,20 +32,20 @@
         </p>
         <p class="required-note">Fields marked * are required.</p>
         <div class="fields">
-          <dso-form-field
+          <ov-form-field
             help="The business service the product belongs to. The portal groups products by it; for a product in the portal, it also narrows the list to choose from."
           >
-            <dso-label>Business Service</dso-label>
-            <select dsoInput [formControl]="productForm.controls.departmentId">
+            <ov-label>Business Service</ov-label>
+            <select ovInput [formControl]="productForm.controls.departmentId">
               @for (department of departments(); track department.id) {
                 <option [ngValue]="department.id">{{ department.name }}</option>
               }
             </select>
             @if (needsDepartment()) {
-              <dso-hint>Saving moves the product into this business service</dso-hint>
+              <ov-hint>Saving moves the product into this business service</ov-hint>
             }
-            <dso-error>{{ errorText(productForm.controls.departmentId) }}</dso-error>
-          </dso-form-field>
+            <ov-error>{{ errorText(productForm.controls.departmentId) }}</ov-error>
+          </ov-form-field>
         </div>
         @if (departmentsError(); as error) {
           <p class="choice-error">{{ notLoaded('The business services', error) }}</p>
@@ -53,7 +53,7 @@
         @if (catalogue.error(); as error) {
           <p class="choice-error">{{ notLoaded('The products', errorMessage(error)) }}</p>
         }
-        <dso-choice-tiles
+        <ov-choice-tiles
           label="Product"
           [options]="modes"
           [value]="mode()"
@@ -61,53 +61,53 @@
         />
         @if (mode() === 'new') {
           <form class="fields" [formGroup]="productForm" novalidate>
-            <dso-form-field
+            <ov-form-field
               help="The full name of the product as the portal shows it. No other product may use it."
             >
-              <dso-label>Product name</dso-label>
+              <ov-label>Product name</ov-label>
               <input
-                dsoInput
+                ovInput
                 formControlName="name"
                 placeholder="CertScanner"
                 autocomplete="off"
                 required
               />
-              <dso-hint>{{
+              <ov-hint>{{
                 code()
                   ? 'Its product code will be ' + code() + ', the short name used in job names'
                   : 'The portal makes a short product code from it for job names and reports'
-              }}</dso-hint>
-              <dso-error>{{ errorText(productForm.controls.name) }}</dso-error>
-            </dso-form-field>
-            <dso-form-field
+              }}</ov-hint>
+              <ov-error>{{ errorText(productForm.controls.name) }}</ov-error>
+            </ov-form-field>
+            <ov-form-field
               help="Shown in the product list, on the product page and in Pipeline Monitoring, where products can also be searched by it."
             >
-              <dso-label>Owner team</dso-label>
-              <input dsoInput formControlName="ownerTeam" placeholder="Technology Architecture" />
-              <dso-hint>The team that looks after the product</dso-hint>
-              <dso-error>{{ errorText(productForm.controls.ownerTeam) }}</dso-error>
-            </dso-form-field>
-            <dso-form-field
+              <ov-label>Owner team</ov-label>
+              <input ovInput formControlName="ownerTeam" placeholder="Technology Architecture" />
+              <ov-hint>The team that looks after the product</ov-hint>
+              <ov-error>{{ errorText(productForm.controls.ownerTeam) }}</ov-error>
+            </ov-form-field>
+            <ov-form-field
               help="Shown as a mail link on the product page. A team mailbox is preferable to a personal address."
             >
-              <dso-label>Contact e-mail</dso-label>
+              <ov-label>Contact e-mail</ov-label>
               <input
-                dsoInput
+                ovInput
                 type="email"
                 formControlName="contactEmail"
                 placeholder="team@bbh.com"
               />
-              <dso-hint>Where the DevSecOps team can reach the product's owners</dso-hint>
-              <dso-error>{{ errorText(productForm.controls.contactEmail) }}</dso-error>
-            </dso-form-field>
+              <ov-hint>Where the DevSecOps team can reach the product's owners</ov-hint>
+              <ov-error>{{ errorText(productForm.controls.contactEmail) }}</ov-error>
+            </ov-form-field>
           </form>
         } @else {
           <div class="fields">
-            <dso-form-field
+            <ov-form-field
               help="The product to add the pipeline to. Its services can also be added, changed or removed in the Services step."
             >
-              <dso-label>Product</dso-label>
-              <select dsoInput [formControl]="productId">
+              <ov-label>Product</ov-label>
+              <select ovInput [formControl]="productId">
                 @for (group of productGroups(); track group.name) {
                   <optgroup [label]="group.name">
                     @for (product of group.products; track product.id) {
@@ -118,8 +118,8 @@
                   </optgroup>
                 }
               </select>
-              <dso-hint>{{ choosable() }} to choose from</dso-hint>
-            </dso-form-field>
+              <ov-hint>{{ choosable() }} to choose from</ov-hint>
+            </ov-form-field>
           </div>
           @if (productError(); as error) {
             <p class="choice-error">{{ notLoaded('The product', error) }}</p>
@@ -131,7 +131,7 @@
               <dd>{{ product.services.length }}</dd>
             </dl>
           } @else if (productId.value !== null) {
-            <dso-loading />
+            <ov-loading />
             @if (checked()) {
               <p class="choice-error">Wait until the product is loaded</p>
             }
@@ -154,7 +154,7 @@
         </p>
         @if (existing()) {
           @if (current.isLoading()) {
-            <dso-loading />
+            <ov-loading />
           }
           @if (current.error(); as error) {
             <p class="choice-error">{{ notLoaded('Its pipelines', errorMessage(error)) }}</p>
@@ -172,7 +172,7 @@
             </div>
           }
         }
-        <dso-choice-tiles label="Pipeline" [options]="pipelines()" [(value)]="pipeline" />
+        <ov-choice-tiles label="Pipeline" [options]="pipelines()" [(value)]="pipeline" />
         @if (!pipeline()) {
           <p class="hint">Not sure? Start with Security. You can add another pipeline later.</p>
         }
@@ -180,23 +180,23 @@
           <p class="choice-error">Choose a pipeline to continue</p>
         }
         <div class="fields">
-          <dso-form-field
+          <ov-form-field
             help="Jenkins agent labels or label expressions for the pipelines this request creates; existing pipelines keep theirs. A run uses the one chosen in its AGENT_NAME parameter."
           >
-            <dso-label>Jenkins agents</dso-label>
+            <ov-label>Jenkins agents</ov-label>
             <input
-              dsoInput
+              ovInput
               class="mono"
               [formControl]="agents"
               placeholder="linux-agent"
               autocomplete="off"
             />
-            <dso-hint
+            <ov-hint
               >Separated by commas; the first is the default. Left empty: the service
-              template's</dso-hint
+              template's</ov-hint
             >
-            <dso-error>{{ errorText(agents) }}</dso-error>
-          </dso-form-field>
+            <ov-error>{{ errorText(agents) }}</ov-error>
+          </ov-form-field>
         </div>
         @if (pipeline(); as chosen) {
           <div class="prepare">
@@ -232,7 +232,7 @@
             </button>
           </div>
         } @else if (serviceTemplate.isLoading()) {
-          <dso-loading />
+          <ov-loading />
         }
         @if (services().length) {
           <ol class="service-list">
@@ -390,7 +390,7 @@
           the DevSecOps team can fine-tune it later in {{ admin }}.
         </p>
         @if (saving()) {
-          <dso-loading />
+          <ov-loading />
         }
         @if (saveError(); as error) {
           <div class="banner danger save-problem" role="alert">

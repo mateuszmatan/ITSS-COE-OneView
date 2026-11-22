@@ -6,9 +6,9 @@
   </nav>
 
   @if (product.error(); as error) {
-    <dso-load-error what="The product" [error]="error" (retry)="product.reload()">
+    <ov-load-error what="The product" [error]="error" (retry)="product.reload()">
       <a class="btn btn-link" [routerLink]="section.path">Back to monitoring</a>
-    </dso-load-error>
+    </ov-load-error>
   } @else {
     @if (product.hasValue()) {
       @let p = product.value();
@@ -17,7 +17,7 @@
           <div class="title row-wrap">
             <h1>{{ p.name }}</h1>
             <span class="code mono">{{ p.code }}</span>
-            <dso-status-chip [status]="p.overall" />
+            <ov-status-chip [status]="p.overall" />
           </div>
           <p>{{ p.description ?? 'Status of the latest run of each pipeline.' }}</p>
         </div>
@@ -36,7 +36,7 @@
         </div>
       </header>
 
-      <dso-metrics-banner [metricsError]="p.metricsError" />
+      <ov-metrics-banner [metricsError]="p.metricsError" />
 
       <section class="card">
         <header class="card-header">
@@ -51,11 +51,11 @@
             ><strong>{{ p.pipelines.length | counted: 'pipeline' }}</strong
             >{{ p.pipelines.length ? ': ' + summary() : '' }}</span
           >
-          <dso-status-bar [counts]="counts()" />
+          <ov-status-bar [counts]="counts()" />
         </div>
 
         @if (product.isLoading()) {
-          <dso-loading />
+          <ov-loading />
         }
 
         @if (p.pipelines.length === 0) {
@@ -65,7 +65,7 @@
             <a class="btn btn-primary" [routerLink]="adminProduct(p.productId)">Add pipelines</a>
           </div>
         } @else {
-          <dso-grid
+          <ov-grid
             label="Pipelines"
             [rows]="p.pipelines"
             [columns]="columns"
@@ -73,10 +73,10 @@
             [rowClass]="clickable"
             (rowClick)="open($event)"
           >
-            <ng-template dsoCell="service" let-health>
+            <ng-template ovCell="service" let-health>
               <span class="mono service">{{ health.pipeline.serviceName }}</span>
             </ng-template>
-            <ng-template dsoCell="type" let-health>
+            <ng-template ovCell="type" let-health>
               <div>
                 <a
                   class="pipeline-link quiet-link"
@@ -88,15 +88,15 @@
                 </div>
               </div>
             </ng-template>
-            <ng-template dsoCell="status" let-health>
-              <dso-status-chip [status]="health.status" />
+            <ng-template ovCell="status" let-health>
+              <ov-status-chip [status]="health.status" />
             </ng-template>
-            <ng-template dsoCell="lastRun" let-health>
+            <ng-template ovCell="lastRun" let-health>
               @if (health.lastRun; as run) {
                 <div>
                   <div>{{ run.time | relative }}</div>
                   <div class="muted small">
-                    <dso-build-link [run]="run" empty="" />
+                    <ov-build-link [run]="run" empty="" />
                     @if (run.branch) {
                       on <span class="mono">{{ run.branch }}</span>
                     }
@@ -106,7 +106,7 @@
                 <span class="muted">–</span>
               }
             </ng-template>
-            <ng-template dsoCell="stages" let-health>
+            <ng-template ovCell="stages" let-health>
               @if (health.lastRun?.stagesTotal; as total) {
                 <div class="stages">
                   <div>{{ stagesPassed(health.lastRun) }} of {{ total }} passed</div>
@@ -123,7 +123,7 @@
                 <span class="muted">–</span>
               }
             </ng-template>
-            <ng-template dsoCell="jenkins" let-health>
+            <ng-template ovCell="jenkins" let-health>
               @if (health.pipeline.jenkinsJobUrl; as job) {
                 <a
                   class="text-link"
@@ -138,11 +138,11 @@
                 <span class="muted" title="No Jenkins job set for this pipeline">–</span>
               }
             </ng-template>
-          </dso-grid>
+          </ov-grid>
         }
       </section>
     } @else {
-      <dso-loading />
+      <ov-loading />
     }
   }
 </div>

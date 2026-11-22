@@ -12,12 +12,12 @@ export interface CodeDialogData {
 }
 
 @Component({
-  selector: 'dso-code-dialog',
+  selector: 'ov-code-dialog',
   imports: [DIALOG, ClipboardModule],
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
     <div class="modal-header">
-      <h2 dsoDialogTitle>{{ data.title }}</h2>
+      <h2 ovDialogTitle>{{ data.title }}</h2>
     </div>
     <div class="modal-body">
       @if (data.subtitle) {
@@ -37,7 +37,7 @@ export interface CodeDialogData {
       >
         Copy
       </button>
-      <button type="button" class="btn btn-primary" dsoDialogClose>Close</button>
+      <button type="button" class="btn btn-primary" ovDialogClose>Close</button>
     </div>
   `,
   styles: `

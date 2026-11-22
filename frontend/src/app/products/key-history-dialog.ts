@@ -13,17 +13,17 @@ import { RelativeTimePipe } from '@common/shared/formatting';
 import { DIALOG } from '@common/ui/dialog';
 import { GRID, GridColumn } from '@common/ui/grid';
 import { LoadError } from '@common/ui/load-error';
-import { DsoLoading } from '@common/ui/loading';
+import { OvLoading } from '@common/ui/loading';
 
 const status = (key: PipelineKey) => (key.status === 'ACTIVE' ? 'Active' : 'Invalidated');
 
 @Component({
-  selector: 'dso-key-history-dialog',
-  imports: [ClipboardModule, DatePipe, DIALOG, GRID, DsoLoading, LoadError, RelativeTimePipe],
+  selector: 'ov-key-history-dialog',
+  imports: [ClipboardModule, DatePipe, DIALOG, GRID, OvLoading, LoadError, RelativeTimePipe],
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
     <div class="modal-header">
-      <h2 dsoDialogTitle>Key history of the pipeline {{ name }}</h2>
+      <h2 ovDialogTitle>Key history of the pipeline {{ name }}</h2>
     </div>
     <div class="modal-body">
       <p class="intro">
@@ -32,10 +32,10 @@ const status = (key: PipelineKey) => (key.status === 'ACTIVE' ? 'Active' : 'Inva
         an invalidated key cannot be used again.
       </p>
       @if (pipeline.isLoading()) {
-        <dso-loading />
+        <ov-loading />
       }
       @if (pipeline.error(); as error) {
-        <dso-load-error what="The key history" [error]="error" (retry)="pipeline.reload()" />
+        <ov-load-error what="The key history" [error]="error" (retry)="pipeline.reload()" />
       } @else if (pipeline.hasValue()) {
         @if (pipeline.value().activeKey === null) {
           <div class="key-status row-wrap">
@@ -70,33 +70,33 @@ const status = (key: PipelineKey) => (key.status === 'ACTIVE' ? 'Active' : 'Inva
         @if (regenerateError(); as error) {
           <div class="banner">{{ error }}</div>
         }
-        <dso-grid
+        <ov-grid
           label="Keys"
           [rows]="pipeline.value().keys ?? []"
           [columns]="columns"
           [rowId]="keyId"
         >
-          <ng-template dsoCell="key" let-key>
+          <ng-template ovCell="key" let-key>
             <span class="mono">{{ key.hint }}</span>
           </ng-template>
-          <ng-template dsoCell="status" let-key>
+          <ng-template ovCell="status" let-key>
             <span class="chip" [class]="key.status === 'ACTIVE' ? 'success' : 'danger'">{{
               status(key)
             }}</span>
           </ng-template>
-          <ng-template dsoCell="issuedAt" let-key>
+          <ng-template ovCell="issuedAt" let-key>
             <span [title]="key.issuedAt | date: 'd MMM y, HH:mm:ss'">{{
               key.issuedAt | date: 'd MMM y, HH:mm'
             }}</span>
           </ng-template>
-          <ng-template dsoCell="lastUsedAt" let-key>
+          <ng-template ovCell="lastUsedAt" let-key>
             @if (key.lastUsedAt) {
               {{ key.lastUsedAt | relative }}
             } @else {
               <span class="muted">Never</span>
             }
           </ng-template>
-          <ng-template dsoCell="revoked" let-key>
+          <ng-template ovCell="revoked" let-key>
             @if (key.revokedAt) {
               <div>
                 <div>{{ key.revokedAt | date: 'd MMM y, HH:mm' }}</div>
@@ -106,11 +106,11 @@ const status = (key: PipelineKey) => (key.status === 'ACTIVE' ? 'Active' : 'Inva
               <span class="muted">–</span>
             }
           </ng-template>
-        </dso-grid>
+        </ov-grid>
       }
     </div>
     <div class="modal-footer">
-      <button type="button" class="btn btn-primary" dsoDialogClose>Close</button>
+      <button type="button" class="btn btn-primary" ovDialogClose>Close</button>
     </div>
   `,
   styles: `
@@ -119,7 +119,7 @@ const status = (key: PipelineKey) => (key.status === 'ACTIVE' ? 'Active' : 'Inva
     }
     .intro {
       margin: 0 0 12px;
-      color: var(--dso-muted);
+      color: var(--ov-muted);
     }
     .key-status {
       margin-bottom: 10px;

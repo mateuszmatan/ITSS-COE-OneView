@@ -7,9 +7,11 @@ import {
   ADMIN_PRODUCTS,
   ADMIN_SETTINGS,
   ADMIN_TEMPLATE,
+  AGILE_MATURITY,
   DEVSECOPS_ADMIN,
   MONITORING,
   PIPELINES,
+  QA_METRICS,
   SAMM_MATURITY,
   SELF_SERVICE,
 } from './core/sections';
@@ -54,6 +56,16 @@ export const routes: Routes = [
     path: 'samm',
     title: SAMM_MATURITY.heading,
     loadComponent: () => import('./samm/samm-overview').then((m) => m.SammOverviewPage),
+  },
+  {
+    path: 'qa',
+    title: QA_METRICS.heading,
+    loadComponent: () => import('./qa/qa-overview').then((m) => m.QaOverviewPage),
+  },
+  {
+    path: 'agile',
+    title: AGILE_MATURITY.heading,
+    loadComponent: () => import('./agile/agile-overview').then((m) => m.AgileOverviewPage),
   },
   {
     path: 'history',
