@@ -1,10 +1,12 @@
 import { Component } from '@angular/core';
+import { provideHttpClient } from '@angular/common/http';
+import { HttpTestingController, provideHttpClientTesting } from '@angular/common/http/testing';
 import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { Router, provideRouter } from '@angular/router';
 import { APP_NAME } from '../core/app-name';
 import { OneViewArea, OneViewSection } from '../core/sections';
 import { text } from '../testing/dom';
-import { AppShell } from './app-shell';
+import { AppShell, WITH_CONTEXT } from './app-shell';
 
 @Component({ template: '' })
 class Blank {}
@@ -42,7 +44,12 @@ describe('AppShell', () => {
     TestBed.configureTestingModule({
       imports: [AppShell],
       providers: [
-        provideRouter([{ path: '**', component: Blank }]),
+        provideRouter([
+          { path: 'summary', component: Blank, data: WITH_CONTEXT },
+          { path: '**', component: Blank },
+        ]),
+        provideHttpClient(),
+        provideHttpClientTesting(),
         { provide: APP_NAME, useValue: 'Test Portal' },
       ],
     });
@@ -121,10 +128,47 @@ describe('AppShell', () => {
     expect(active()).toEqual(['Admin']);
   });
 
+  it('lists the pages of every area below the areas and marks the one shown', async () => {
+    fixture.componentRef.setInput('tools', [
+      section('/history', 'History'),
+      section('/setup', 'Setup'),
+    ]);
+    await TestBed.inject(Router).navigateByUrl('/setup/users');
+    await fixture.whenStable();
+
+    expect(areas().map(text)).toEqual(['Home', 'Sales', 'Quality', 'History', 'Setup']);
+    expect(page().querySelectorAll('nav.sidebar .side-separator')).toHaveLength(1);
+    expect(activeAreas()).toEqual(['Setup']);
+    expect(areas()[4].getAttribute('aria-current')).toBe('true');
+    expect(page().querySelector('nav.menu')).toBeNull();
+  });
+
+  it('shows the business service and application bar only above the pages that follow it', async () => {
+    const http = TestBed.inject(HttpTestingController);
+    expect(page().querySelector('ov-context-bar')).toBeNull();
+
+    await TestBed.inject(Router).navigateByUrl('/summary');
+    await fixture.whenStable();
+
+    expect(page().querySelector('main ov-context-bar')).not.toBeNull();
+    http.expectOne('/api/departments').flush([{ id: 3, name: 'Custody' }]);
+    http.expectOne('/api/products').flush([]);
+
+    await TestBed.inject(Router).navigateByUrl('/orders');
+    await fixture.whenStable();
+
+    expect(page().querySelector('ov-context-bar')).toBeNull();
+    http.verify();
+  });
+
   it('shows the signed-in user only once it is known', async () => {
     expect(page().querySelector('.user-badge')).toBeNull();
 
-    fixture.componentRef.setInput('user', { displayName: 'Ann Lee', email: 'ann@bbh.com', admin: true });
+    fixture.componentRef.setInput('user', {
+      displayName: 'Ann Lee',
+      email: 'ann@bbh.com',
+      admin: true,
+    });
     await fixture.whenStable();
 
     expect(text(page().querySelector('.user-name'))).toBe('Ann Lee');

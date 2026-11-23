@@ -82,7 +82,7 @@ class MonitoringRegressionSpec extends OneViewSpecification {
         monitoring.pipelines[1].lastRun == null
     }
 
-    def "a department lists every pipeline of its products with its status, last run and masked key"() {
+    def "a department lists every pipeline of its products with its status, last run and masked key, and BBH every pipeline"() {
         given:
         def department = api.post('/api/departments', [name: "Pipelines $code".toString()]).json
         def other = createProduct(product(code: "${code}D", name: "Department $code", departmentId: department.id,
@@ -104,7 +104,7 @@ class MonitoringRegressionSpec extends OneViewSpecification {
         listed.pipelines[1].pipeline.activeKey.value == null
         listed.pipelines[1].pipeline.activeKey.hint.endsWith(guiFull.activeKey.value[-4..-1])
         api.get('/api/pipelines?departmentId=999999').status == 404
-        api.get('/api/pipelines').status == 400
+        api.get('/api/pipelines').json.pipelines*.pipeline*.productCode.containsAll([other.code, code])
     }
 
     def "a pipeline's details hold its runs, DORA metrics and Grafana dashboard"() {

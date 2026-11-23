@@ -19,6 +19,11 @@ import {
   portfolioActivity,
   productHealth,
 } from '../testing/fixtures';
+import {
+  CONTEXT_APPLICATION_KEY,
+  CONTEXT_DEPARTMENT_KEY,
+  OneViewContext,
+} from '@common/context/oneview-context';
 import { MonitoringOverview } from './monitoring-overview';
 
 describe('MonitoringOverview', () => {
@@ -34,7 +39,11 @@ describe('MonitoringOverview', () => {
     fixture = TestBed.createComponent(MonitoringOverview);
   });
 
-  afterEach(() => http.verify());
+  afterEach(() => {
+    http.verify();
+    localStorage.removeItem(CONTEXT_DEPARTMENT_KEY);
+    localStorage.removeItem(CONTEXT_APPLICATION_KEY);
+  });
 
   const page = () => fixture.nativeElement as HTMLElement;
   const cards = () => [...page().querySelectorAll<HTMLAnchorElement>('a.product')];
@@ -55,6 +64,84 @@ describe('MonitoringOverview', () => {
     http.expectOne('/api/monitoring/activity?range=30d').flush(activity);
     await fixture.whenStable();
   }
+
+  const twoServices = () =>
+    monitoringOverview({
+      products: [
+        productHealth(),
+        productHealth({
+          productId: 2,
+          code: 'PAY',
+          name: 'PayHub',
+          departmentId: 5,
+          pipelineCount: 2,
+          overall: 'UNSTABLE',
+          statusCounts: { UNSTABLE: 1, SUCCESS: 1 },
+        }),
+      ],
+    });
+
+  it('shows only the products of the chosen business service and its runs', async () => {
+    TestBed.inject(OneViewContext).choose(5);
+    fixture.detectChanges();
+    http.expectOne('/api/monitoring/status').flush(monitoringStatus());
+    http.expectOne('/api/monitoring/products').flush(twoServices());
+    http.expectOne('/api/departments').flush([department(), fundServices]);
+    http.expectOne('/api/monitoring/activity?range=30d&departmentId=5').flush(portfolioActivity());
+    await fixture.whenStable();
+
+    expect(cards().map((card) => card.getAttribute('href'))).toEqual(['/monitoring/products/2']);
+    expect(tiles()).toEqual([
+      '2Pipelines',
+      '1Passed',
+      '1Failed or passed with warnings',
+      '0Keys invalidated',
+    ]);
+    expect(text(page().querySelector('.results .card-header .muted'))).toBe('Fund Services');
+    expect(page().querySelector('.by-department ov-chart')?.getAttribute('aria-label')).toBe(
+      'Fund Services: 1 passed with warnings, 1 passed',
+    );
+    expect(text(page().querySelector('.portfolio .card-header .muted'))).toBe(
+      '40 runs of the pipelines of Fund Services in the last 30 days',
+    );
+  });
+
+  it('shows one application alone, without the chart by business service', async () => {
+    TestBed.inject(OneViewContext).choose(3, 1);
+    fixture.detectChanges();
+    http.expectOne('/api/monitoring/status').flush(monitoringStatus());
+    http.expectOne('/api/monitoring/products').flush(twoServices());
+    http.expectOne('/api/departments').flush([department(), fundServices]);
+    http
+      .expectOne('/api/monitoring/activity?range=30d&departmentId=3&productId=1')
+      .flush(portfolioActivity());
+    await fixture.whenStable();
+
+    expect(cards().map((card) => card.getAttribute('href'))).toEqual(['/monitoring/products/1']);
+    expect(page().querySelector('.by-department')).toBeNull();
+    expect(text(page().querySelector('.results .card-header .muted'))).toBe('CertScanner');
+  });
+
+  it('says when the chosen business service has no products yet', async () => {
+    TestBed.inject(OneViewContext).choose(9);
+    fixture.detectChanges();
+    http.expectOne('/api/monitoring/status').flush(monitoringStatus());
+    http.expectOne('/api/monitoring/products').flush(twoServices());
+    http
+      .expectOne('/api/departments')
+      .flush([
+        department(),
+        fundServices,
+        department({ id: 9, name: 'Treasury', productCount: 0 }),
+      ]);
+    http.expectOne('/api/monitoring/activity?range=30d&departmentId=9').flush(portfolioActivity());
+    await fixture.whenStable();
+
+    expect(text(page().querySelector('.products .empty-state h3'))).toBe(
+      'No products in Treasury yet',
+    );
+    expect(page().querySelector('.products .empty-state a')).toBeNull();
+  });
 
   async function filter(text: string) {
     const input = page().querySelector<HTMLInputElement>('input[aria-label="Filter products"]')!;

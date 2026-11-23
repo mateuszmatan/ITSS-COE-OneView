@@ -4,7 +4,11 @@ import { HttpTestingController, provideHttpClientTesting } from '@angular/common
 import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { Router, provideRouter } from '@angular/router';
 import { of } from 'rxjs';
-import { MY_DEPARTMENT_KEY } from '@common/departments/my-department';
+import {
+  CONTEXT_APPLICATION_KEY,
+  CONTEXT_DEPARTMENT_KEY as MY_DEPARTMENT_KEY,
+  OneViewContext,
+} from '@common/context/oneview-context';
 import { PipelineHealth } from '../core/models';
 import { PipelineDialog } from '../products/pipeline-dialog';
 import {
@@ -15,7 +19,6 @@ import {
   gridFilter,
   gridHeaders,
   gridRows,
-  selectOf,
   sortBy,
   text,
 } from '@common/testing/dom';
@@ -96,11 +99,31 @@ describe('PipelineList', () => {
     fixture.detectChanges();
   }
 
-  async function open(departmentId: string | null) {
+  const PRODUCTS = [
+    {
+      id: 1,
+      code: 'CERT',
+      name: 'CertScanner',
+      departmentId: 3,
+      departmentName: 'Corporate Technology',
+    },
+    {
+      id: 2,
+      code: 'PAY',
+      name: 'Payments Hub',
+      departmentId: 3,
+      departmentName: 'Corporate Technology',
+    },
+  ];
+
+  async function open(departmentId: string | null, productId: string | null = null) {
     if (departmentId === null) {
       localStorage.removeItem(MY_DEPARTMENT_KEY);
     } else {
       localStorage.setItem(MY_DEPARTMENT_KEY, departmentId);
+    }
+    if (productId !== null) {
+      localStorage.setItem(CONTEXT_APPLICATION_KEY, productId);
     }
     TestBed.configureTestingModule({
       providers: [provideHttpClient(), provideHttpClientTesting(), provideRouter([])],
@@ -111,6 +134,7 @@ describe('PipelineList', () => {
     http
       .expectOne('/api/departments')
       .flush([department(), department({ id: 5, name: 'Fund Services' })]);
+    http.expectOne('/api/products').flush(PRODUCTS);
     await settle();
   }
 
@@ -142,25 +166,20 @@ describe('PipelineList', () => {
   afterEach(() => {
     http.verify();
     localStorage.removeItem(MY_DEPARTMENT_KEY);
+    localStorage.removeItem(CONTEXT_APPLICATION_KEY);
   });
 
-  it('asks for the department first and remembers the one chosen', async () => {
+  it('lists every pipeline of BBH while no business service is chosen, and follows the one chosen', async () => {
     await open(null);
+    http.expectOne('/api/pipelines').flush({ pipelines: [gui, gateway], metricsError: null });
+    await settle();
 
     expect(text(page().querySelector('h1'))).toBe('DevSecOps Pipelines');
-    expect(text(page().querySelector('.empty-state h3'))).toBe(
-      'Choose your business service to see its pipelines',
-    );
-    expect(selectOf(page(), 'Your business service').selectedOptions[0].textContent?.trim()).toBe(
-      'Choose your business service',
-    );
-    expect(text(page().querySelector('.department ov-hint'))).toBe(
-      'Only the pipelines of this business service are listed. This browser remembers your choice.',
-    );
-    expect(page().querySelector('ov-grid')).toBeNull();
+    expect(text(page().querySelector('.list h2'))).toBe('Pipelines of every business service');
+    expect(shownServices()).toEqual(['gui', 'gateway']);
 
-    await pick(selectOf(page(), 'Your business service'), 'Fund Services');
-    expect(localStorage.getItem(MY_DEPARTMENT_KEY)).toBe('5');
+    TestBed.inject(OneViewContext).choose(5);
+    await settle();
     http.expectOne('/api/pipelines?departmentId=5').flush({ pipelines: [], metricsError: null });
     await settle();
 
@@ -169,12 +188,27 @@ describe('PipelineList', () => {
     expect(page().querySelector('.empty-state a')?.getAttribute('href')).toBe('/self-service');
   });
 
+  it('lists only the pipelines of the chosen application', async () => {
+    await open('3', '2');
+    http
+      .expectOne('/api/pipelines?departmentId=3')
+      .flush({ pipelines: [gui, api, gateway], metricsError: null });
+    await settle();
+
+    expect(text(page().querySelector('.list h2'))).toBe('Pipelines of Payments Hub');
+    expect(shownServices()).toEqual(['gateway']);
+    expect(text(page().querySelector('.shown'))).toBe('1 pipeline');
+
+    TestBed.inject(OneViewContext).chooseApplication(null);
+    await settle();
+
+    expect(shownServices()).toEqual(['gui', 'api', 'gateway']);
+    expect(text(page().querySelector('.list h2'))).toBe('Pipelines of Corporate Technology');
+  });
+
   it('lists the pipelines of the remembered department with their key and last run', async () => {
     await listed();
 
-    expect(selectOf(page(), 'Your business service').selectedOptions[0].textContent?.trim()).toBe(
-      'Corporate Technology',
-    );
     expect(gridHeaders(page())).toEqual([
       'Service',
       'Product',
@@ -282,10 +316,14 @@ describe('PipelineList', () => {
 
     expect(text(page().querySelector('ov-metrics-banner'))).toContain('InfluxDB timed out');
 
-    await pick(selectOf(page(), 'Your business service'), 'Fund Services');
+    TestBed.inject(OneViewContext).choose(5);
+    await settle();
     http
       .expectOne('/api/pipelines?departmentId=5')
-      .flush({ detail: 'Business service 5 does not exist' }, { status: 404, statusText: 'Not Found' });
+      .flush(
+        { detail: 'Business service 5 does not exist' },
+        { status: 404, statusText: 'Not Found' },
+      );
     await settle();
 
     expect(text(page().querySelector('.banner .banner-text'))).toBe(
@@ -301,7 +339,7 @@ describe('PipelineList', () => {
     expect(shownServices()).toEqual(['gui']);
   });
 
-  it('says when the departments could not be loaded and loads them again', async () => {
+  it('lists the pipelines even when the business services cannot be read', async () => {
     localStorage.setItem(MY_DEPARTMENT_KEY, '3');
     TestBed.configureTestingModule({
       providers: [provideHttpClient(), provideHttpClientTesting(), provideRouter([])],
@@ -312,21 +350,12 @@ describe('PipelineList', () => {
     http
       .expectOne('/api/departments')
       .flush({ detail: 'The database is not available' }, { status: 503, statusText: 'Down' });
+    expect(http.expectOne('/api/products').cancelled).toBe(true);
     http.expectOne('/api/pipelines?departmentId=3').flush({ pipelines: [], metricsError: null });
     await settle();
 
-    expect(text(page().querySelector('.banner .banner-text'))).toBe(
-      'The business services could not be loaded. The database is not available',
-    );
-
-    buttonOf(page(), 'Try again').click();
-    await settle();
-    http.expectOne('/api/departments').flush([department()]);
-    await settle();
-
-    expect(page().querySelector('.banner')).toBeNull();
     expect(text(page().querySelector('.empty-state h3'))).toBe(
-      'No pipelines in Corporate Technology yet',
+      'No pipelines in the chosen business service yet',
     );
   });
 });

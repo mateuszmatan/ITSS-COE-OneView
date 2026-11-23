@@ -1,0 +1,124 @@
+<section class="card bbh">
+  <header class="list-header">
+    <div class="list-title">
+      <h2>BBH quality targets</h2>
+      @if (defaults.hasValue()) {
+        <span class="summary">{{
+          defaults.value().updatedAt
+            ? 'Last saved ' + (defaults.value().updatedAt | relative)
+            : 'Not changed yet: the targets OneView starts with'
+        }}</span>
+      }
+    </div>
+  </header>
+  <p class="section-help">
+    The quality every application works to unless it sets a target of its own. A change applies to
+    every such application at once.
+  </p>
+
+  @if (defaults.isLoading()) {
+    <ov-loading />
+  }
+
+  @if (defaults.error(); as error) {
+    <ov-load-error what="The BBH quality targets" [error]="error" (retry)="defaults.reload()" />
+  } @else if (defaults.hasValue()) {
+    @if (conflict()) {
+      <div class="banner danger conflict" role="alert">
+        <div class="banner-text">
+          <strong>Someone else saved the BBH targets after you opened this page.</strong>
+          Your changes were not saved, so nothing was overwritten. Reload to get the current
+          targets, then make your changes again.
+        </div>
+        <button type="button" class="btn btn-primary" (click)="reload()">Reload</button>
+      </div>
+    }
+    <form class="targets-form" [formGroup]="form" (ngSubmit)="save()" novalidate>
+      <div class="form-fields">
+        <ov-fields [group]="form" [fields]="fields" />
+      </div>
+      @if (saveError(); as message) {
+        @if (!conflict()) {
+          <div class="banner save-problem" role="alert">{{ message }}</div>
+        }
+      }
+      <div class="form-actions">
+        <button type="submit" class="btn btn-primary" [disabled]="saving() || !form.dirty">
+          Save BBH targets
+        </button>
+        <button
+          type="button"
+          class="btn btn-link"
+          [disabled]="saving() || !form.dirty"
+          (click)="discard()"
+        >
+          Discard changes
+        </button>
+      </div>
+    </form>
+  }
+</section>
+
+<section class="card applications">
+  <header class="list-header">
+    <div class="list-title">
+      <h2>Applications</h2>
+      @if (applications.hasValue()) {
+        <span class="summary">{{ scopeName() }} · {{ summary() }}</span>
+      }
+    </div>
+  </header>
+  <p class="section-help">
+    Set up every application with its QA lead, where its results are and, where it needs them, its
+    own targets. Choose a business service or an application above to narrow the list.
+  </p>
+
+  @if (applications.isLoading()) {
+    <ov-loading />
+  }
+
+  @if (applications.error(); as error) {
+    <ov-load-error what="The applications" [error]="error" (retry)="applications.reload()" />
+  } @else if (applications.hasValue()) {
+    @if (scoped().length === 0) {
+      <div class="empty-state">
+        <h3>
+          {{
+            level() === 'bbh' ? 'No applications yet' : 'No applications in ' + scopeName() + ' yet'
+          }}
+        </h3>
+        <p>Every product of the catalog is an application. Add products on the Products tab.</p>
+      </div>
+    } @else {
+      <ov-grid label="Applications" [rows]="scoped()" [columns]="columns()" [rowId]="rowId">
+        <ng-template ovCell="name" let-application>
+          <span class="name">{{ application.name }}</span
+          >&ngsp;<span class="mono muted code">{{ application.code }}</span>
+        </ng-template>
+        <ng-template ovCell="enabled" let-application>
+          <span
+            class="chip"
+            [class.success]="application.enabled"
+            [class.neutral]="!application.enabled"
+            >{{ participation(application) }}</span
+          >
+        </ng-template>
+        <ng-template ovCell="actions" let-application>
+          <span class="actions">
+            <button
+              type="button"
+              class="btn btn-link"
+              [attr.aria-label]="
+                (application.version === null ? 'Set up ' : 'Edit ') + application.name
+              "
+              [disabled]="!defaults.hasValue()"
+              (click)="edit(application)"
+            >
+              {{ application.version === null ? 'Set up' : 'Edit' }}
+            </button>
+          </span>
+        </ng-template>
+      </ov-grid>
+    }
+  }
+</section>

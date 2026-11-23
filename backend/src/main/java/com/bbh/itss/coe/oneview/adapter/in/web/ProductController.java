@@ -56,15 +56,16 @@ public class ProductController {
         ProductDto created = actions.record(
                 ActionRecord.of("CREATE_PRODUCT", PRODUCT, request.name(), request.departmentId()),
                 () -> ProductDto.from(products.create(request.toCommand(pipelineType))),
-                (action, product) -> action.done("Created product " + product.code() + " with "
-                        + product.services().size() + " service(s)"));
+                (action, product) -> action.withProductId(product.id()).done("Created product " + product.code()
+                        + " with " + product.services().size() + " service(s)"));
         return created(fromCurrentRequestUri().path("/{id}").buildAndExpand(created.id()).toUri()).body(created);
     }
 
     @PutMapping("/{id}")
     public ProductDto update(@PathVariable long id, @Valid @RequestBody ProductDto request,
                              @RequestParam(required = false) PipelineType pipelineType) {
-        return actions.record(ActionRecord.of("UPDATE_PRODUCT", PRODUCT, request.name(), request.departmentId()),
+        return actions.record(ActionRecord.of("UPDATE_PRODUCT", PRODUCT, request.name(), request.departmentId())
+                        .withProductId(id),
                 () -> ProductDto.from(products.update(id, request.toCommand(pipelineType))),
                 (action, product) -> action.done("Updated product " + product.code()));
     }
@@ -73,7 +74,8 @@ public class ProductController {
     @ResponseStatus(NO_CONTENT)
     public void delete(@PathVariable long id) {
         Product product = products.get(id);
-        actions.record(ActionRecord.of("DELETE_PRODUCT", PRODUCT, product.name(), product.departmentId()),
+        actions.record(ActionRecord.of("DELETE_PRODUCT", PRODUCT, product.name(), product.departmentId())
+                        .withProductId(id),
                 () -> products.delete(id), "Deleted product " + product.code());
     }
 }

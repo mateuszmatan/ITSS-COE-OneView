@@ -182,7 +182,7 @@ OpenShift targets, Bitbucket repository and InfluxDB tags). It names Jenkins cre
 BOM `bom/pom.xml` in `goldenFix.versionCatalogs`. Its build is delivered to Nexus, so the document has no
 `deploy.openshift.rd.nexusDeliveryEnabled`; a service that is not delivered renders it as `false`.
 `platform.jenkinsUrl` is the Jenkins URL of the library defaults. Run `api/dso-config.sh` to see the configuration
-of the OneView you run. The [user and administrator guide](../docs/documentation.md#20-field-reference-from-the-portal-to-devsecops_configyaml)
+of the OneView you run. The [user and administrator guide](../docs/documentation.md#22-field-reference-from-the-portal-to-devsecops_configyaml)
 lists every key with the field that sets it.
 
 `config/orders-db-full.json` and `config/orders-db-full.yaml` are the configuration of the full pipeline of the
@@ -203,7 +203,7 @@ describes Liquibase services with and without database changes.
 
 ## Screenshots
 
-`screenshots/v1` to `screenshots/v20` hold screenshots of the GUI across versions. `v1` to `v18` show the portal under its working name, DevSecOps Management Portal; `v19` and `v20` show it as ITSS COE OneView.
+`screenshots/v1` to `screenshots/v21` hold screenshots of the GUI across versions. `v1` to `v18` show the portal under its working name, DevSecOps Management Portal; `v19` to `v21` show it as ITSS COE OneView.
 - `v7` shows the departments.
 - `v8` shows the demo integrations with the charts of Product Management and Pipeline Monitoring.
 - `v10` shows the Self-service wizard and the Admin tabs of DevSecOps Management.
@@ -230,3 +230,18 @@ describes Liquibase services with and without database changes.
   - `04-devsecops-pipelines.png`: Pipelines of the area DevSecOps with the same menu.
   - `05-qm-metric-tool.png` and `06-agile-assessment-and-adoption.png`: the pages of the two other areas under their new names, with what is planned.
   - `07-main-landing-page-narrow-window.png`: the Main Landing Page in a window 800 pixels wide, where the menu on the left becomes a row under the header and the cards wrap; nothing scrolls sideways.
+  The sections Action history and Admin of DevSecOps in `01` and `03` moved to the menu on the left in `v21`.
+- `v21` shows the bar that chooses a business service and an application, and the QM Metric Tool and Agile Assessment & Adoption with their Admin tabs, taken the same way as `v20` at 1440 by 900 from the boot jar on a fresh H2 database. The applications are Trade Archive (`api/create-product.sh`), Orders Database and Orders (`api/create-database-product.sh`, once the example databases and the Nexus repositories of the database packages were set in the Library defaults) in Custody, and Payments Hub in Fund Services (`config/payhub-gateway-full.yaml`). Trade Archive and Orders take part in the QM Metric Tool, Trade Archive with a code coverage target of its own; Payments Hub was set up and does not take part; Orders Database is not set up. The teams of Trade Archive, Orders and Payments Hub take part in Agile Assessment & Adoption, with four assessments, two of them of Trade Archive. The QA leads, agile coaches, Grafana addresses, levels and notes were set through the REST API of chapters 20 and 21 of the guide and are made up for the pictures. No InfluxDB was connected. `07` and `08` show the whole page, the others the window as it is.
+  - `01-main-landing-page-all-of-bbh.png`: the Main Landing Page with All business services: the bar above the page, the note that the figures are for the whole of BBH, and the figures of the cards: 6 pipelines; 2 of 4 applications take part in the QM Metric Tool, 2 with a Grafana dashboard; 3 of 4 teams take part, 3 assessed, average level 2.9. The menu on the left has Action history and Admin below the areas.
+  - `02-main-landing-page-business-service.png`: the same page with Custody chosen: Application offers All applications of Custody, the bar says "Showing Custody: 3 applications", and the cards count only its applications.
+  - `03-main-landing-page-application.png`: Trade Archive chosen: the cards show its 2 pipelines, that it takes part in the QM Metric Tool with at least 85% code coverage, its own target, and at least 95% test pass rate, the BBH target, and its agile level 3.2, assessed on 13 Nov 2026.
+  - `04-pipelines-of-the-business-service.png`: Pipelines with Custody chosen: the five pipelines of its three applications. The amber note says that run results could not be loaded because InfluxDB is not configured, as in `v19`.
+  - `05-qm-metric-tool-all-of-bbh.png`: the QM Metric Tool with All business services: the tiles, the BBH targets and every application with its business service, whether it takes part, its QA lead, its targets and the link to its dashboard.
+  - `06-qm-metric-tool-application.png`: Trade Archive alone: its QA lead, SonarQube project, defect project and quality dashboard, and the targets it works to, its own code coverage target next to two BBH targets.
+  - `07-agile-assessment-and-adoption-all-of-bbh.png`: Agile Assessment & Adoption with All business services: the tiles, every team with its way of working, agile coach, latest assessment and level, the mean level of every dimension and of Custody and Fund Services, and what comes next. Long headers of the table take two lines, so the table fits the page.
+  - `08-agile-assessment-and-adoption-application.png`: the team of Trade Archive: its latest assessment with the level of every dimension and how it changed since the assessment of August (for example "up 1 from 3"), its notes, and both assessments.
+  - `09-admin-applications-and-targets.png`: OneView Admin with its six tabs in four groups, on Applications and targets: the BBH quality targets as OneView starts with them, and the applications with Edit or Set up.
+  - `10-admin-teams-and-assessments.png`: Teams and assessments: every team with Edit or Set up and Record assessment, which stays disabled for Orders Database until its team is set up, and the four assessments with Delete.
+  - `11-admin-record-an-assessment.png`: the window that records an assessment of Orders, with the day of today and the agile coach of the team filled in and a level to choose in every dimension. The browser shows the day in its own format.
+  - `12-action-history-of-the-business-service.png`: OneView Action History with Custody chosen: the products created, two of them refused at first because the Library defaults allowed no database yet, the applications and teams set up, and the assessments recorded. The columns Details and Status go on to the right of the picture.
+  - `13-main-landing-page-narrow-window.png`: the Main Landing Page with Custody chosen in a window 800 pixels wide: the menu on the left is a row under the header, the bar puts its summary under the two choices, and the cards wrap; nothing scrolls sideways.

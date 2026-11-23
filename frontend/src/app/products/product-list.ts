@@ -14,6 +14,7 @@ import { OvLoading } from '@common/ui/loading';
 import { byDepartment } from '@common/departments/departments';
 import { pipelineTally, tally } from './pipeline-tally';
 import { DepartmentsApi } from '@common/core/api';
+import { OneViewContext } from '@common/context/oneview-context';
 
 @Component({
   selector: 'ov-product-list',
@@ -26,6 +27,7 @@ export class ProductList {
   private readonly api = inject(ProductsApi);
   private readonly departmentsApi = inject(DepartmentsApi);
   private readonly router = inject(Router);
+  private readonly context = inject(OneViewContext);
 
   protected readonly newProduct = `${ADMIN_PRODUCTS.path}/new`;
   protected readonly adminProduct = adminProduct;
@@ -77,13 +79,40 @@ export class ProductList {
     stream: () => this.departmentsApi.list<Department>(),
   });
 
-  protected readonly groups = computed(() =>
-    this.products.hasValue() && this.departments.hasValue()
-      ? byDepartment(this.departments.value(), this.products.value()).filter(
-          (group) => group.products.length || !this.query(),
-        )
-      : null,
-  );
+  protected readonly level = this.context.level;
+  protected readonly scopeName = computed(() => {
+    const { departmentId, productId } = this.context.scope();
+    if (productId !== null) {
+      const products = this.products.hasValue() ? this.products.value() : [];
+      return products.find((product) => product.id === productId)?.name ?? this.context.scopeName();
+    }
+    const departments = this.departments.hasValue() ? this.departments.value() : [];
+    return (
+      departments.find((department) => department.id === departmentId)?.name ??
+      this.context.scopeName()
+    );
+  });
+
+  /** The business services with their products, only the chosen business service or application if any. */
+  protected readonly groups = computed(() => {
+    if (!this.products.hasValue() || !this.departments.hasValue()) {
+      return null;
+    }
+    const { departmentId } = this.context.scope();
+    const products = this.products
+      .value()
+      .filter((product) => this.context.includes(product.departmentId, product.id));
+    return byDepartment(this.departments.value(), products).filter((group) => {
+      switch (this.level()) {
+        case 'application':
+          return group.products.length > 0;
+        case 'department':
+          return group.department?.id === departmentId;
+        default:
+          return group.products.length || !this.query();
+      }
+    });
+  });
   protected readonly empty = computed(() =>
     (this.groups() ?? []).every((group) => group.products.length === 0),
   );

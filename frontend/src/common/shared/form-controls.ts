@@ -246,6 +246,12 @@ export function saveFailure(
   };
 }
 
+/** What went wrong in one line, with the problems no field of the form shows. */
+export function failureText(failure: SaveFailure): string {
+  const rest = failure.unmatched.map((problem) => `${problem.field}: ${problem.message}`);
+  return rest.length ? `${failure.message} ${rest.join('; ')}` : failure.message;
+}
+
 const serverValidators = new WeakMap<AbstractControl, ValidatorFn>();
 
 function showServerError(control: AbstractControl, message: string, scope: AbstractControl): void {

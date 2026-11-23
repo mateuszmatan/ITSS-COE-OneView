@@ -2,6 +2,8 @@ package com.bbh.itss.coe.oneview.config
 
 import com.bbh.itss.coe.oneview.application.UseCase
 import com.bbh.itss.coe.oneview.application.actionlog.port.out.ActionLogRepositoryPort
+import com.bbh.itss.coe.oneview.application.agile.port.out.AgileRepositoryPort
+import com.bbh.itss.coe.oneview.application.qa.port.out.QualityRepositoryPort
 import com.bbh.itss.coe.oneview.application.catalog.port.in.ProductsUseCase
 import com.bbh.itss.coe.oneview.application.catalog.port.out.DepartmentRepositoryPort
 import com.bbh.itss.coe.oneview.application.catalog.port.out.DepartmentUsagePort
@@ -72,6 +74,8 @@ class UseCaseConfigurationSpec extends Specification {
     PipelineReportPort reports = Mock()
     BitbucketRepositoryPort bitbucketRepository = Mock()
     BitbucketPullRequestPort bitbucketPullRequest = Mock()
+    QualityRepositoryPort quality = Mock()
+    AgileRepositoryPort agile = Mock()
 
     def runner = new ApplicationContextRunner()
             .withConfiguration(AutoConfigurations.of(AopAutoConfiguration, TransactionAutoConfiguration))
@@ -90,6 +94,8 @@ class UseCaseConfigurationSpec extends Specification {
             .withBean(PipelineReportPort, { reports } as Supplier<PipelineReportPort>)
             .withBean(BitbucketRepositoryPort, { bitbucketRepository } as Supplier<BitbucketRepositoryPort>)
             .withBean(BitbucketPullRequestPort, { bitbucketPullRequest } as Supplier<BitbucketPullRequestPort>)
+            .withBean(QualityRepositoryPort, { quality } as Supplier<QualityRepositoryPort>)
+            .withBean(AgileRepositoryPort, { agile } as Supplier<AgileRepositoryPort>)
             .withBean(KeyGenerator, { { -> 'key' } as KeyGenerator } as Supplier<KeyGenerator>)
             .withBean(Clock, { systemUTC() } as Supplier<Clock>)
 
@@ -101,7 +107,8 @@ class UseCaseConfigurationSpec extends Specification {
                                          'pipelineService', 'pipelineConfigService', 'pipelineMonitoringService',
                                          'monitoringTargetsService', 'serviceTemplateService', 'actionLogService',
                                          'pipelineReportService', 'sammMaturityService', 'inspectRepositoryService',
-                                         'bitbucketPrDecorationService'] as Set
+                                         'bitbucketPrDecorationService', 'qualityManagementService',
+                                         'agileAssessmentService'] as Set
             useCases.values().each { useCase ->
                 assert isAopProxy(useCase)
                 assert (useCase as Advised).advisors*.advice.any { it instanceof TransactionInterceptor }

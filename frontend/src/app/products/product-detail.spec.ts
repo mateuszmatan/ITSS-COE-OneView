@@ -87,7 +87,7 @@ describe('ProductDetail', () => {
     expect(page().querySelector('h1')?.textContent).toBe('CertScanner');
     expect(
       [...page().querySelectorAll('.breadcrumb > :not(.sep)')].map((part) => part.textContent),
-    ).toEqual(['DevSecOps Admin', 'Products', 'Corporate Technology', 'CertScanner']);
+    ).toEqual(['OneView Admin', 'Products', 'Corporate Technology', 'CertScanner']);
     expect(fact('Business Service')).toBe('Corporate Technology');
     expect(fact('Services')).toBe('1');
     expect(fact('Pipelines')).toBe('1, active');

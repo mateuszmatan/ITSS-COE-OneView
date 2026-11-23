@@ -1,0 +1,128 @@
+<section class="card teams">
+  <header class="list-header">
+    <div class="list-title">
+      <h2>Application teams</h2>
+      @if (applications.hasValue()) {
+        <span class="summary">{{ scopeName() }} · {{ summary() }}</span>
+      }
+    </div>
+  </header>
+  <p class="section-help">
+    Set up the team of every application with its way of working and agile coach, then record the
+    assessments the coach makes. Choose a business service or an application above to narrow the
+    list.
+  </p>
+
+  @if (applications.isLoading() || model.isLoading()) {
+    <ov-loading />
+  }
+
+  @if (applications.error() ?? model.error(); as error) {
+    <ov-load-error what="The application teams" [error]="error" (retry)="reload()" />
+  } @else if (applications.hasValue() && model.hasValue()) {
+    @if (scoped().length === 0) {
+      <div class="empty-state">
+        <h3>
+          {{
+            level() === 'bbh' ? 'No applications yet' : 'No applications in ' + scopeName() + ' yet'
+          }}
+        </h3>
+        <p>Every product of the catalog is an application. Add products on the Products tab.</p>
+      </div>
+    } @else {
+      <ov-grid label="Application teams" [rows]="scoped()" [columns]="columns()" [rowId]="rowId">
+        <ng-template ovCell="name" let-application>
+          <span class="name">{{ application.name }}</span
+          >&ngsp;<span class="mono muted code">{{ application.code }}</span>
+        </ng-template>
+        <ng-template ovCell="enabled" let-application>
+          <span
+            class="chip"
+            [class.success]="application.enabled"
+            [class.neutral]="!application.enabled"
+            >{{ participation(application) }}</span
+          >
+        </ng-template>
+        <ng-template ovCell="actions" let-application>
+          @let reason = assessHint(application);
+          <span class="actions">
+            <button
+              type="button"
+              class="btn btn-link"
+              [attr.aria-label]="
+                (application.version === null ? 'Set up the team of ' : 'Edit the team of ') +
+                application.name
+              "
+              (click)="editTeam(application)"
+            >
+              {{ application.version === null ? 'Set up' : 'Edit' }}
+            </button>
+            <span class="assess" [attr.title]="reason">
+              <button
+                type="button"
+                class="btn btn-link"
+                [attr.aria-label]="'Record an assessment of ' + application.name"
+                [attr.aria-describedby]="reason ? 'assess-reason-' + application.productId : null"
+                [disabled]="reason !== null"
+                (click)="assess(application)"
+              >
+                Record assessment
+              </button>
+              @if (reason) {
+                <span class="visually-hidden" [id]="'assess-reason-' + application.productId">{{
+                  reason
+                }}</span>
+              }
+            </span>
+          </span>
+        </ng-template>
+      </ov-grid>
+    }
+  }
+</section>
+
+@if (applications.hasValue() && model.hasValue() && scoped().length) {
+  <section class="card assessments">
+    <header class="list-header">
+      <div class="list-title">
+        <h2>Assessments</h2>
+        <span class="summary">{{ assessments().length }} recorded, the latest first</span>
+      </div>
+    </header>
+    <p class="section-help">
+      Every assessment of the teams above. Delete one that was recorded by mistake; an assessment
+      cannot be changed, so record it again with the right levels.
+    </p>
+    @if (assessments().length === 0) {
+      <div class="empty-state">
+        <h3>No assessments yet</h3>
+        <p>Set up a team, then record its first assessment with Record assessment above.</p>
+      </div>
+    } @else {
+      <ov-grid
+        label="Assessments"
+        [rows]="assessments()"
+        [columns]="assessmentColumns()"
+        [rowId]="assessmentId"
+      >
+        <ng-template ovCell="actions" let-row>
+          <span class="actions">
+            <button
+              type="button"
+              class="btn btn-link danger"
+              [attr.aria-label]="
+                'Delete the assessment of ' +
+                row.application.name +
+                ' of ' +
+                dayText(row.assessment.assessedOn)
+              "
+              (click)="delete(row)"
+            >
+              Delete
+            </button>
+          </span>
+        </ng-template>
+      </ov-grid>
+    }
+  </section>
+}

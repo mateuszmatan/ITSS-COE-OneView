@@ -1,65 +1,55 @@
 import { ChangeDetectionStrategy, Component, input } from '@angular/core';
-import { OneViewSection } from '@common/core/sections';
 
 export interface PlannedCapability {
   title: string;
   description: string;
 }
 
+/** What an area of OneView is to show next, every item marked as planned. */
 @Component({
   selector: 'ov-area-plan',
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
-    <div class="page">
-      <header class="page-header">
-        <div>
-          <h1>{{ section().heading }}</h1>
-          <p class="page-description">{{ section().description }}</p>
-        </div>
+    <section class="card plan">
+      <header class="card-header">
+        <h2>Coming next</h2>
       </header>
-
-      <p class="notice" role="status">
-        This area is being built. It will show the following once its data is connected.
-      </p>
-
+      <p class="section-help">{{ intro() }}</p>
       <ul class="capabilities">
         @for (capability of capabilities(); track capability.title) {
-          <li class="card capability">
+          <li class="capability">
             <div class="capability-heading">
-              <h2>{{ capability.title }}</h2>
+              <h3>{{ capability.title }}</h3>
               <span class="planned">Planned</span>
             </div>
             <p>{{ capability.description }}</p>
           </li>
         }
       </ul>
-    </div>
+    </section>
   `,
   styles: `
-    .notice {
-      margin: 0 0 12px;
-      padding: 8px 12px;
-      border: 1px solid var(--ov-border);
-      border-radius: 4px;
-      background: var(--ov-info-bg);
-      color: var(--ov-text);
+    .plan {
+      padding: 12px 14px;
     }
 
     .capabilities {
       display: grid;
-      grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
-      gap: 12px;
+      grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+      gap: 8px 16px;
       margin: 0;
       padding: 0;
       list-style: none;
     }
 
     .capability {
-      padding: 12px 14px;
+      padding: 8px 10px;
+      border-left: 3px solid var(--ov-border);
 
       p {
-        margin: 6px 0 0;
+        margin: 4px 0 0;
         color: var(--ov-muted);
+        font-size: 12.5px;
       }
     }
 
@@ -69,9 +59,9 @@ export interface PlannedCapability {
       justify-content: space-between;
       gap: 8px;
 
-      h2 {
+      h3 {
         margin: 0;
-        font-size: 15px;
+        font-size: 14px;
       }
     }
 
@@ -87,6 +77,6 @@ export interface PlannedCapability {
   `,
 })
 export class AreaPlan {
-  readonly section = input.required<OneViewSection>();
   readonly capabilities = input.required<readonly PlannedCapability[]>();
+  readonly intro = input('This area is being built. It will also show the following.');
 }

@@ -11,6 +11,9 @@ public interface GetSammMaturityUseCase {
 
     SammOrganizationOverview overview();
 
+    /** The overview of one business service, or of one application (product), when given; else of BBH. */
+    SammOrganizationOverview overview(Long departmentId, Long productId);
+
     List<SammDepartmentScore> departmentScores();
 
     Optional<SammDepartmentScore> departmentScore(Long departmentId);

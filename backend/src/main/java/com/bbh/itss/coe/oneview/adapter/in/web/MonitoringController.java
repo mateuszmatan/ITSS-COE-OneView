@@ -68,8 +68,10 @@ public class MonitoringController {
     }
 
     @GetMapping("/activity")
-    public PortfolioActivity activity(@RequestParam(defaultValue = "30d") String range) {
-        return monitoring.activity(range);
+    public PortfolioActivity activity(@RequestParam(defaultValue = "30d") String range,
+                                      @RequestParam(required = false) Long departmentId,
+                                      @RequestParam(required = false) Long productId) {
+        return monitoring.activity(range, departmentId, productId);
     }
 
     public record StatusResponse(boolean influxConfigured, boolean influxReachable, String influxError) {

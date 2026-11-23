@@ -2,7 +2,7 @@ import { provideHttpClient } from '@angular/common/http';
 import { HttpTestingController, provideHttpClientTesting } from '@angular/common/http/testing';
 import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { provideRouter } from '@angular/router';
-import { MY_DEPARTMENT_KEY } from '@common/departments/my-department';
+import { CONTEXT_DEPARTMENT_KEY as MY_DEPARTMENT_KEY } from '@common/context/oneview-context';
 import { RETRY } from '@common/core/errors';
 import { buttonOf, fieldOf, helpOf, text, unexplained } from '@common/testing/dom';
 import {
@@ -98,6 +98,31 @@ describe('SelfService', () => {
     http.expectOne(`/api/products/${stored.id}/pipelines`).flush(pipelines);
     await fixture.whenStable();
   }
+
+  it('checks a product name typed before the products in the portal arrived', async () => {
+    const early = TestBed.createComponent(SelfService);
+    early.detectChanges();
+    const name = early.componentInstance['productForm'].controls.name;
+    name.setValue('Ledger');
+    name.markAsTouched();
+    expect(name.errors).toBeNull();
+
+    http
+      .expectOne('/api/products')
+      .flush([
+        productSummary({ id: 3, name: 'Ledger', departmentId: 5, departmentName: 'Fund Services' }),
+      ]);
+    http.expectOne('/api/departments').flush([department()]);
+    http.expectOne('/api/settings').flush(globalSettings());
+    http.expectOne('/api/service-template').flush(serviceTemplate());
+    await early.whenStable();
+
+    const taken = 'This product is already in the portal: choose "A product in the portal" above';
+    expect(name.errors).toEqual({ rule: taken });
+    expect(text(fieldOf(early.nativeElement, 'Product name')?.querySelector('ov-error'))).toBe(
+      taken,
+    );
+  });
 
   it('asks the department of a new product first and shows it in the review', async () => {
     expect(all('.step-bar .step-label')).toEqual([
@@ -426,7 +451,7 @@ describe('SelfService', () => {
     await fixture.whenStable();
 
     expect(text(page().querySelector('.step-actions a[href="/admin/products/1"]'))).toBe(
-      'Open CertScanner in DevSecOps Admin',
+      'Open CertScanner in OneView Admin',
     );
     expect(all('.step-actions button')).toEqual(['Set up another product']);
     expect(buttonOf(page(), 'Copy the Jenkinsfile of gui')).toBeDefined();

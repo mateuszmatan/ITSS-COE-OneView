@@ -1,15 +1,18 @@
 import { Routes } from '@angular/router';
 import { unsavedChangesGuard } from '@common/core/unsaved-changes';
+import { WITH_CONTEXT } from '@common/shell/app-shell';
 import {
   ACTION_HISTORY,
   ADMIN,
+  ADMIN_AGILE,
   ADMIN_DEPARTMENTS,
   ADMIN_PRODUCTS,
+  ADMIN_QA,
   ADMIN_SETTINGS,
   ADMIN_TEMPLATE,
   AGILE_MATURITY,
-  DEVSECOPS_ADMIN,
   LANDING,
+  ONEVIEW_ADMIN,
   MONITORING,
   PIPELINES,
   QA_METRICS,
@@ -22,11 +25,13 @@ export const routes: Routes = [
     path: '',
     pathMatch: 'full',
     title: LANDING.label,
+    data: WITH_CONTEXT,
     loadComponent: () => import('./landing/landing-page').then((m) => m.LandingPage),
   },
   {
     path: 'pipelines',
     title: PIPELINES.heading,
+    data: WITH_CONTEXT,
     loadComponent: () => import('./pipelines/pipeline-list').then((m) => m.PipelineList),
   },
   {
@@ -43,6 +48,7 @@ export const routes: Routes = [
   {
     path: 'monitoring',
     title: MONITORING.heading,
+    data: WITH_CONTEXT,
     loadComponent: () =>
       import('./monitoring/monitoring-overview').then((m) => m.MonitoringOverview),
   },
@@ -61,21 +67,25 @@ export const routes: Routes = [
   {
     path: 'samm',
     title: SAMM_MATURITY.heading,
+    data: WITH_CONTEXT,
     loadComponent: () => import('./samm/samm-overview').then((m) => m.SammOverviewPage),
   },
   {
     path: 'qa',
     title: QA_METRICS.heading,
+    data: WITH_CONTEXT,
     loadComponent: () => import('./qa/qa-overview').then((m) => m.QaOverviewPage),
   },
   {
     path: 'agile',
     title: AGILE_MATURITY.heading,
+    data: WITH_CONTEXT,
     loadComponent: () => import('./agile/agile-overview').then((m) => m.AgileOverviewPage),
   },
   {
     path: 'history',
     title: ACTION_HISTORY.heading,
+    data: WITH_CONTEXT,
     loadComponent: () => import('./history/action-history').then((m) => m.ActionHistoryPage),
   },
   {
@@ -98,7 +108,7 @@ export const routes: Routes = [
   {
     path: 'admin',
     loadComponent: () => import('@common/admin/admin-page').then((m) => m.AdminPage),
-    data: { area: DEVSECOPS_ADMIN },
+    data: { area: ONEVIEW_ADMIN },
     children: [
       { path: '', pathMatch: 'full', redirectTo: 'products' },
       {
@@ -110,6 +120,7 @@ export const routes: Routes = [
       {
         path: 'products',
         title: `${ADMIN_PRODUCTS.label} · ${ADMIN.heading}`,
+        data: WITH_CONTEXT,
         loadComponent: () => import('./products/product-list').then((m) => m.ProductList),
       },
       {
@@ -124,6 +135,19 @@ export const routes: Routes = [
         title: `${ADMIN_SETTINGS.label} · ${ADMIN.heading}`,
         canDeactivate: [unsavedChangesGuard],
         loadComponent: () => import('./settings/global-settings').then((m) => m.GlobalSettingsPage),
+      },
+      {
+        path: 'qa',
+        title: `${ADMIN_QA.group} · ${ADMIN.heading}`,
+        data: WITH_CONTEXT,
+        canDeactivate: [unsavedChangesGuard],
+        loadComponent: () => import('./qa/qa-admin').then((m) => m.QaAdmin),
+      },
+      {
+        path: 'agile',
+        title: `${ADMIN_AGILE.group} · ${ADMIN.heading}`,
+        data: WITH_CONTEXT,
+        loadComponent: () => import('./agile/agile-admin').then((m) => m.AgileAdmin),
       },
     ],
   },

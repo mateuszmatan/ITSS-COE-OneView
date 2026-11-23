@@ -5,6 +5,7 @@ import { Router, provideRouter } from '@angular/router';
 import { Department, ProductSummary } from '../core/models';
 import { gridCell, gridHeaders, gridRows, settleGrid, text } from '@common/testing/dom';
 import { department, productSummary } from '../testing/fixtures';
+import { OneViewContext } from '@common/context/oneview-context';
 import { ProductList } from './product-list';
 
 describe('ProductList', () => {
@@ -30,7 +31,11 @@ describe('ProductList', () => {
     fixture = TestBed.createComponent(ProductList);
   });
 
-  afterEach(() => http.verify());
+  afterEach(() => {
+    http.verify();
+    localStorage.removeItem('oneview.department');
+    localStorage.removeItem('oneview.application');
+  });
 
   const page = () => fixture.nativeElement as HTMLElement;
   const cards = () => [...page().querySelectorAll<HTMLElement>('section.department')];
@@ -247,5 +252,31 @@ describe('ProductList', () => {
     gridCell(rows[0], 'ownerTeam').click();
     await settleGrid();
     expect(navigate).toHaveBeenCalledWith(['/admin/products', 4]);
+  });
+
+  it('lists only the chosen business service, or the chosen application', async () => {
+    const payments = productSummary({ id: 2, code: 'PAY', name: 'Payments Hub', departmentId: 5 });
+    TestBed.inject(OneViewContext).choose(5);
+    await load([summary, payments]);
+
+    expect(cards().map((section) => text(section.querySelector('h2')))).toEqual(['Fund Services']);
+    expect(gridRows(card('Fund Services')).map((row) => text(row.querySelector('a.name')))).toEqual(
+      ['Payments Hub'],
+    );
+
+    TestBed.inject(OneViewContext).choose(3, 1);
+    await fixture.whenStable();
+
+    expect(cards().map((section) => text(section.querySelector('h2')))).toEqual([
+      'Corporate Technology',
+    ]);
+    expect(gridRows(page())).toHaveLength(1);
+  });
+
+  it('says when the chosen business service has no products yet', async () => {
+    TestBed.inject(OneViewContext).choose(5);
+    await load([summary]);
+
+    expect(text(page().querySelector('.empty-state h3'))).toBe('No products in Fund Services yet');
   });
 });

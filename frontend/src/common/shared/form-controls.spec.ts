@@ -1,10 +1,13 @@
+import { HttpErrorResponse } from '@angular/common/http';
 import { FormArray, FormGroup, Validators } from '@angular/forms';
 import {
   HTTP_URL,
+  VALUES_NOT_ACCEPTED,
   addItem,
   applyFieldProblems,
   controlAt,
   eachItem,
+  failureText,
   filled,
   fitsColumn,
   flag,
@@ -23,6 +26,7 @@ import {
   requiredRule,
   requiredWhen,
   revalidateAll,
+  saveFailure,
   setEnabled,
   text,
   words,
@@ -204,6 +208,28 @@ describe('field problems', () => {
 
     applyFieldProblems(f, [{ field: 'limits[SAST].maxHigh', message: 'is stale' }]);
     expect(maxHigh.errors).toEqual({ server: 'is stale' });
+  });
+
+  it('says in one line what went wrong, with the problems no field shows', () => {
+    const f = form();
+    const invalid = new HttpErrorResponse({
+      status: 400,
+      error: {
+        errors: [
+          { field: 'platform.proxyHost', message: 'is not a host' },
+          { field: 'owner', message: 'is unknown' },
+        ],
+      },
+    });
+    const stale = new HttpErrorResponse({ status: 409 });
+
+    expect(failureText(saveFailure(f, invalid, 'Someone else saved it'))).toBe(
+      `${VALUES_NOT_ACCEPTED} owner: is unknown`,
+    );
+    expect(f.controls.platform.controls.proxyHost.errors).toEqual({ server: 'is not a host' });
+    expect(failureText(saveFailure(f, stale, 'Someone else saved it'))).toBe(
+      'Someone else saved it',
+    );
   });
 
   it('finds a control by its path from a part of the form', () => {

@@ -6,7 +6,7 @@ import { Router, provideRouter } from '@angular/router';
 import { APP_NAME } from '@common/core/app-name';
 import { text } from '@common/testing/dom';
 import { App } from './app';
-import { SECTIONS } from './core/sections';
+import { SECTIONS, TOOLS } from './core/sections';
 
 @Component({ template: '' })
 class Blank {}
@@ -52,22 +52,18 @@ describe('App', () => {
       'Self-service',
       'Pipeline Monitoring',
       'OWASP SAMM',
-      'Action history',
-      'Admin',
     ]);
     expect(links().map((link) => link.getAttribute('href'))).toEqual([
       '/pipelines',
       '/self-service',
       '/monitoring',
       '/samm',
-      '/history',
-      '/admin',
     ]);
     expect(text(page())).not.toContain('Beadle');
     expect(text(page())).not.toContain('Change Evidence');
   });
 
-  it('has a side menu with the landing page and the three areas instead of an area switch', async () => {
+  it('has a side menu with the landing page, the three areas, and the action history and admin of all of them', async () => {
     const areas = () => [...page().querySelectorAll<HTMLAnchorElement>('nav.sidebar a')];
     const activeAreas = () =>
       areas()
@@ -79,12 +75,16 @@ describe('App', () => {
       'DevSecOps',
       'QM Metric Tool',
       'Agile Assessment & Adoption',
+      'Action history',
+      'Admin',
     ]);
     expect(areas().map((link) => link.getAttribute('href'))).toEqual([
       '/',
       '/monitoring',
       '/qa',
       '/agile',
+      '/history',
+      '/admin',
     ]);
     expect(activeAreas()).toEqual(['DevSecOps']);
     expect(page().querySelector('nav.areas')).toBeNull();
@@ -126,25 +126,37 @@ describe('App', () => {
         'DevSecOps OWASP SAMM',
         'Software Assurance Maturity Model (OWASP SAMM v2.0) across BBH applications and business services. Continuous security posture scoring derived from pipeline health and verification gates.',
       ],
-      [
-        'DevSecOps Action History',
-        'History and audit log of all operations in the portal: who, when, what was done and the result.',
-      ],
-      [
-        'DevSecOps Admin',
-        'Set up the portal for everyone: business services, products and their services, what a new service gets, and the settings every pipeline shares.',
-      ],
     ]);
+  });
+
+  it('names the action history and the admin after OneView, as they serve every area', () => {
+    expect(TOOLS.map((tool) => [tool.label, tool.heading])).toEqual([
+      ['Action history', 'OneView Action History'],
+      ['Admin', 'OneView Admin'],
+    ]);
+  });
+
+  it.each([
+    ['/admin/products/2/edit', 'Admin'],
+    ['/admin/qa', 'Admin'],
+    ['/history', 'Action history'],
+  ])('marks %s in the side menu as %s and shows no DevSecOps sections', async (url, label) => {
+    await TestBed.inject(Router).navigateByUrl(url);
+    await fixture.whenStable();
+
+    const marked = [...page().querySelectorAll<HTMLAnchorElement>('nav.sidebar a.active')].map(
+      text,
+    );
+    expect(marked).toEqual([label]);
+    expect(links()).toEqual([]);
   });
 
   it.each([
     ['/monitoring', 'Pipeline Monitoring'],
     ['/monitoring/products/1', 'Pipeline Monitoring'],
-    ['/admin/products/2/edit', 'Admin'],
     ['/pipelines/100', 'Pipelines'],
     ['/self-service', 'Self-service'],
     ['/samm', 'OWASP SAMM'],
-    ['/history', 'Action history'],
   ])('marks the section of %s', async (url, label) => {
     await TestBed.inject(Router).navigateByUrl(url);
     await fixture.whenStable();

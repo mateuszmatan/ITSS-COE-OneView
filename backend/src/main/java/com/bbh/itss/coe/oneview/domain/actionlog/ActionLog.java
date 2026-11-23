@@ -13,5 +13,7 @@ public record ActionLog(
         String resourceType,
         String resourceName,
         String details,
-        String status
+        String status,
+        Long departmentId,
+        Long productId
 ) {}

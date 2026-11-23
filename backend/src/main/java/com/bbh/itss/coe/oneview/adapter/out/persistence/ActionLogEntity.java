@@ -40,11 +40,13 @@ public class ActionLogEntity {
     private String resourceName;
     private String details;
     private String status;
+    private Long departmentId;
+    private Long productId;
 
     static ActionLogEntity of(ActionLog log) {
         return new ActionLogEntity(null, null, log.username(), log.userDisplayName(), log.userEmail(),
                 log.departmentName(), log.actionType(), log.resourceType(), log.resourceName(), log.details(),
-                log.status());
+                log.status(), log.departmentId(), log.productId());
     }
 
     @PrePersist

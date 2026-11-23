@@ -27,7 +27,7 @@ class AddProductSpec extends EditorSpecification {
         page.waitForURL('**/admin/products')
 
         then:
-        assertThat(page.locator('h1')).hasText('DevSecOps Admin')
+        assertThat(page.locator('h1')).hasText('OneView Admin')
 
         when:
         open('/admin/products/new')
