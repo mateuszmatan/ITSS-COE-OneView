@@ -11,7 +11,7 @@ class GuiSmokeSpec extends OvSpecification {
 
     static final List<Map<String, String>> SECTIONS = [
             [label      : 'Pipelines', heading: 'DevSecOps Pipelines', path: '/pipelines',
-             description: 'Every automated build, test and security pipeline of your business service\'s products. Open one to see its key, its Jenkinsfile and its latest runs.'],
+             description: 'Every automated build, test and security pipeline of the business service or application chosen above. Open one to see its key, its Jenkinsfile and its latest runs.'],
             [label      : 'Self-service', heading: 'DevSecOps Self-service', path: '/self-service',
              description: 'Set up the DevSecOps pipelines of your product, or change them, in five guided steps. No DevSecOps knowledge needed.'],
             [label      : 'Pipeline Monitoring', heading: 'DevSecOps Pipeline Monitoring', path: '/monitoring',

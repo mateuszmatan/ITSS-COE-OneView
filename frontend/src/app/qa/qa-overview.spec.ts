@@ -154,6 +154,16 @@ describe('QaOverviewPage', () => {
     expect(text(page().querySelector('.profile dl'))).toContain('Grafana dashboard Not linked yet');
   });
 
+  it('says how an application that was taken out comes back', async () => {
+    TestBed.inject(OneViewContext).choose(5, 2);
+    await load([qualityApplication(), notInQuality({ version: 4 })]);
+
+    expect(text(page().querySelector('.profile .chip'))).toBe('Does not take part');
+    expect(text(page().querySelector('.not-taking-part .banner-text'))).toBe(
+      'PayHub no longer takes part in the QM Metric Tool. An administrator brings it back in OneView Admin by editing it and ticking Takes part.',
+    );
+  });
+
   it('says when the chosen business service has no applications yet', async () => {
     TestBed.inject(OneViewContext).choose(9);
     await load();

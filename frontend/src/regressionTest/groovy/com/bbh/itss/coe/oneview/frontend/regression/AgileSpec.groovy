@@ -61,7 +61,7 @@ class AgileSpec extends OvSpecification {
 
         then:
         assertThat(teams().locator('.summary')).hasText('BBH · 1 of 2 teams take part')
-        assertThat(button('Record an assessment of Payments Hub', true)).isDisabled()
+        assertThat(button('Record assessment of Payments Hub', true)).isDisabled()
         assertThat(page.locator('#assess-reason-2')).hasText('Set up the team of Payments Hub first: only a team that takes part is assessed.')
         assertThat(assessments().locator('.summary')).hasText('2 recorded, the latest first')
 
@@ -85,10 +85,10 @@ class AgileSpec extends OvSpecification {
                 [enabled: true, teamName: 'Pay Squad', framework: 'KANBAN', coach: 'Ann Coach', version: null]
         assertThat(teams().locator('.summary')).hasText('BBH · 2 of 2 teams take part')
         assertThat(button('Edit the team of Payments Hub', true)).isVisible()
-        assertThat(button('Record an assessment of Payments Hub', true)).isEnabled()
+        assertThat(button('Record assessment of Payments Hub', true)).isEnabled()
 
         when:
-        button('Record an assessment of Payments Hub', true).click()
+        button('Record assessment of Payments Hub', true).click()
 
         then:
         assertThat(dialog().locator('h2')).hasText('Record an assessment of Payments Hub')

@@ -18,6 +18,7 @@ import {
   saveFailure,
   text,
 } from '@common/shared/form-controls';
+import { errorMessage } from '@common/core/errors';
 import { DIALOG } from '@common/ui/dialog';
 import { AgileApi } from '../core/api';
 import { AgileApplication, AgileAssessment, AgileDimension, AgileModel } from '../core/models';
@@ -165,16 +166,9 @@ export class AgileAssessmentDialog {
       .pipe(finalize(() => this.saving.set(false)))
       .subscribe({
         next: (saved) => this.dialogRef.close(saved),
+        // The portal refuses with 409 the assessment of a team that does not take part, and says why.
         error: (error) =>
-          this.error.set(
-            failureText(
-              saveFailure(
-                this.form,
-                error,
-                'The assessment could not be recorded. Close this and try again.',
-              ),
-            ),
-          ),
+          this.error.set(failureText(saveFailure(this.form, error, errorMessage(error)))),
       });
   }
 

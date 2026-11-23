@@ -188,6 +188,21 @@ describe('LandingPage', () => {
     expect(TestBed.inject(Router).url).toBe('/qa');
   });
 
+  it('counts only the teams that take part, also when a team taken out keeps its assessments', () => {
+    const takenOut = agileApplication({ productId: 4, enabled: false, version: 3 });
+
+    expect(agileFigures([agileApplication(), takenOut, notInAgile()], false)).toEqual([
+      { value: '1 of 3', label: 'teams take part' },
+      { value: '1', label: 'assessed' },
+      { value: '3.2', label: 'average level, of 5' },
+    ]);
+    expect(agileFigures([takenOut], false)).toEqual([
+      { value: '0 of 1', label: 'team takes part' },
+      { value: '0', label: 'assessed' },
+      { value: '–', label: 'average level, of 5' },
+    ]);
+  });
+
   it('counts a team that was never assessed as such', () => {
     expect(agileFigures([notInAgile()], true)).toEqual([
       { value: 'Not set up', label: 'in Agile Assessment & Adoption' },

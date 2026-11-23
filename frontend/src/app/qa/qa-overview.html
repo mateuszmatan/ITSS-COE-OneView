@@ -39,11 +39,7 @@
         </header>
         @if (!app.enabled) {
           <div class="banner info not-taking-part" role="status">
-            <span class="banner-text"
-              >{{ app.name }} does not take part in the QM Metric Tool yet. An administrator sets it
-              up in OneView Admin with its QA lead, where its results are and its own quality
-              targets.</span
-            >
+            <span class="banner-text">{{ notTakingPart(app) }}</span>
             <a class="btn btn-outline-primary" [routerLink]="adminPath">Open OneView Admin</a>
           </div>
         }

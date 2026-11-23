@@ -6,6 +6,7 @@ import spock.lang.Specification
 
 import java.time.Instant
 
+import static com.bbh.itss.coe.oneview.domain.qa.QualityProfile.DASHBOARD_URL_MESSAGE
 import static com.bbh.itss.coe.oneview.domain.shared.Failures.STALE_VERSION
 
 class QualityProfileSpec extends Specification {
@@ -50,8 +51,13 @@ class QualityProfileSpec extends Specification {
 
         where:
         problem                    | changed                                                           || problems
-        'linked to no web address' | profile(dashboardUrl: 'grafana.bbh.com/d/qa')                     || [new FieldProblem('dashboardUrl', 'must be an http:// or https:// address')]
-        'linked with a space'      | profile(dashboardUrl: 'https://grafana.bbh.com/d/my qa')          || [new FieldProblem('dashboardUrl', 'must be an http:// or https:// address')]
+        'linked to no web address' | profile(dashboardUrl: 'grafana.bbh.com/d/qa')                     || [new FieldProblem('dashboardUrl', DASHBOARD_URL_MESSAGE)]
+        'linked with a space'      | profile(dashboardUrl: 'https://grafana.bbh.com/d/my qa')          || [new FieldProblem('dashboardUrl', DASHBOARD_URL_MESSAGE)]
+        'linked with a hard space' | profile(dashboardUrl: 'https://grafana.bbh.com/d/my\u00A0qa')     || [new FieldProblem('dashboardUrl', DASHBOARD_URL_MESSAGE)]
+        'linked with a $'          | profile(dashboardUrl: 'https://grafana.bbh.com/d/qa?var=${env}')  || [new FieldProblem('dashboardUrl', DASHBOARD_URL_MESSAGE)]
+        'linked with a quote'      | profile(dashboardUrl: 'https://grafana.bbh.com/d/"qa"')           || [new FieldProblem('dashboardUrl', DASHBOARD_URL_MESSAGE)]
+        'linked with a backslash'  | profile(dashboardUrl: 'https://grafana.bbh.com\\d\\qa')          || [new FieldProblem('dashboardUrl', DASHBOARD_URL_MESSAGE)]
+        'linked with a backtick'   | profile(dashboardUrl: 'https://grafana.bbh.com/d/`qa`')           || [new FieldProblem('dashboardUrl', DASHBOARD_URL_MESSAGE)]
         'led by a too long name'   | profile(qaLead: 'Q' * 201)                                        || [new FieldProblem('qaLead', 'is too long: it may take at most 200 bytes')]
         'keyed too long'           | profile(sonarProjectKey: 'k' * 401, defectProjectKey: 'D' * 101)  || [new FieldProblem('sonarProjectKey', 'is too long: it may take at most 400 bytes'),
                                                                                                            new FieldProblem('defectProjectKey', 'is too long: it may take at most 100 bytes')]

@@ -112,7 +112,7 @@ describe('App', () => {
     expect(SECTIONS.map((section) => [section.heading, section.description])).toEqual([
       [
         'DevSecOps Pipelines',
-        "Every automated build, test and security pipeline of your business service's products. Open one to see its key, its Jenkinsfile and its latest runs.",
+        'Every automated build, test and security pipeline of the business service or application chosen above. Open one to see its key, its Jenkinsfile and its latest runs.',
       ],
       [
         'DevSecOps Self-service',

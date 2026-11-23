@@ -14,6 +14,7 @@ describe('QualityApplicationDialog', () => {
   let fixture: ComponentFixture<QualityApplicationDialog>;
   let http: HttpTestingController;
   const close = vi.fn();
+  const reloaded = vi.fn();
   const bbhTargets = { coveragePercent: 80, passRatePercent: 95, maxCriticalDefects: 0 };
 
   async function open(application: QualityApplication) {
@@ -24,7 +25,7 @@ describe('QualityApplicationDialog', () => {
         provideHttpClientTesting(),
         {
           provide: DIALOG_DATA,
-          useValue: { application, bbhTargets } satisfies QualityApplicationDialogData,
+          useValue: { application, bbhTargets, reloaded } satisfies QualityApplicationDialogData,
         },
         { provide: DialogRef, useValue: { close } },
       ],
@@ -37,6 +38,7 @@ describe('QualityApplicationDialog', () => {
   afterEach(() => {
     http.verify();
     close.mockReset();
+    reloaded.mockReset();
   });
 
   const page = () => fixture.nativeElement as HTMLElement;
@@ -154,13 +156,50 @@ describe('QualityApplicationDialog', () => {
     await type('Open critical defects (at most)', '3');
     await submit();
     http
-      .expectOne('/api/qa/applications/1')
+      .expectOne({ method: 'PUT', url: '/api/qa/applications/1' })
       .flush({ detail: 'stale' }, { status: 409, statusText: 'Conflict' });
+    http
+      .expectOne({ method: 'GET', url: '/api/qa/applications/1' })
+      .flush(qualityApplication({ qaLead: 'Bea Lane', version: 3 }));
     await fixture.whenStable();
 
     expect(text(page().querySelector('[role=alert]'))).toBe(
-      'Someone else changed CertScanner after you opened it, so nothing was saved. Close this, then open it again to see their changes.',
+      'Not saved: someone else changed CertScanner after you opened it. The form now shows their changes: make your change again, then save.',
     );
+    expect(inputOf(page(), 'QA lead').value).toBe('Bea Lane');
+    expect(inputOf(page(), 'Open critical defects (at most)').value).toBe('');
+    expect(reloaded).toHaveBeenCalledWith(qualityApplication({ qaLead: 'Bea Lane', version: 3 }));
+    expect(close).not.toHaveBeenCalled();
+
+    await type('Open critical defects (at most)', '3');
+    await submit();
+    const again = http.expectOne({ method: 'PUT', url: '/api/qa/applications/1' });
+    expect(again.request.body).toMatchObject({
+      qaLead: 'Bea Lane',
+      targets: { maxCriticalDefects: 3 },
+      version: 3,
+    });
+    again.flush(qualityApplication({ qaLead: 'Bea Lane', version: 4 }));
+
+    expect(close).toHaveBeenCalled();
+  });
+
+  it('says when the changes of someone else could not be loaded either', async () => {
+    await open(qualityApplication());
+
+    await submit();
+    http
+      .expectOne({ method: 'PUT', url: '/api/qa/applications/1' })
+      .flush({ detail: 'stale' }, { status: 409, statusText: 'Conflict' });
+    http
+      .expectOne({ method: 'GET', url: '/api/qa/applications/1' })
+      .flush({ detail: 'down' }, { status: 503, statusText: 'Service Unavailable' });
+    await fixture.whenStable();
+
+    expect(text(page().querySelector('[role=alert]'))).toMatch(
+      /^Not saved: someone else changed CertScanner after you opened it\. Their changes could not be loaded: /,
+    );
+    expect(reloaded).not.toHaveBeenCalled();
     expect(close).not.toHaveBeenCalled();
   });
 });

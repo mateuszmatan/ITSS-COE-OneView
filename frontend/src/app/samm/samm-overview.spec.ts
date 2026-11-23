@@ -1,7 +1,7 @@
 import { provideHttpClient } from '@angular/common/http';
 import { provideHttpClientTesting } from '@angular/common/http/testing';
 import { ComponentFixture, TestBed } from '@angular/core/testing';
-import { provideRouter } from '@angular/router';
+import { Router, provideRouter } from '@angular/router';
 import { of } from 'rxjs';
 import { SammApi } from '../core/api';
 import {
@@ -116,19 +116,23 @@ describe('SammOverviewPage', () => {
   };
 
   const overviewOf = vi.fn((_scope?: unknown) => of(mockOverview));
+  const applicationOf = vi.fn((_pipelineId: number) => of(mockApp));
   const mockSammApi = {
     overview: overviewOf,
     departments: () => of([mockDept]),
     department: () => of(mockDept),
-    application: () => of(mockApp),
+    application: applicationOf,
   };
 
   afterEach(() => {
     localStorage.removeItem('oneview.department');
     localStorage.removeItem('oneview.application');
+    applicationOf.mockClear();
   });
 
-  beforeEach(async () => {
+  /** Opens the page at the address given, as a link to it does. */
+  async function openAt(url: string) {
+    TestBed.resetTestingModule();
     await TestBed.configureTestingModule({
       imports: [SammOverviewPage],
       providers: [
@@ -138,12 +142,15 @@ describe('SammOverviewPage', () => {
         { provide: SammApi, useValue: mockSammApi },
       ],
     }).compileComponents();
+    await TestBed.inject(Router).navigateByUrl(url);
 
     fixture = TestBed.createComponent(SammOverviewPage);
     component = fixture.componentInstance;
     fixture.detectChanges();
     await fixture.whenStable();
-  });
+  }
+
+  beforeEach(() => openAt('/'));
 
   it('renders the SAMM header and executive summary', () => {
     const el = fixture.nativeElement as HTMLElement;
@@ -233,6 +240,64 @@ describe('SammOverviewPage', () => {
 
     expect(overviewOf).toHaveBeenLastCalledWith({ departmentId: 1, productId: 10 });
     expect(el.querySelector('.score-label')?.textContent).toContain('Billing Platform Maturity');
+  });
+
+  it('words the average and the counts by the business service or application chosen', async () => {
+    const el = fixture.nativeElement as HTMLElement;
+    const labels = () => [...el.querySelectorAll('.stat-label')].map((label) => label.textContent);
+    expect(el.querySelector('.section-subtitle')?.textContent).toBe(
+      'Average score across the 1 BBH application',
+    );
+    expect(labels()).toContain('Business Services Covered');
+
+    TestBed.inject(OneViewContext).choose(1);
+    fixture.detectChanges();
+    await fixture.whenStable();
+
+    expect(el.querySelector('.section-subtitle')?.textContent).toBe(
+      'Average score across 1 application of Core Banking',
+    );
+    expect(labels()).not.toContain('Business Services Covered');
+
+    TestBed.inject(OneViewContext).choose(1, 10);
+    fixture.detectChanges();
+    await fixture.whenStable();
+
+    expect(el.querySelector('.section-subtitle')?.textContent).toBe(
+      'Average score across 1 pipeline of Billing Platform',
+    );
+    expect(labels()).not.toContain('Business Services Covered');
+  });
+
+  it('opens the scorecard of the pipeline a link names once, also after another scope is chosen', async () => {
+    await openAt('/?pipelineId=100');
+    const el = fixture.nativeElement as HTMLElement;
+
+    expect(el.querySelector('.scorecard-modal')?.textContent).toContain(
+      'Billing Platform / billing-api',
+    );
+    expect(applicationOf).not.toHaveBeenCalled();
+
+    component['closeModal']();
+    TestBed.inject(OneViewContext).choose(1);
+    fixture.detectChanges();
+    await fixture.whenStable();
+
+    expect(el.querySelector('.scorecard-modal')).toBeNull();
+  });
+
+  it('reads the scorecard of a linked pipeline outside the business service chosen on its own', async () => {
+    TestBed.inject(OneViewContext).choose(1);
+    applicationOf.mockReturnValueOnce(
+      of({ ...mockApp, pipelineId: 300, productName: 'Trade Archive', serviceName: 'archive-api' }),
+    );
+
+    await openAt('/?pipelineId=300');
+
+    expect(applicationOf).toHaveBeenCalledWith(300);
+    expect(
+      (fixture.nativeElement as HTMLElement).querySelector('.scorecard-modal')?.textContent,
+    ).toContain('Trade Archive / archive-api');
   });
 
   it('opens the applications of a business service from its card and chooses it for every page', async () => {

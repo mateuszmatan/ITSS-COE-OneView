@@ -71,7 +71,7 @@ class GuiPerformanceSpec extends OvSpecification {
         'Product page from the product list'       | 1500  | '/admin/products'         | "a.name[href='/admin/products/ID']"              | 'section.service .pipeline'                   | PIPELINES
         'Product editor from the product page'     | 2000  | '/admin/products/ID'      | "a[href='/admin/products/ID/edit']"              | 'ov-panel .service-name'                     | SERVICES
         'A service expanded in the editor'         | 500   | '/admin/products/ID/edit' | '.service-panel > h3 .accordion-button >> nth=2' | 'ov-panel.expanded ov-service-fields input' | 1
-        'Monitoring overview from the menu'        | 1000  | '/admin/products'         | "nav.menu a[href='/monitoring']"                 | 'a.product'                                   | PRODUCTS
+        'Monitoring overview from the menu'        | 1000  | '/admin/products'         | "nav.sidebar a[href='/monitoring']"              | 'a.product'                                   | PRODUCTS
         "A product's monitoring from the overview" | 1000  | '/monitoring'             | "a.product[href='/monitoring/products/ID']"      | 'a.pipeline-link'                             | PIPELINES
     }
 

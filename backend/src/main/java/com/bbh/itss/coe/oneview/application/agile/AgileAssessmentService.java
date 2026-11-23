@@ -14,6 +14,7 @@ import lombok.RequiredArgsConstructor;
 
 import java.time.Clock;
 import java.time.LocalDate;
+import java.time.ZoneOffset;
 import java.util.List;
 import java.util.Map;
 import java.util.function.Function;
@@ -25,6 +26,12 @@ import static java.util.stream.Collectors.toMap;
 @UseCase
 @RequiredArgsConstructor
 public class AgileAssessmentService implements AgileAssessmentUseCase {
+
+    /**
+     * The earliest time zone in the world. An assessment can be made on any day up to today there, so the today of a
+     * browser anywhere is never refused as a day in the future.
+     */
+    static final ZoneOffset EARLIEST_TIME_ZONE = ZoneOffset.ofHours(14);
 
     private final AgileRepositoryPort repository;
     private final ProductRepositoryPort products;
@@ -60,9 +67,16 @@ public class AgileAssessmentService implements AgileAssessmentUseCase {
     @Override
     public AgileAssessment recordAssessment(long productId, LocalDate assessedOn, String assessor,
                                             Map<AgileDimension, Integer> levels, String notes) {
-        product(productId);
+        ProductSummary product = product(productId);
+        AgileProfile profile = profile(productId);
+        if (!profile.enabled()) {
+            throw new IllegalStateException((profile.version() == null
+                    ? "Set up the team of " + product.name() + " first"
+                    : "Edit the team of " + product.name() + " and tick Takes part first")
+                    + ": only a team that takes part is assessed.");
+        }
         return repository.saveAssessment(AgileAssessment.record(productId, assessedOn, assessor, levels, notes,
-                LocalDate.now(clock)));
+                LocalDate.now(clock.withZone(EARLIEST_TIME_ZONE))));
     }
 
     @Override

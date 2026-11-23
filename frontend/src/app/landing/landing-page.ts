@@ -108,10 +108,11 @@ export function agileFigures(
         : { value: 'Not assessed', label: 'yet' },
     ];
   }
-  const assessed = applications.filter((application) => application.assessments.length);
+  const taking = applications.filter((application) => application.enabled);
+  const assessed = taking.filter((application) => application.assessments.length > 0);
   return [
     {
-      value: `${applications.filter((application) => application.enabled).length} of ${applications.length}`,
+      value: `${taking.length} of ${applications.length}`,
       label: applications.length === 1 ? 'team takes part' : 'teams take part',
     },
     { value: String(assessed.length), label: 'assessed' },

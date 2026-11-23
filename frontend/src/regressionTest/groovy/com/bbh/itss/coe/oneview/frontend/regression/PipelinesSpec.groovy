@@ -25,7 +25,7 @@ class PipelinesSpec extends OvSpecification {
         then:
         assertThat(page.locator('h1')).hasText('DevSecOps Pipelines')
         assertThat(page.locator('.page-header .page-description'))
-                .hasText('Every automated build, test and security pipeline of your business service\'s products. Open one to see its key, its Jenkinsfile and its latest runs.')
+                .hasText('Every automated build, test and security pipeline of the business service or application chosen above. Open one to see its key, its Jenkinsfile and its latest runs.')
         assertThat(page.locator('.list h2')).hasText('Pipelines of every business service')
         assertThat(column('service')).hasText(['gui', 'gui', 'backend-api', 'gateway', 'gateway', 'gateway', 'ledger',
                                                'notifications', 'mobile-app'] as String[])

@@ -1,6 +1,8 @@
 package com.bbh.itss.coe.oneview.frontend.support
 
 import java.time.Instant
+import java.time.LocalDate
+import java.time.ZoneOffset
 import java.util.concurrent.CopyOnWriteArrayList
 
 import static com.bbh.itss.coe.oneview.frontend.support.StubResponse.html
@@ -67,6 +69,10 @@ class OneViewStubApi extends StubApi {
             json([username: 'mateusz.matan', displayName: 'Mateusz Matan', email: 'mateusz.matan@bbh.com', admin: true])
         }
         get('/api/samm/overview') { RecordedRequest request -> sammOverview(request.params()) }
+        get('/api/samm/pipelines/(\\d+)') { RecordedRequest request, List<String> ids ->
+            def scorecard = (fixture('samm-overview.json').applications as List<Map>).find { it.pipelineId == ids[0] as int }
+            scorecard ? json(scorecard) : problem(404, 'Not found', "Pipeline ${ids[0]} does not exist")
+        }
         installQuality()
         installAgile()
     }
@@ -134,7 +140,17 @@ class OneViewStubApi extends StubApi {
             if (!team) {
                 return problem(404, 'Not found', "Product ${ids[0]} does not exist")
             }
+            if (!team.enabled) {
+                return problem(409, 'Conflict', (team.version == null ? "Set up the team of ${team.name} first"
+                        : "Edit the team of ${team.name} and tick Takes part first") +
+                        ': only a team that takes part is assessed.')
+            }
             def sent = request.json() as Map
+            // As the portal: any day up to today in the earliest time zone, UTC+14.
+            if (sent.assessedOn && LocalDate.parse(sent.assessedOn as String).isAfter(LocalDate.now(ZoneOffset.ofHours(14)))) {
+                return problem(400, 'Validation failed', 'The request has invalid fields',
+                        [errors: [[field: 'assessedOn', message: 'must not be in the future']]])
+            }
             def levels = sent.levels as Map<String, Integer>
             def assessment = [id          : nextAssessmentId++, productId: team.productId, assessedOn: sent.assessedOn,
                               assessor    : sent.assessor, levels: levels,
@@ -164,10 +180,11 @@ class OneViewStubApi extends StubApi {
         def departmentId = params.departmentId as Integer
         def productId = params.productId as Integer
         def applications = (overview.applications as List<Map>).findAll {
-            (productId == null || it.productId == productId) && (departmentId == null || it.departmentId == departmentId)
+            productId != null ? it.productId == productId : (departmentId == null || it.departmentId == departmentId)
         }
-        def departments = (overview.departments as List<Map>).findAll { department ->
-            applications.any { it.departmentId == department.departmentId }
+        def departments = productId != null ? [] : (overview.departments as List<Map>).findAll { department ->
+            departmentId == null ? applications.any { it.departmentId == department.departmentId }
+                    : department.departmentId == departmentId
         }
         overview + [applications: applications, departments: departments, totalApplications: applications.size(),
                     totalDepartments: departments.size()]

@@ -27,6 +27,8 @@ class AgileAssessmentServiceSpec extends Specification {
     static final ProductSummary LEDGER = product(1L, 'LEDGER', 'Ledger', 3L, 'Custody')
     static final ProductSummary FUNDS = product(3L, 'FUND', 'Fund Admin', 5L, 'AI Lab')
     static final Map<AgileDimension, Integer> LEVELS = AgileDimension.values().collectEntries { [(it): 3] }
+    static final AgileProfile TAKING_PART = new AgileProfile(1L, true, 'Ledger Squad', SCRUM, 'Ewa', 0L, NOW)
+    static final AgileProfile TAKEN_OUT = new AgileProfile(1L, false, 'Ledger Squad', SCRUM, 'Ewa', 2L, NOW)
 
     AgileRepositoryPort repository = Mock()
     ProductRepositoryPort products = Stub() {
@@ -82,22 +84,44 @@ class AgileAssessmentServiceSpec extends Specification {
         0 * repository.saveProfile(_)
     }
 
-    def "an assessment is recorded for today at the latest, by the clock of the portal"() {
+    def "an assessment is recorded up to today in the earliest time zone, by the clock of the portal"() {
+        given: 'at 22:30 UTC on 23 November it is already 24 November in UTC+14'
+        def tomorrowInUtc = TODAY.plusDays(1)
+        repository.loadProfile(1L) >> Optional.of(TAKING_PART)
+
         when:
-        def recorded = service.recordAssessment(1L, TODAY, ' Ewa ', LEVELS, 'Quarterly')
+        def recorded = service.recordAssessment(1L, tomorrowInUtc, ' Ewa ', LEVELS, 'Quarterly')
 
         then:
-        1 * repository.saveAssessment(new AgileAssessment(null, 1L, TODAY, 'Ewa', LEVELS, 'Quarterly')) >>
-                new AgileAssessment(15L, 1L, TODAY, 'Ewa', LEVELS, 'Quarterly')
+        1 * repository.saveAssessment(new AgileAssessment(null, 1L, tomorrowInUtc, 'Ewa', LEVELS, 'Quarterly')) >>
+                new AgileAssessment(15L, 1L, tomorrowInUtc, 'Ewa', LEVELS, 'Quarterly')
         recorded.id() == 15L
 
         when:
-        service.recordAssessment(1L, TODAY.plusDays(1), 'Ewa', LEVELS, null)
+        service.recordAssessment(1L, TODAY.plusDays(2), 'Ewa', LEVELS, null)
 
         then:
         def e = thrown(InvalidRequestException)
         e.problems() == [new FieldProblem('assessedOn', 'must not be in the future')]
         0 * repository.saveAssessment(_)
+    }
+
+    def "the team of an application that #state is not assessed"() {
+        given:
+        repository.loadProfile(1L) >> profile
+
+        when:
+        service.recordAssessment(1L, TODAY, 'Ewa', LEVELS, null)
+
+        then:
+        def e = thrown(IllegalStateException)
+        e.message == message
+        0 * repository.saveAssessment(_)
+
+        where:
+        state                  | profile               || message
+        'was never set up'     | Optional.empty()      || 'Set up the team of Ledger first: only a team that takes part is assessed.'
+        'no longer takes part' | Optional.of(TAKEN_OUT) || 'Edit the team of Ledger and tick Takes part first: only a team that takes part is assessed.'
     }
 
     def "an assessment is found by its id and deleted"() {

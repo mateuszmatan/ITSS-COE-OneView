@@ -182,6 +182,27 @@ describe('AgileOverviewPage', () => {
     expect(page().querySelector('.history')).toBeNull();
   });
 
+  it('counts only the teams that take part, and says how a team taken out comes back', async () => {
+    const takenOut = { ...ledger, enabled: false, version: 2 };
+    await load([agileApplication(), takenOut, notInAgile()]);
+
+    expect(tiles()).toEqual([
+      '3 Applications',
+      '1 Teams taking part',
+      '1 Assessed',
+      '3.2 Average level, of 5',
+    ]);
+    expect(levels('.departments')).toEqual(['Corporate Technology 3.2']);
+
+    TestBed.inject(OneViewContext).choose(5, 3);
+    await fixture.whenStable();
+
+    expect(text(page().querySelector('.not-taking-part .banner-text'))).toBe(
+      'The team of Ledger no longer takes part in Agile Assessment & Adoption. An administrator brings it back in OneView Admin by editing its team and ticking Takes part.',
+    );
+    expect(text(page().querySelector('.overall'))).toBe('3.0 overall level, of 5');
+  });
+
   it('leaves out the charts until a team is assessed', async () => {
     await load([notInAgile()]);
 

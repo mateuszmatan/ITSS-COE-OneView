@@ -107,7 +107,9 @@ export class ProductList {
         case 'application':
           return group.products.length > 0;
         case 'department':
-          return group.department?.id === departmentId;
+          return (
+            group.department?.id === departmentId && (group.products.length > 0 || !this.query())
+          );
         default:
           return group.products.length || !this.query();
       }

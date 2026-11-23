@@ -4,6 +4,7 @@ import com.bbh.itss.coe.oneview.support.OneViewSpecification
 
 import java.time.LocalDate
 
+import static com.bbh.itss.coe.oneview.support.ApiJson.pipeline
 import static com.bbh.itss.coe.oneview.support.ApiJson.product
 import static com.bbh.itss.coe.oneview.support.ApiJson.service
 
@@ -164,6 +165,9 @@ class AreaRegressionSpec extends OneViewSpecification {
     }
 
     def "an assessment that is #problem is refused against its field"() {
+        given:
+        api.put("/api/agile/applications/$ledger.id", [enabled: true, version: null])
+
         when:
         def response = api.post("/api/agile/applications/$ledger.id/assessments", assessment(changes))
 
@@ -174,10 +178,30 @@ class AreaRegressionSpec extends OneViewSpecification {
 
         where:
         problem           | changes                                                     || fields
-        'in the future'   | [assessedOn: LocalDate.now().plusDays(2).toString()]        || ['assessedOn']
+        'in the future'   | [assessedOn: LocalDate.now().plusDays(3).toString()]        || ['assessedOn']
         'by nobody'       | [assessor: ' ']                                             || ['assessor']
         'missing a level' | [levels: [TEAM: 3, PLANNING: 3, ENGINEERING: 3, PRODUCT: 3]] || ['levels.IMPROVEMENT']
         'rated above 5'   | [levels: DIMENSIONS.collectEntries { [(it): 6] }]           || DIMENSIONS.collect { "levels.$it".toString() }
+    }
+
+    def "the team of an application is assessed only while it takes part"() {
+        when:
+        def neverSetUp = api.post("/api/agile/applications/$ledger.id/assessments", assessment())
+        def profile = api.put("/api/agile/applications/$ledger.id", [enabled: true, version: null]).json
+        def taking = api.post("/api/agile/applications/$ledger.id/assessments", assessment())
+        api.put("/api/agile/applications/$ledger.id", [enabled: false, version: profile.version])
+        def takenOut = api.post("/api/agile/applications/$ledger.id/assessments", assessment())
+
+        then:
+        neverSetUp.status == 409
+        neverSetUp.json.detail == "Set up the team of $ledger.name first: only a team that takes part is assessed."
+        taking.status == 201
+        takenOut.status == 409
+        takenOut.json.detail ==
+                "Edit the team of $ledger.name and tick Takes part first: only a team that takes part is assessed."
+        api.get("/api/agile/applications/$ledger.id").json.assessments*.id == [taking.json.id]
+        api.get('/api/action-history').json.findAll { it.productId == ledger.id && it.actionType == 'RECORD_AGILE_ASSESSMENT' }
+                *.status == ['FAILURE', 'SUCCESS', 'FAILURE']
     }
 
     def "an unknown application or assessment is not found"() {
@@ -205,6 +229,35 @@ class AreaRegressionSpec extends OneViewSpecification {
         jdbc.queryForObject('SELECT COUNT(*) FROM QA_APPLICATION WHERE PRODUCT_ID = ?', Integer, ledger.id) == 0
     }
 
+    def "every change of an application, its pipelines and their keys is in the action history under its business service"() {
+        given:
+        def sast = createPipeline(ledger.services[0].id as long, pipeline(type: 'SAST'))
+
+        when:
+        def updated = api.put("/api/pipelines/$sast.id", pipeline(type: 'SAST', agentLabels: ['docker'], version: sast.version))
+        def rotated = api.post("/api/pipelines/$sast.id/keys")
+        def revoked = api.post("/api/pipelines/$sast.id/keys/revoke", [reason: 'Retired with the ledger'])
+        def removed = api.delete("/api/pipelines/$sast.id")
+        def current = api.get("/api/products/$ledger.id").json
+        def renamed = api.put("/api/products/$ledger.id", product(code: ledger.code, name: "$ledger.name Two".toString(),
+                departmentId: department.id, version: current.version, services: current.services))
+        def deleted = api.delete("/api/products/$ledger.id")
+
+        then:
+        [updated, rotated, revoked, renamed]*.status == [200, 200, 200, 200]
+        [removed, deleted]*.status == [204, 204]
+        api.get('/api/action-history').json.findAll { it.productId == ledger.id }
+                .collect { [it.actionType, it.departmentId, it.departmentName, it.status] } == [
+                ['DELETE_PRODUCT', department.id, department.name, 'SUCCESS'],
+                ['UPDATE_PRODUCT', department.id, department.name, 'SUCCESS'],
+                ['DELETE_PIPELINE', department.id, department.name, 'SUCCESS'],
+                ['REVOKE_KEY', department.id, department.name, 'SUCCESS'],
+                ['ROTATE_KEY', department.id, department.name, 'SUCCESS'],
+                ['UPDATE_PIPELINE', department.id, department.name, 'SUCCESS'],
+                ['CREATE_PIPELINE', department.id, department.name, 'SUCCESS'],
+                ['CREATE_PRODUCT', department.id, department.name, 'SUCCESS']]
+    }
+
     def "the DevSecOps pages show the whole of BBH, one business service or one application"() {
         given:
         def other = createProduct(product(code: uniqueCode('AREA'), name: "Other ${uniqueCode()}",
@@ -228,6 +281,8 @@ class AreaRegressionSpec extends OneViewSpecification {
         activity.pipelines == 2
         activityOfLedger.pipelines == 1
         api.get('/api/monitoring/activity?productId=999999').status == 404
+        api.get('/api/samm/overview?departmentId=999999').status == 404
+        api.get('/api/samm/overview?productId=999999').status == 404
         api.get('/api/samm/overview').json.applications*.productId.containsAll([ledger.id, other.id])
     }
 
