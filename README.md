@@ -5,8 +5,8 @@ ITSS COE OneView is the portal of the ITSS Center of Excellence at BBH. It joins
 | Area | Shows and manages | State |
 |------|-------------------|-------|
 | **DevSecOps** | the products, pipelines and pipeline keys of the Jenkins shared library DSOEnhanced, the configuration every build reads, Pipeline Monitoring with the charts of Grafana and InfluxDB, and the OWASP SAMM maturity | in use |
-| **QA** | the quality assurance metrics of every product, with their charts in Grafana and InfluxDB | page and package layout; see `TODO.md` |
-| **Agile** | the agile maturity of teams and business services | page and package layout; see `TODO.md` |
+| **QM Metric Tool** | the quality assurance metrics of every product, with their charts in Grafana and InfluxDB | page and package layout; see `TODO.md` |
+| **Agile Assessment & Adoption** | the agile maturity of teams and business services | page and package layout; see `TODO.md` |
 
 It is one Spring Boot service (Java 21, Spring Boot 4) with the Angular GUI inside, packaged as one jar and one
 container image. It runs on an embedded H2 database on a laptop and on Oracle in the test and production environments.
@@ -194,19 +194,21 @@ A feature is one package name in every layer, and every feature belongs to an ar
 | Area | Features (`domain/<feature>`, `application/<feature>`) | GUI (`frontend/src/app`) |
 |------|---------------------------------------------------------|--------------------------|
 | DevSecOps | `catalog`, `pipeline`, `dsoconfig`, `settings`, `monitoring`, `samm`, `report`, `discovery`, `bitbucket` | `pipelines`, `self-service`, `monitoring`, `samm`, `products`, `departments`, `settings` |
-| QA | `qa` | `qa` |
-| Agile | `agile` | `agile` |
+| QM Metric Tool | `qa` | `qa` |
+| Agile Assessment & Adoption | `agile` | `agile` |
 | shared by the areas | `actionlog`, `user`, `shared` | `history`, `core`, `shared`, and `frontend/src/common` |
 
-The areas are listed in `frontend/src/app/core/sections.ts` (`AREAS`); the header shows the area switch and, under
-it, the sections of the area of the current page. A new page of the GUI also needs its first path segment in
+The areas are listed in `frontend/src/app/core/sections.ts` (`AREAS`, with the landing page `LANDING`). The side
+menu on the left links the Main Landing Page and every area; the landing page (`/`, `frontend/src/app/landing`)
+has one card for each area; the header shows the sections of the area of the current page when it has more than
+one. A new page of the GUI also needs its first path segment in
 `oneview.gui.pages` of `application.yml`, so that the service answers a reload of it with the Angular page.
 
 The database is the same Liquibase changelog on both databases (`db/changelog`, `dbms:oracle,h2`): the profile
 `local` runs H2 in Oracle mode in a file, the profiles `rd`, `qc` and `prod` run Oracle (`DB_URL`, `DB_USERNAME`,
 `DB_PASSWORD`). The tables of the DevSecOps area keep the prefix `DSO_`, the API of the library keeps `/api/dso`, and
 the changesets up to 045 keep their author `dso-portal`, so a database of the DevSecOps Management Portal is taken
-over as it is; tables of the QA and Agile areas get the prefixes `QA_` and `AGL_`.
+over as it is; tables of the QM Metric Tool and Agile Assessment & Adoption areas get the prefixes `QA_` and `AGL_`.
 
 The GUI calls the groups of products Business Services; the API, the code and the database keep their older name,
 department (`/api/departments`, `DSO_DEPARTMENT`).

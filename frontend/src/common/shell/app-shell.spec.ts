@@ -16,9 +16,23 @@ const section = (path: string, label: string): OneViewSection => ({
   description: `What ${label} is for`,
 });
 
+const HOME = section('/', 'Home');
+
 const AREAS: OneViewArea[] = [
-  { key: 'sales', label: 'Sales', sections: [section('/orders', 'Orders'), section('/admin', 'Admin')] },
-  { key: 'quality', label: 'Quality', sections: [section('/quality', 'Metrics')] },
+  {
+    key: 'sales',
+    label: 'Sales',
+    path: '/admin',
+    description: 'What Sales is for',
+    sections: [section('/orders', 'Orders'), section('/admin', 'Admin')],
+  },
+  {
+    key: 'quality',
+    label: 'Quality',
+    path: '/quality',
+    description: 'What Quality is for',
+    sections: [section('/quality', 'Metrics')],
+  },
 ];
 
 describe('AppShell', () => {
@@ -33,7 +47,9 @@ describe('AppShell', () => {
       ],
     });
     fixture = TestBed.createComponent(AppShell);
+    fixture.componentRef.setInput('home', HOME);
     fixture.componentRef.setInput('areas', AREAS);
+    await TestBed.inject(Router).navigateByUrl('/orders');
     await fixture.whenStable();
   });
 
@@ -44,7 +60,7 @@ describe('AppShell', () => {
       .filter((link) => link.classList.contains('active'))
       .map(text);
 
-  it('names the app in its header and links every section in order', () => {
+  it('names the app in its header and links every section of the current area in order', () => {
     expect(page().querySelector('.brand-name')?.textContent).toBe('BBH Test Portal');
     expect(page().querySelector('.brand')?.getAttribute('href')).toBe('/');
     expect(links().map(text)).toEqual(['Orders', 'Admin']);
@@ -66,40 +82,43 @@ describe('AppShell', () => {
     expect(active()).toEqual(['Orders']);
   });
 
-  const areas = () => [...page().querySelectorAll<HTMLAnchorElement>('nav.areas a')];
+  const areas = () => [...page().querySelectorAll<HTMLAnchorElement>('nav.sidebar a')];
   const activeAreas = () =>
     areas()
       .filter((link) => link.classList.contains('active'))
       .map(text);
 
-  it('links every area to its first section and starts in the first area', () => {
-    expect(areas().map(text)).toEqual(['Sales', 'Quality']);
-    expect(areas().map((link) => link.getAttribute('href'))).toEqual(['/orders', '/quality']);
+  it('has a side menu with the landing page and every area, and no area switch in its header', () => {
+    expect(areas().map(text)).toEqual(['Home', 'Sales', 'Quality']);
+    expect(areas().map((link) => link.getAttribute('href'))).toEqual(['/', '/admin', '/quality']);
     expect(activeAreas()).toEqual(['Sales']);
+    expect(page().querySelector('header nav.areas')).toBeNull();
+    expect(page().querySelector('header')?.textContent).not.toContain('Quality');
   });
 
-  it('shows the sections of the area the current page belongs to', async () => {
+  it('marks the landing page in the side menu and shows no sections on it', async () => {
+    await TestBed.inject(Router).navigateByUrl('/');
+    await fixture.whenStable();
+
+    expect(activeAreas()).toEqual(['Home']);
+    expect(areas()[0].getAttribute('aria-current')).toBe('page');
+    expect(page().querySelector('nav.menu')).toBeNull();
+  });
+
+  it('marks the area the current page belongs to and shows its sections', async () => {
     await TestBed.inject(Router).navigateByUrl('/quality');
     await fixture.whenStable();
 
     expect(activeAreas()).toEqual(['Quality']);
-    expect(areas()[1].getAttribute('aria-current')).toBe('true');
-    expect(links().map(text)).toEqual(['Metrics']);
-    expect(active()).toEqual(['Metrics']);
+    expect(areas()[2].getAttribute('aria-current')).toBe('true');
+    expect(page().querySelector('nav.menu')).toBeNull();
 
     await TestBed.inject(Router).navigateByUrl('/admin/products?page=2');
     await fixture.whenStable();
 
     expect(activeAreas()).toEqual(['Sales']);
     expect(links().map(text)).toEqual(['Orders', 'Admin']);
-  });
-
-  it('has no area switch when there is one area only', async () => {
-    fixture.componentRef.setInput('areas', AREAS.slice(0, 1));
-    await fixture.whenStable();
-
-    expect(page().querySelector('nav.areas')).toBeNull();
-    expect(links().map(text)).toEqual(['Orders', 'Admin']);
+    expect(active()).toEqual(['Admin']);
   });
 
   it('shows the signed-in user only once it is known', async () => {

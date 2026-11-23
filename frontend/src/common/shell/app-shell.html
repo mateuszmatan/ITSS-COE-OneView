@@ -4,30 +4,19 @@
       <a class="brand" routerLink="/">
         <span class="brand-name"><strong>BBH</strong> {{ name }}</span>
       </a>
-      @if (areas().length > 1) {
-        <nav class="areas" aria-label="Areas">
-          @for (item of areas(); track item.key) {
+      @if (sections().length) {
+        <nav class="menu" [attr.aria-label]="area()?.label">
+          @for (section of sections(); track section.path) {
             <a
-              class="area-link"
-              [class.active]="item === area()"
-              [attr.aria-current]="item === area() ? 'true' : null"
-              [routerLink]="item.sections[0].path"
-              >{{ item.label }}</a
+              class="menu-link"
+              [routerLink]="section.path"
+              routerLinkActive="active"
+              ariaCurrentWhenActive="page"
+              >{{ section.label }}</a
             >
           }
         </nav>
       }
-      <nav class="menu" aria-label="Main">
-        @for (section of area().sections; track section.path) {
-          <a
-            class="menu-link"
-            [routerLink]="section.path"
-            routerLinkActive="active"
-            ariaCurrentWhenActive="page"
-            >{{ section.label }}</a
-          >
-        }
-      </nav>
       @if (user(); as user) {
         <div class="user-badge" [title]="user.email ?? user.displayName">
           <span class="user-name">{{ user.displayName }}</span>
@@ -39,9 +28,32 @@
     </div>
   </header>
 
-  <main class="content">
-    <router-outlet />
-  </main>
+  <div class="body">
+    <nav class="sidebar" aria-label="Main">
+      <div class="sidebar-inner">
+        <a
+          class="side-link"
+          [class.active]="!area()"
+          [attr.aria-current]="!area() ? 'page' : null"
+          [routerLink]="home().path"
+          >{{ home().label }}</a
+        >
+        @for (item of areas(); track item.key) {
+          <a
+            class="side-link"
+            [class.active]="item === area()"
+            [attr.aria-current]="item === area() ? 'true' : null"
+            [routerLink]="item.path"
+            >{{ item.label }}</a
+          >
+        }
+      </div>
+    </nav>
+
+    <main class="content">
+      <router-outlet />
+    </main>
+  </div>
 
   <footer class="footer">
     <span>BBH 2026</span>

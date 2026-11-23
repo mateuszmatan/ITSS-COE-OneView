@@ -9,6 +9,7 @@ import {
   ADMIN_TEMPLATE,
   AGILE_MATURITY,
   DEVSECOPS_ADMIN,
+  LANDING,
   MONITORING,
   PIPELINES,
   QA_METRICS,
@@ -17,7 +18,12 @@ import {
 } from './core/sections';
 
 export const routes: Routes = [
-  { path: '', pathMatch: 'full', redirectTo: 'monitoring' },
+  {
+    path: '',
+    pathMatch: 'full',
+    title: LANDING.label,
+    loadComponent: () => import('./landing/landing-page').then((m) => m.LandingPage),
+  },
   {
     path: 'pipelines',
     title: PIPELINES.heading,
@@ -123,5 +129,5 @@ export const routes: Routes = [
   },
   { path: 'products', redirectTo: 'admin/products' },
   { path: 'settings', redirectTo: 'admin/settings' },
-  { path: '**', redirectTo: 'monitoring' },
+  { path: '**', redirectTo: '' },
 ];

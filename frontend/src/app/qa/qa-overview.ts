@@ -20,7 +20,7 @@ export const QA_CAPABILITIES: readonly PlannedCapability[] = [
   {
     title: 'Grafana dashboards',
     description:
-      'The QA dashboards in Grafana, drawn from the QA metrics in InfluxDB, linked for every product.',
+      'The quality dashboards in Grafana, drawn from the quality metrics in InfluxDB, linked for every product.',
   },
 ];
 

@@ -18,5 +18,7 @@ export interface AdminArea {
 export interface OneViewArea {
   key: string;
   label: string;
+  path: string;
+  description: string;
   sections: readonly OneViewSection[];
 }

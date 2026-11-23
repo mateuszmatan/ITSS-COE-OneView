@@ -59,23 +59,50 @@ export const SECTIONS: readonly OneViewSection[] = [
 
 export const QA_METRICS: OneViewSection = {
   path: '/qa',
-  label: 'QA Metrics',
-  heading: 'QA Metrics',
+  label: 'QM Metric Tool',
+  heading: 'QM Metric Tool',
   description:
     'Quality assurance of every product: the results of its tests, its code quality and its defects, with their trends in Grafana from InfluxDB.',
 };
 
 export const AGILE_MATURITY: OneViewSection = {
   path: '/agile',
-  label: 'Agile Maturity',
-  heading: 'Agile Maturity',
+  label: 'Agile Assessment & Adoption',
+  heading: 'Agile Assessment & Adoption',
   description:
     'How mature the agile way of working of every business service and its teams is, and how it changes over time.',
 };
 
-export const DEVSECOPS: OneViewArea = { key: 'devsecops', label: 'DevSecOps', sections: SECTIONS };
-export const QA: OneViewArea = { key: 'qa', label: 'QA', sections: [QA_METRICS] };
-export const AGILE: OneViewArea = { key: 'agile', label: 'Agile', sections: [AGILE_MATURITY] };
+export const LANDING: OneViewSection = {
+  path: '/',
+  label: 'Main Landing Page',
+  heading: 'ITSS COE OneView',
+  description:
+    'One view of the ITSS COE tools at BBH. Choose where you want to go: DevSecOps, the QM Metric Tool or Agile Assessment & Adoption.',
+};
+
+export const DEVSECOPS: OneViewArea = {
+  key: 'devsecops',
+  label: 'DevSecOps',
+  path: MONITORING.path,
+  description:
+    'The automated build, test and security pipelines of every product: set them up in Self-service, follow their runs in Pipeline Monitoring and see the OWASP SAMM maturity of every business service.',
+  sections: SECTIONS,
+};
+export const QA: OneViewArea = {
+  key: 'qa',
+  label: QA_METRICS.label,
+  path: QA_METRICS.path,
+  description: QA_METRICS.description,
+  sections: [QA_METRICS],
+};
+export const AGILE: OneViewArea = {
+  key: 'agile',
+  label: AGILE_MATURITY.label,
+  path: AGILE_MATURITY.path,
+  description: AGILE_MATURITY.description,
+  sections: [AGILE_MATURITY],
+};
 
 export const AREAS: readonly OneViewArea[] = [DEVSECOPS, QA, AGILE];
 
