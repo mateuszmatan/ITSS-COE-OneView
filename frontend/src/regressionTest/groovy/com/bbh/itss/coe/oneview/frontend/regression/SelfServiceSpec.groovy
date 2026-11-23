@@ -125,7 +125,7 @@ class SelfServiceSpec extends EditorSpecification {
         assertThat(page.locator('.jenkinsfile .code-block')).hasText(store.services.collect { service ->
             "@Library('DevSecOpsJenkinsLibrary') _ devSecOpsSecurityPipeline(pipelineKey: '${store.generatedKeys[service.serviceName]}')".toString()
         } as String[])
-        assertThat(link('Open Trade Archive in DevSecOps Admin', true)).hasAttribute('href', '/admin/products/3')
+        assertThat(link('Open Trade Archive in OneView Admin', true)).hasAttribute('href', '/admin/products/3')
 
         when:
         button('Copy the Jenkinsfile of archive-api', true).click()

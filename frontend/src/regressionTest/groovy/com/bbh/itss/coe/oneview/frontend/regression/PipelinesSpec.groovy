@@ -16,7 +16,7 @@ class PipelinesSpec extends OvSpecification {
     static final String API_FULL_KEY = 'c44f8956-8e07-4ac8-b801-d6a1222a9c1f'
     static final String REGENERATED_KEY = '3f9d2c4e-8a1b-4c7d-9e2f-5b6a7c8d1e04'
 
-    def "a developer picks the department and filters and sorts its pipelines in the table header"() {
+    def "a developer picks the business service above the page and filters and sorts its pipelines in the table header"() {
         when:
         open('/monitoring')
         menuLink('Pipelines').click()
@@ -26,16 +26,19 @@ class PipelinesSpec extends OvSpecification {
         assertThat(page.locator('h1')).hasText('DevSecOps Pipelines')
         assertThat(page.locator('.page-header .page-description'))
                 .hasText('Every automated build, test and security pipeline of your business service\'s products. Open one to see its key, its Jenkinsfile and its latest runs.')
-        assertThat(page.locator('.empty-state h3')).hasText('Choose your business service to see its pipelines')
-        assertThat(page.locator('.toolbar ov-hint')).hasText('Only the pipelines of this business service are listed. This browser remembers your choice.')
-        api.requests('GET', '/api/pipelines').isEmpty()
+        assertThat(page.locator('.list h2')).hasText('Pipelines of every business service')
+        assertThat(column('service')).hasText(['gui', 'gui', 'backend-api', 'gateway', 'gateway', 'gateway', 'ledger',
+                                               'notifications', 'mobile-app'] as String[])
+        assertThat(page.locator('.list .shown')).hasText('9 pipelines')
+        awaitRequest('GET', '/api/pipelines').params() == [:]
+        assertThat(selected(contextBar(), 'Business service')).hasText('All business services')
 
         when:
-        choose(page.locator('.toolbar'), 'Your business service', 'Fund Services')
+        chooseBusinessService('Fund Services')
 
         then:
         assertThat(column('service')).hasText(['gateway', 'gateway', 'gateway', 'ledger', 'notifications', 'mobile-app'] as String[])
-        awaitRequest('GET', '/api/pipelines').params() == [departmentId: '5']
+        awaitRequest('GET', '/api/pipelines', 2).params() == [departmentId: '5']
         assertThat(gridHeaders()).hasText(['Service', 'Product', 'Type', 'Jenkins job', 'Pipeline key', 'Last run', 'Finished', ''] as String[])
         assertThat(page.locator('.list h2')).hasText('Pipelines of Fund Services')
         assertThat(column('key')).hasText(['50b4ada7…108f', '9e9f17e8…4790', '5a07b656…5627', 'fa529f98…a726',
@@ -92,14 +95,25 @@ class PipelinesSpec extends OvSpecification {
         open('/pipelines')
 
         then:
-        assertThat(select(page.locator('.toolbar'), 'Your business service').locator('option:checked')).hasText('Fund Services')
+        assertThat(selected(contextBar(), 'Business service')).hasText('Fund Services')
         assertThat(column('service')).hasCount(6)
 
+        when: 'one application is chosen, with the business service it belongs to'
+        chooseBusinessService('All business services')
+        chooseApplication('CertScanner')
+
+        then:
+        assertThat(page.locator('.list h2')).hasText('Pipelines of CertScanner')
+        assertThat(column('service')).hasText(['gui', 'gui', 'backend-api'] as String[])
+        assertThat(selected(contextBar(), 'Business service')).hasText('Corporate Technology')
+        assertThat(contextBar().locator('.context-summary')).hasText('Showing CertScanner (CERTSCANNER) of Corporate Technology')
+
         when:
-        choose(page.locator('.toolbar'), 'Your business service', 'Custody')
+        chooseBusinessService('Custody')
 
         then:
         assertThat(page.locator('.empty-state h3')).hasText('No pipelines in Custody yet')
+        assertThat(selected(contextBar(), 'Application')).hasText('All applications of Custody')
         assertThat(link('Set up pipelines in Self-service', true)).hasCount(2)
         assertThat(page.locator('.empty-state a')).hasAttribute('href', '/self-service')
         ownErrors().isEmpty()

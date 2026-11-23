@@ -16,13 +16,18 @@ class GuiSmokeSpec extends OvSpecification {
              description: 'Set up the DevSecOps pipelines of your product, or change them, in five guided steps. No DevSecOps knowledge needed.'],
             [label      : 'Pipeline Monitoring', heading: 'DevSecOps Pipeline Monitoring', path: '/monitoring',
              description: 'How the pipelines of every product are doing: whether their latest runs passed, and how often and how safely changes reach production.'],
-            [label      : 'Action history', heading: 'DevSecOps Action History', path: '/history',
-             description: 'History and audit log of all operations in the portal: who, when, what was done and the result.'],
-            [label      : 'Admin', heading: 'DevSecOps Admin', path: '/admin/products',
-             description: 'Set up the portal for everyone: business services, products and their services, what a new service gets, and the settings every pipeline shares.']]
+            [label      : 'OWASP SAMM', heading: 'DevSecOps OWASP SAMM', path: '/samm',
+             description: 'Software Assurance Maturity Model (OWASP SAMM v2.0) across BBH applications and business services. Continuous security posture scoring derived from pipeline health and verification gates.']]
 
-    static final Map<String, String> ADMIN_TABS = ['Business Services': '/admin/departments', Products: '/admin/products',
-                                                   'Service template' : '/admin/template', 'Library defaults': '/admin/settings']
+    static final List<Map<String, String>> TOOL_SECTIONS = [
+            [label      : 'Action history', heading: 'OneView Action History', path: '/history',
+             description: 'History and audit log of all operations in OneView, in every area: who, when, what was done and the result.'],
+            [label      : 'Admin', heading: 'OneView Admin', path: '/admin/products',
+             description: 'Set up OneView for everyone: business services and their applications, what a new DevSecOps service gets and the settings every pipeline shares, the quality targets of the QM Metric Tool and the agile teams and their assessments.']]
+
+    static final Map<String, String> ADMIN_TABS = ['Business Services'       : '/admin/departments', Products: '/admin/products',
+                                                   'Service template'        : '/admin/template', 'Library defaults': '/admin/settings',
+                                                   'Applications and targets': '/admin/qa', 'Teams and assessments': '/admin/agile']
 
     static final String REGENERATED_KEY = '3f9d2c4e-8a1b-4c7d-9e2f-5b6a7c8d1e04'
 
@@ -30,17 +35,26 @@ class GuiSmokeSpec extends OvSpecification {
 
     static final String CORPORATE_TECHNOLOGY = "localStorage.setItem('oneview.department', '3')"
 
-    def "the portal shows its title, only the DevSecOps sections in its menu and the footer"() {
+    def "the portal shows its title, the areas in its side menu, the DevSecOps sections at the top and the footer"() {
+        when:
+        open('/monitoring')
+
+        then:
+        assertThat(page.locator('header .brand-name')).hasText('BBH ITSS COE OneView')
+        assertThat(sideLinks()).hasText(SIDE_MENU as String[])
+        assertThat(page.locator('nav.sidebar a.active')).hasText('DevSecOps')
+        assertThat(menuLinks()).hasText(MENU as String[])
+        assertThat(activeMenuLink()).hasText('Pipeline Monitoring')
+        !page.locator('header.topbar').textContent().contains('Beadle')
+        (SECTIONS + TOOL_SECTIONS).every { section -> !page.locator('header.topbar').textContent().contains(section.description) }
+        assertThat(page.locator('footer')).containsText('BBH 2026')
+
         when:
         open('/admin/products')
 
         then:
-        assertThat(page.locator('header .brand-name')).hasText('BBH ITSS COE OneView')
-        assertThat(menuLinks()).hasText(MENU as String[])
-        assertThat(activeMenuLink()).hasText('Admin')
-        !page.locator('header.topbar').textContent().contains('Beadle')
-        SECTIONS.every { section -> !page.locator('header.topbar').textContent().contains(section.description) }
-        assertThat(page.locator('footer')).containsText('BBH 2026')
+        assertThat(page.locator('nav.sidebar a.active')).hasText('Admin')
+        assertThat(menuLinks()).hasCount(0)
         ownErrors().isEmpty()
     }
 
@@ -67,6 +81,17 @@ class GuiSmokeSpec extends OvSpecification {
             page.waitForURL("**${section.path}")
             assertThat(page.locator('h1')).hasText(section.heading)
             assertThat(page.locator('.page-header .page-description')).hasText(section.description)
+            assertThat(activeMenuLink()).hasText(section.label)
+            true
+        }
+
+        and:
+        TOOL_SECTIONS.every { section ->
+            sideLink(section.label).click()
+            page.waitForURL("**${section.path}")
+            assertThat(page.locator('h1')).hasText(section.heading)
+            assertThat(page.locator('.page-header .page-description')).hasText(section.description)
+            assertThat(page.locator('nav.sidebar a.active')).hasText(section.label)
             true
         }
 
@@ -76,7 +101,7 @@ class GuiSmokeSpec extends OvSpecification {
         ADMIN_TABS.every { label, path ->
             tab(label).click()
             page.waitForURL("**$path")
-            assertThat(page.locator('h1')).hasText('DevSecOps Admin')
+            assertThat(page.locator('h1')).hasText('OneView Admin')
             assertThat(page.locator('nav.tab-bar a.active')).hasText(label)
             assertThat(tab(label)).hasAttribute('aria-current', 'page')
             true
@@ -92,7 +117,11 @@ class GuiSmokeSpec extends OvSpecification {
         expect:
         [['/pipelines', 'DevSecOps Pipelines'],
          ['/pipelines/1', 'Full pipeline'],
-         ['/history', 'DevSecOps Action History'],
+         ['/history', 'OneView Action History'],
+         ['/qa', 'QM Metric Tool'],
+         ['/agile', 'Agile Assessment & Adoption'],
+         ['/admin/qa', 'OneView Admin'],
+         ['/admin/agile', 'OneView Admin'],
          ['/admin/products/1', 'CertScanner'],
          ['/monitoring/products/1', 'CertScanner'],
          ['/monitoring/pipelines/1', 'Full pipeline']].every { List<String> pair ->
@@ -105,7 +134,7 @@ class GuiSmokeSpec extends OvSpecification {
 
         and:
         page.setViewportSize(800, 900)
-        ['/', '/pipelines', '/self-service', '/monitoring', '/admin/products'].every { String path ->
+        ['/', '/pipelines', '/self-service', '/monitoring', '/qa', '/agile', '/admin/products', '/admin/qa', '/admin/agile'].every { String path ->
             open(path)
             assert (page.evaluate('() => document.documentElement.scrollWidth - document.documentElement.clientWidth') as int) == 0
             true
@@ -210,7 +239,7 @@ class GuiSmokeSpec extends OvSpecification {
         assertThat(page.locator('h1')).hasText('ITSS COE OneView')
         assertThat(sideLinks()).hasText(SIDE_MENU as String[])
         assertThat(page.locator('nav.sidebar a.active')).hasText('Main Landing Page')
-        assertThat(page.locator('a.area-card h2')).hasText(SIDE_MENU.drop(1) as String[])
+        assertThat(page.locator('a.area-card h2')).hasText(AREAS as String[])
         assertThat(menuLinks()).hasCount(0)
         assertThat(page.locator('header nav.areas')).hasCount(0)
 

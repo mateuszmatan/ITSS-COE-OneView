@@ -45,8 +45,9 @@ public class PipelineController {
     private final ActionRecorder actions;
 
     @GetMapping("/pipelines")
-    public DepartmentPipelinesResponse listForDepartment(@RequestParam long departmentId) {
-        DepartmentPipelines found = monitoring.department(departmentId);
+    public DepartmentPipelinesResponse listForDepartment(@RequestParam(required = false) Long departmentId) {
+        DepartmentPipelines found = departmentId == null ? monitoring.everyPipeline()
+                : monitoring.department(departmentId);
         return new DepartmentPipelinesResponse(found.pipelines().stream().map(PipelineHealthResponse::of).toList(),
                 found.metricsError());
     }
@@ -106,7 +107,8 @@ public class PipelineController {
     }
 
     private static ActionRecord described(ActionRecord action, Product product, Service service, PipelineType type) {
-        return action.withResourceName(service.name() + " · " + type.label()).withDepartmentId(product.departmentId());
+        return action.withResourceName(service.name() + " · " + type.label()).withDepartmentId(product.departmentId())
+                .withProductId(product.id());
     }
 
     public record DepartmentPipelinesResponse(List<PipelineHealthResponse> pipelines, String metricsError) {

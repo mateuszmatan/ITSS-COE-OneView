@@ -8,6 +8,8 @@ export interface OneViewSection {
 export interface OneViewTab {
   path: string;
   label: string;
+  /** The area or part the tab belongs to; tabs next to each other with the same group are shown under it. */
+  group?: string;
 }
 
 export interface AdminArea {

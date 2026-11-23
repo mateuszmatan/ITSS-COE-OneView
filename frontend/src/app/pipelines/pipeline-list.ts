@@ -1,9 +1,9 @@
 import { ChangeDetectionStrategy, Component, computed, inject } from '@angular/core';
-import { rxResource, takeUntilDestroyed, toSignal } from '@angular/core/rxjs-interop';
-import { FormControl, FormGroup, ReactiveFormsModule } from '@angular/forms';
+import { rxResource, toSignal } from '@angular/core/rxjs-interop';
+import { FormControl, FormGroup } from '@angular/forms';
 import { Router, RouterLink } from '@angular/router';
 import { map } from 'rxjs';
-import { MyDepartment } from '@common/departments/my-department';
+import { OneViewContext } from '@common/context/oneview-context';
 import { PipelinesApi } from '../core/api';
 import {
   PIPELINE_TYPES,
@@ -19,13 +19,11 @@ import { MetricsBanner } from '../monitoring/metrics-banner';
 import { text } from '@common/shared/form-controls';
 import { Option, counted, formatRelative } from '@common/shared/formatting';
 import { RUN_LOOK, StatusChip } from '../shared/status-chip';
-import { FORM_FIELD } from '@common/ui/form-field';
 import { GRID, GridColumn } from '@common/ui/grid';
 import { LoadError } from '@common/ui/load-error';
 import { OvLoading } from '@common/ui/loading';
 import { PipelineActions } from './pipeline-actions';
 import { KEY_MEANING } from './pipeline-texts';
-import { DepartmentsApi } from '@common/core/api';
 
 export type KeyFilter = 'ALL' | 'ACTIVE' | 'INVALIDATED';
 
@@ -76,16 +74,7 @@ export function matches(row: PipelineHealth, filters: PipelineFilters): boolean 
 
 @Component({
   selector: 'ov-pipeline-list',
-  imports: [
-    ReactiveFormsModule,
-    RouterLink,
-    FORM_FIELD,
-    GRID,
-    OvLoading,
-    LoadError,
-    MetricsBanner,
-    StatusChip,
-  ],
+  imports: [RouterLink, GRID, OvLoading, LoadError, MetricsBanner, StatusChip],
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
     <div class="page">
@@ -100,132 +89,90 @@ export function matches(row: PipelineHealth, filters: PipelineFilters): boolean 
           >
         </div>
       </header>
-      <section class="card toolbar">
-        <ov-form-field
-          class="department"
-          help="The business service whose pipelines you look after. Self-service preselects it for a new product."
-        >
-          <ov-label>Your business service</ov-label>
-          <select ovInput [formControl]="department">
-            <option [ngValue]="null" disabled>Choose your business service</option>
-            @for (department of departmentList(); track department.id) {
-              <option [ngValue]="department.id">{{ department.name }}</option>
-            }
-          </select>
-          <ov-hint
-            >Only the pipelines of this business service are listed. This browser remembers your
-            choice.</ov-hint
-          >
-        </ov-form-field>
-      </section>
-      @if (departments.error(); as error) {
-        <ov-load-error
-          what="The business services"
-          [error]="error"
-          (retry)="departments.reload()"
-        />
+      @if (pipelines.isLoading()) {
+        <ov-loading />
       }
-      @if (departmentId() === null) {
-        <section class="card empty-state">
-          <h3>Choose your business service to see its pipelines</h3>
-          <p>Pick it under Your business service above.</p>
-        </section>
-      } @else {
-        @if (pipelines.isLoading()) {
-          <ov-loading />
-        }
-        @if (pipelines.error(); as error) {
-          <ov-load-error what="The pipelines" [error]="error" (retry)="pipelines.reload()" />
-        }
-        @if (pipelines.hasValue()) {
-          <ov-metrics-banner [metricsError]="pipelines.value().metricsError" />
-          @if (all().length) {
-            <section class="card list">
-              <header class="card-header">
-                <h2>Pipelines of {{ departmentName() }}</h2>
-                <span class="muted shown">{{ shown() }}</span>
-              </header>
-              <p class="section-help">
-                Pipeline key: {{ keyMeaning }}. Only its first and last characters are shown here;
-                Invalidated means the pipeline is refused its settings until a new key is issued.
-              </p>
-              <ov-grid
-                label="Pipelines"
-                empty="No pipeline matches the filters."
-                [rows]="rows()"
-                [columns]="columns"
-                [rowId]="rowId"
-                [rowClass]="rowClass"
-                (rowClick)="open($event.pipeline)"
-              >
-                <ng-template ovCell="service" let-row>
-                  <a class="mono quiet-link" [routerLink]="pipelineLink(row.pipeline.id)">{{
-                    row.pipeline.serviceName
-                  }}</a>
-                </ng-template>
-                <ng-template ovCell="product" let-row>
-                  {{ row.pipeline.productName }}
-                  <span class="muted mono">{{ row.pipeline.productCode }}</span>
-                </ng-template>
-                <ng-template ovCell="key" let-row>
-                  @if (row.pipeline.activeKey; as key) {
-                    <span class="mono">{{ key.hint }}</span>
-                  } @else {
-                    <span class="chip danger">Invalidated</span>
-                  }
-                </ng-template>
-                <ng-template ovCell="status" let-row>
-                  <ov-status-chip [status]="row.status" />
-                </ng-template>
-                <ng-template ovCell="actions" let-row>
-                  <div class="row-actions">
-                    <button
-                      type="button"
-                      class="btn btn-link"
-                      [attr.aria-label]="'Configure service of ' + label(row.pipeline)"
-                      (click)="editService(row.pipeline)"
-                    >
-                      Configure service
-                    </button>
-                    <button
-                      type="button"
-                      class="btn btn-link"
-                      [attr.aria-label]="'Edit the settings of ' + label(row.pipeline)"
-                      (click)="edit(row.pipeline)"
-                    >
-                      Edit settings
-                    </button>
-                  </div>
-                </ng-template>
-              </ov-grid>
-            </section>
-          } @else {
-            <div class="card empty-state">
-              <h3>No pipelines in {{ departmentName() }} yet</h3>
-              <p>
-                Self-service sets up the pipelines of a product in a few guided steps and gives each
-                service its pipeline key and its Jenkinsfile.
-              </p>
-              <a class="btn btn-primary" [routerLink]="selfService.path"
-                >Set up pipelines in Self-service</a
-              >
-            </div>
-          }
+      @if (pipelines.error(); as error) {
+        <ov-load-error what="The pipelines" [error]="error" (retry)="pipelines.reload()" />
+      }
+      @if (pipelines.hasValue()) {
+        <ov-metrics-banner [metricsError]="pipelines.value().metricsError" />
+        @if (all().length) {
+          <section class="card list">
+            <header class="card-header">
+              <h2>{{ listTitle() }}</h2>
+              <span class="muted shown">{{ shown() }}</span>
+            </header>
+            <p class="section-help">
+              Pipeline key: {{ keyMeaning }}. Only its first and last characters are shown here;
+              Invalidated means the pipeline is refused its settings until a new key is issued.
+            </p>
+            <ov-grid
+              label="Pipelines"
+              empty="No pipeline matches the filters."
+              [rows]="rows()"
+              [columns]="columns"
+              [rowId]="rowId"
+              [rowClass]="rowClass"
+              (rowClick)="open($event.pipeline)"
+            >
+              <ng-template ovCell="service" let-row>
+                <a class="mono quiet-link" [routerLink]="pipelineLink(row.pipeline.id)">{{
+                  row.pipeline.serviceName
+                }}</a>
+              </ng-template>
+              <ng-template ovCell="product" let-row>
+                {{ row.pipeline.productName }}
+                <span class="muted mono">{{ row.pipeline.productCode }}</span>
+              </ng-template>
+              <ng-template ovCell="key" let-row>
+                @if (row.pipeline.activeKey; as key) {
+                  <span class="mono">{{ key.hint }}</span>
+                } @else {
+                  <span class="chip danger">Invalidated</span>
+                }
+              </ng-template>
+              <ng-template ovCell="status" let-row>
+                <ov-status-chip [status]="row.status" />
+              </ng-template>
+              <ng-template ovCell="actions" let-row>
+                <div class="row-actions">
+                  <button
+                    type="button"
+                    class="btn btn-link"
+                    [attr.aria-label]="'Configure service of ' + label(row.pipeline)"
+                    (click)="editService(row.pipeline)"
+                  >
+                    Configure service
+                  </button>
+                  <button
+                    type="button"
+                    class="btn btn-link"
+                    [attr.aria-label]="'Edit the settings of ' + label(row.pipeline)"
+                    (click)="edit(row.pipeline)"
+                  >
+                    Edit settings
+                  </button>
+                </div>
+              </ng-template>
+            </ov-grid>
+          </section>
+        } @else {
+          <div class="card empty-state">
+            <h3>No pipelines in {{ scopeName() }} yet</h3>
+            <p>
+              Self-service sets up the pipelines of a product in a few guided steps and gives each
+              service its pipeline key and its Jenkinsfile.
+            </p>
+            <a class="btn btn-primary" [routerLink]="selfService.path"
+              >Set up pipelines in Self-service</a
+            >
+          </div>
         }
       }
     </div>
   `,
   styles: `
-    .toolbar {
-      margin-bottom: 12px;
-      padding: 10px 12px;
-    }
-
-    .department select {
-      width: 280px;
-      max-width: 100%;
-    }
-
     .list {
       padding: 10px 14px 0;
     }
@@ -237,31 +184,25 @@ export function matches(row: PipelineHealth, filters: PipelineFilters): boolean 
 })
 export class PipelineList {
   private readonly api = inject(PipelinesApi);
-  private readonly departmentsApi = inject(DepartmentsApi);
   private readonly actions = inject(PipelineActions);
   private readonly router = inject(Router);
-  private readonly myDepartment = inject(MyDepartment);
+  private readonly context = inject(OneViewContext);
 
   protected readonly section = PIPELINES;
   protected readonly selfService = SELF_SERVICE;
   protected readonly pipelineLink = pipelinePage;
   protected readonly keyMeaning = KEY_MEANING;
 
-  protected readonly departmentId = this.myDepartment.departmentId;
-  protected readonly department = new FormControl(this.departmentId());
-  protected readonly departments = rxResource({ stream: () => this.departmentsApi.list() });
-  protected readonly departmentList = computed(() =>
-    this.departments.hasValue() ? this.departments.value() : [],
-  );
-  protected readonly departmentName = computed(
-    () =>
-      this.departmentList().find((department) => department.id === this.departmentId())?.name ??
-      'your business service',
+  protected readonly scopeName = this.context.scopeName;
+  protected readonly listTitle = computed(() =>
+    this.context.level() === 'bbh'
+      ? 'Pipelines of every business service'
+      : `Pipelines of ${this.context.scopeName()}`,
   );
 
   protected readonly pipelines = rxResource({
-    params: () => this.departmentId() ?? undefined,
-    stream: ({ params }) => this.api.listForDepartment(params),
+    params: () => ({ departmentId: this.context.departmentId() }),
+    stream: ({ params }) => this.api.listForDepartment(params.departmentId),
   });
 
   protected readonly filters = new FormGroup({
@@ -339,9 +280,13 @@ export class PipelineList {
     { key: 'actions', header: '', width: 250 },
   ];
 
-  protected readonly all = computed(() =>
-    this.pipelines.hasValue() ? this.pipelines.value().pipelines : [],
-  );
+  protected readonly all = computed(() => {
+    const productId = this.context.productId();
+    const listed = this.pipelines.hasValue() ? this.pipelines.value().pipelines : [];
+    return productId === null
+      ? listed
+      : listed.filter((row) => row.pipeline.productId === productId);
+  });
   protected readonly rows = computed(() =>
     this.all().filter((row) => matches(row, this.filterValue())),
   );
@@ -351,9 +296,7 @@ export class PipelineList {
   });
 
   constructor() {
-    this.department.valueChanges
-      .pipe(takeUntilDestroyed())
-      .subscribe((id) => this.myDepartment.choose(id));
+    this.context.ensureLoaded();
   }
 
   protected label(pipeline: Pipeline): string {

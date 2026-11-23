@@ -5,6 +5,7 @@ import { FormControl, FormGroup, ReactiveFormsModule } from '@angular/forms';
 import { ActionHistoryApi } from '../core/api';
 import { ActionLog } from '../core/models';
 import { ACTION_HISTORY } from '../core/sections';
+import { OneViewContext } from '@common/context/oneview-context';
 import { text } from '@common/shared/form-controls';
 import { Option, counted, labelOf } from '@common/shared/formatting';
 import { FORM_FIELD } from '@common/ui/form-field';
@@ -27,6 +28,11 @@ export const ACTION_OPTIONS: Option<string>[] = [
   { value: 'DELETE_DEPARTMENT', label: 'Delete business service' },
   { value: 'UPDATE_SERVICE_TEMPLATE', label: 'Update service template' },
   { value: 'UPDATE_GLOBAL_SETTINGS', label: 'Update library defaults' },
+  { value: 'UPDATE_QA_DEFAULTS', label: 'Update BBH quality targets' },
+  { value: 'UPDATE_QA_APPLICATION', label: 'Update QM Metric Tool application' },
+  { value: 'UPDATE_AGILE_APPLICATION', label: 'Update agile team' },
+  { value: 'RECORD_AGILE_ASSESSMENT', label: 'Record agile assessment' },
+  { value: 'DELETE_AGILE_ASSESSMENT', label: 'Delete agile assessment' },
   { value: 'INITIALIZE_PORTAL', label: 'Initialize portal' },
 ];
 
@@ -37,8 +43,33 @@ export const RESOURCE_OPTIONS: Option<string>[] = [
   { value: 'PIPELINE_KEY', label: 'Pipeline key' },
   { value: 'DEPARTMENT', label: 'Business service' },
   { value: 'SETTINGS', label: 'Settings' },
+  { value: 'QA_SETTINGS', label: 'Quality targets' },
+  { value: 'QA_APPLICATION', label: 'QM Metric Tool application' },
+  { value: 'AGILE_APPLICATION', label: 'Agile team' },
+  { value: 'AGILE_ASSESSMENT', label: 'Agile assessment' },
   { value: 'PORTAL', label: 'Portal' },
 ];
+
+/**
+ * Whether an action was on the chosen application, or on an application or the chosen business service itself.
+ * Entries from before the history kept the business service by its ID are matched by its name.
+ */
+export function actionInScope(
+  row: ActionLog,
+  departmentId: number | null,
+  productId: number | null,
+  departmentName: string | null,
+): boolean {
+  if (productId !== null) {
+    return row.productId === productId;
+  }
+  if (departmentId === null) {
+    return true;
+  }
+  return row.departmentId != null
+    ? row.departmentId === departmentId
+    : departmentName !== null && row.departmentName === departmentName;
+}
 
 export const STATUS_OPTIONS: Option<string>[] = [
   { value: 'ALL', label: 'All statuses' },
@@ -69,7 +100,12 @@ export const STATUS_OPTIONS: Option<string>[] = [
             help="Shows the actions whose user, e-mail address, business service, action, resource name or details contain this text, in any letter case."
           >
             <ov-label>Search</ov-label>
-            <input ovInput formControlName="search" placeholder="User, resource, details..." autocomplete="off" />
+            <input
+              ovInput
+              formControlName="search"
+              placeholder="User, resource, details..."
+              autocomplete="off"
+            />
           </ov-form-field>
 
           <ov-form-field
@@ -118,7 +154,7 @@ export const STATUS_OPTIONS: Option<string>[] = [
         @if (all().length) {
           <section class="card list">
             <header class="card-header">
-              <h2>Actions</h2>
+              <h2>{{ listTitle() }}</h2>
               <span class="muted shown">{{ shown() }}</span>
             </header>
             <ov-grid
@@ -132,21 +168,33 @@ export const STATUS_OPTIONS: Option<string>[] = [
                 <span class="time-cell">{{ row.createdAt | date: 'd MMM y, HH:mm:ss' }}</span>
               </ng-template>
               <ng-template ovCell="user" let-row>
-                <strong [title]="row.userEmail ?? ''">{{ row.userDisplayName || row.username }}</strong>
+                <strong [title]="row.userEmail ?? ''">{{
+                  row.userDisplayName || row.username
+                }}</strong>
               </ng-template>
               <ng-template ovCell="resource" let-row>
                 <span class="resource-type">{{ resourceLabel(row) }}</span>
                 {{ row.resourceName || '–' }}
               </ng-template>
               <ng-template ovCell="status" let-row>
-                <span class="status" [class.failure]="row.status !== 'SUCCESS'">{{ statusLabel(row) }}</span>
+                <span class="status" [class.failure]="row.status !== 'SUCCESS'">{{
+                  statusLabel(row)
+                }}</span>
               </ng-template>
             </ov-grid>
           </section>
         } @else {
           <div class="card empty-state">
-            <h3>No action history entries</h3>
-            <p>All user actions on products, services, pipelines and keys will be recorded here.</p>
+            @if (level() === 'bbh') {
+              <h3>No action history entries</h3>
+              <p>
+                All user actions on products, services, pipelines and keys, quality targets and
+                agile assessments will be recorded here.
+              </p>
+            } @else {
+              <h3>No actions on {{ scopeName() }} yet</h3>
+              <p>Choose All business services above to see every action in OneView.</p>
+            }
           </div>
         }
       }
@@ -203,6 +251,7 @@ export const STATUS_OPTIONS: Option<string>[] = [
 })
 export class ActionHistoryPage {
   private readonly api = inject(ActionHistoryApi);
+  private readonly context = inject(OneViewContext);
 
   protected readonly section = ACTION_HISTORY;
   protected readonly actionOptions = ACTION_OPTIONS;
@@ -272,12 +321,27 @@ export class ActionHistoryPage {
   ];
 
   protected readonly rowId = (row: ActionLog) => String(row.id);
-  protected readonly resourceLabel = (row: ActionLog) => labelOf(RESOURCE_OPTIONS, row.resourceType);
+  protected readonly resourceLabel = (row: ActionLog) =>
+    labelOf(RESOURCE_OPTIONS, row.resourceType);
   protected readonly statusLabel = (row: ActionLog) => labelOf(STATUS_OPTIONS, row.status);
 
-  protected readonly all = computed(() =>
-    this.logsResource.hasValue() ? this.logsResource.value() : [],
+  protected readonly level = this.context.level;
+  protected readonly scopeName = this.context.scopeName;
+  protected readonly listTitle = computed(() =>
+    this.level() === 'bbh' ? 'Actions' : `Actions on ${this.scopeName()}`,
   );
+
+  /** The actions on what is chosen: an application, a business service or the whole of BBH. */
+  protected readonly all = computed(() => {
+    const { departmentId, productId } = this.context.scope();
+    const departmentName = this.context.department()?.name ?? null;
+    const logs = this.logsResource.hasValue() ? this.logsResource.value() : [];
+    return logs.filter((row) => actionInScope(row, departmentId, productId, departmentName));
+  });
+
+  constructor() {
+    this.context.ensureLoaded();
+  }
 
   protected readonly filteredRows = computed(() => {
     const all = this.all();

@@ -130,11 +130,29 @@ class OneViewSmokeSpec extends Specification {
         activity.json.dora.daily.size() == 30
     }
 
+    def "the QM Metric Tool and Agile Assessment & Adoption answer for every application"() {
+        when:
+        def defaults = api.get('/api/qa/defaults')
+        def quality = api.get('/api/qa/applications')
+        def model = api.get('/api/agile/model')
+        def agile = api.get('/api/agile/applications')
+
+        then:
+        defaults.status == 200
+        defaults.json.targets.keySet() == ['coveragePercent', 'passRatePercent', 'maxCriticalDefects'] as Set
+        quality.status == 200
+        quality.json instanceof List
+        model.status == 200
+        model.json.dimensions.size() == 5
+        agile.status == 200
+        agile.json*.productId as Set == quality.json*.productId as Set
+    }
+
     @Requires({ OneViewSmokeSpec.uiExpected() })
     def "the web UI is served, also for links into the app"() {
         expect:
-        ['/', '/pipelines', '/self-service', '/monitoring', '/admin/departments', '/admin/products',
-         '/admin/template', '/admin/settings', '/history'].every { path ->
+        ['/', '/pipelines', '/self-service', '/monitoring', '/samm', '/qa', '/agile', '/admin/departments',
+         '/admin/products', '/admin/template', '/admin/settings', '/admin/qa', '/admin/agile', '/history'].every { path ->
             def page = api.get(path)
             assert page.status == 200: "$path: $page.status"
             assert page.header('Content-Type').startsWith('text/html')

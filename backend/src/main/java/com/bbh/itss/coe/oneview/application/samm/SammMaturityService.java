@@ -45,6 +45,17 @@ public class SammMaturityService implements GetSammMaturityUseCase {
     @Override
     @ReadOnly
     public SammOrganizationOverview overview() {
+        return overview(null, null);
+    }
+
+    /**
+     * The overview of one business service or one application (product) when it is given: the scores of its
+     * applications, and of the business service itself. An application shows no business service score, which would
+     * otherwise stand for the whole business service.
+     */
+    @Override
+    @ReadOnly
+    public SammOrganizationOverview overview(Long departmentId, Long productId) {
         Instant now = clock.instant();
         MonitoringTargets targets = monitoringTargets.everything();
         List<Department> allDepts = departments.findAll();
@@ -57,6 +68,9 @@ public class SammMaturityService implements GetSammMaturityUseCase {
 
         List<SammApplicationScore> appScores = new ArrayList<>();
         for (PipelineView view : targets.pipelines()) {
+            if (!within(view, departmentId, productId)) {
+                continue;
+            }
             PipelineRun run = latestRuns.of(view.metricsTag(), view.pipeline());
             PipelineReport report = reports.findLatestByPipelineId(view.pipeline().id()).orElse(null);
             Department dept = deptMap.get(view.product().details().departmentId());
@@ -71,11 +85,17 @@ public class SammMaturityService implements GetSammMaturityUseCase {
                 .collect(groupingBy(SammApplicationScore::departmentId));
 
         List<SammDepartmentScore> deptScores = allDepts.stream()
+                .filter(dept -> productId == null && (departmentId == null || dept.id().equals(departmentId)))
                 .sorted(comparing(Department::name, CASE_INSENSITIVE_ORDER))
                 .map(dept -> SammCalculator.evaluateDepartment(dept, appsByDept.getOrDefault(dept.id(), List.of())))
                 .toList();
 
         return SammCalculator.evaluateOrganization(deptScores, appScores, now);
+    }
+
+    private static boolean within(PipelineView view, Long departmentId, Long productId) {
+        return (departmentId == null || departmentId.equals(view.product().details().departmentId()))
+                && (productId == null || productId.equals(view.product().id()));
     }
 
     @Override

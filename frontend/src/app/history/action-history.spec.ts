@@ -1,10 +1,13 @@
+import { provideHttpClient } from '@angular/common/http';
+import { provideHttpClientTesting } from '@angular/common/http/testing';
 import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { provideRouter } from '@angular/router';
+import { OneViewContext } from '@common/context/oneview-context';
 import { of } from 'rxjs';
 import { fieldOf, helpOf, unexplained } from '@common/testing/dom';
 import { ActionHistoryApi } from '../core/api';
 import { ActionLog } from '../core/models';
-import { ActionHistoryPage } from './action-history';
+import { ActionHistoryPage, actionInScope } from './action-history';
 
 const SAMPLE_LOGS: ActionLog[] = [
   {
@@ -45,7 +48,12 @@ describe('ActionHistoryPage', () => {
 
     await TestBed.configureTestingModule({
       imports: [ActionHistoryPage],
-      providers: [provideRouter([]), { provide: ActionHistoryApi, useValue: api }],
+      providers: [
+        provideRouter([]),
+        provideHttpClient(),
+        provideHttpClientTesting(),
+        { provide: ActionHistoryApi, useValue: api },
+      ],
     }).compileComponents();
 
     fixture = TestBed.createComponent(ActionHistoryPage);
@@ -79,7 +87,9 @@ describe('ActionHistoryPage', () => {
     await fixture.whenStable();
     const page = fixture.nativeElement as HTMLElement;
     const cells = (column: string) =>
-      [...page.querySelectorAll(`[col-id="${column}"].ag-cell`)].map((cell) => cell.textContent!.trim());
+      [...page.querySelectorAll(`[col-id="${column}"].ag-cell`)].map((cell) =>
+        cell.textContent!.trim(),
+      );
 
     expect(cells('action')).toEqual(['Create product', 'Invalidate key']);
     expect(cells('resource')).toEqual(['Product CertScanner', 'Pipeline key backend-api · Full']);
@@ -97,5 +107,45 @@ describe('ActionHistoryPage', () => {
     fixture.detectChanges();
     expect(component['filteredRows']().length).toBe(1);
     expect(component['filteredRows']()[0].actionType).toBe('REVOKE_KEY');
+  });
+
+  it('shows only the actions on the chosen business service or application', async () => {
+    const logs: ActionLog[] = [
+      { ...SAMPLE_LOGS[0], id: 3, departmentId: 3, productId: 11 },
+      { ...SAMPLE_LOGS[0], id: 4, departmentId: 5, departmentName: 'Fund Services', productId: 20 },
+      {
+        ...SAMPLE_LOGS[0],
+        id: 5,
+        departmentId: 3,
+        productId: null,
+        actionType: 'RENAME_DEPARTMENT',
+      },
+    ];
+    api.list.mockReturnValue(of(logs));
+    component['logsResource'].reload();
+    await fixture.whenStable();
+    const ids = () => component['all']().map((row) => row.id);
+    const context = TestBed.inject(OneViewContext);
+
+    expect(ids()).toEqual([3, 4, 5]);
+
+    context.choose(3);
+    expect(ids()).toEqual([3, 5]);
+    expect(component['listTitle']()).toBe('Actions on the chosen business service');
+
+    context.choose(3, 11);
+    expect(ids()).toEqual([3]);
+
+    context.choose(null);
+  });
+
+  it('matches older actions, kept without the ID of their business service, by its name', () => {
+    const old = { ...SAMPLE_LOGS[0], departmentId: undefined, productId: undefined };
+
+    expect(actionInScope(old, 3, null, 'Corporate Technology')).toBe(true);
+    expect(actionInScope(old, 3, null, 'Custody')).toBe(false);
+    expect(actionInScope(old, 3, null, null)).toBe(false);
+    expect(actionInScope(old, 3, 11, 'Corporate Technology')).toBe(false);
+    expect(actionInScope(old, null, null, null)).toBe(true);
   });
 });

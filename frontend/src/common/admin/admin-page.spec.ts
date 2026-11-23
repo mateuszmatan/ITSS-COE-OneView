@@ -4,7 +4,7 @@ import { Route, Router, provideRouter, withComponentInputBinding } from '@angula
 import { RouterTestingHarness } from '@angular/router/testing';
 import { AdminArea } from '../core/sections';
 import { text } from '../testing/dom';
-import { AdminPage } from './admin-page';
+import { AdminPage, tabGroups } from './admin-page';
 
 const DEVSECOPS_ADMIN: AdminArea = {
   section: {
@@ -36,6 +36,20 @@ const BEADLE_ADMINISTRATION: AdminArea = {
   ],
 };
 
+const GROUPED_ADMIN: AdminArea = {
+  section: {
+    path: '/grouped/admin',
+    label: 'Admin',
+    heading: 'Grouped Admin',
+    description: 'Tabs of several areas.',
+  },
+  tabs: [
+    { path: '/grouped/admin/departments', label: 'Business Services', group: 'Catalog' },
+    { path: '/grouped/admin/products', label: 'Products', group: 'Catalog' },
+    { path: '/grouped/admin/quality', label: 'Applications and targets', group: 'QM Metric Tool' },
+  ],
+};
+
 @Component({ template: '<p class="tab-content">{{ tab() }}</p>' })
 class TabContent {
   readonly tab = input('');
@@ -64,7 +78,11 @@ describe('AdminPage', () => {
     TestBed.configureTestingModule({
       providers: [
         provideRouter(
-          [adminRoute(DEVSECOPS_ADMIN), adminRoute(BEADLE_ADMINISTRATION)],
+          [
+            adminRoute(DEVSECOPS_ADMIN),
+            adminRoute(BEADLE_ADMINISTRATION),
+            adminRoute(GROUPED_ADMIN),
+          ],
           withComponentInputBinding(),
         ),
       ],
@@ -139,6 +157,41 @@ describe('AdminPage', () => {
     expect(current()).toEqual(['Library defaults']);
     expect(text(page().querySelector('h1'))).toBe('DevSecOps Admin');
     expect(text(page().querySelector('.tab-content'))).toBe('Library defaults');
+  });
+
+  it('shows the tabs next to each other of one group under its name', async () => {
+    await harness.navigateByUrl('/grouped/admin/quality');
+
+    const groups = [...page().querySelectorAll<HTMLElement>('nav.tab-bar .tab-group')];
+    expect(groups.map((group) => group.getAttribute('aria-label'))).toEqual([
+      'Catalog',
+      'QM Metric Tool',
+    ]);
+    expect(groups.map((group) => text(group.querySelector('.tab-group-label')))).toEqual([
+      'Catalog',
+      'QM Metric Tool',
+    ]);
+    expect([...groups[0].querySelectorAll('a')].map(text)).toEqual([
+      'Business Services',
+      'Products',
+    ]);
+    expect(active()).toEqual(['Applications and targets']);
+  });
+
+  it('keeps tabs without a group, and the same group apart when other tabs are between', () => {
+    expect(
+      tabGroups([
+        { path: '/a', label: 'A' },
+        { path: '/b', label: 'B', group: 'One' },
+        { path: '/c', label: 'C', group: 'Two' },
+        { path: '/d', label: 'D', group: 'One' },
+      ]).map((group) => [group.label, group.tabs.map((tab) => tab.label)]),
+    ).toEqual([
+      [null, ['A']],
+      ['One', ['B']],
+      ['Two', ['C']],
+      ['One', ['D']],
+    ]);
   });
 
   it('shows another admin area under its own path', async () => {

@@ -35,6 +35,13 @@
         <button type="button" class="btn btn-outline-primary" (click)="clearSearch()">
           Clear the search
         </button>
+      } @else if (level() !== 'bbh') {
+        <h3>No products in {{ scopeName() }} yet</h3>
+        <p>
+          Add its first product with its services, or choose All business services above to see
+          every product.
+        </p>
+        <a class="btn btn-primary" [routerLink]="newProduct">Add product</a>
       } @else {
         <h3>No products yet</h3>
         <p>Add the first product with its services; each new service gets its own pipeline.</p>

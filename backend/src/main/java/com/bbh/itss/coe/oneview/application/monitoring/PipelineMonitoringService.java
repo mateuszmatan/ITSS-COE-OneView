@@ -87,6 +87,14 @@ public class PipelineMonitoringService implements MonitorPipelinesUseCase {
 
     @Override
     @WithoutTransaction
+    public DepartmentPipelines everyPipeline() {
+        MonitoringTargets monitored = targets.everything();
+        MetricsReading<LatestRuns> latest = latestRuns(monitored);
+        return new DepartmentPipelines(health(monitored.pipelines(), latest.value()), latest.error());
+    }
+
+    @Override
+    @WithoutTransaction
     public ProductMonitoring product(long productId) {
         MonitoringTargets monitored = targets.ofProduct(productId);
         MetricsReading<LatestRuns> latest = latestRuns(monitored);
@@ -130,8 +138,15 @@ public class PipelineMonitoringService implements MonitorPipelinesUseCase {
     @Override
     @WithoutTransaction
     public PortfolioActivity activity(String range) {
+        return activity(range, null, null);
+    }
+
+    @Override
+    @WithoutTransaction
+    public PortfolioActivity activity(String range, Long departmentId, Long productId) {
         int days = MonitoringRange.parse(range).days();
-        MonitoringTargets monitored = targets.everything();
+        MonitoringTargets monitored = productId != null ? targets.ofProduct(productId)
+                : departmentId != null ? targets.ofDepartment(departmentId) : targets.everything();
         MetricsReading<Map<MetricsTag, List<DoraPoint>>> points =
                 MetricsReading.of(() -> runs.doraPoints(monitored.platform(), monitored.tags(), null, days), Map.of());
         return new PortfolioActivity(monitored.pipelines().size(),

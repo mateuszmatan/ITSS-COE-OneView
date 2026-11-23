@@ -19,6 +19,7 @@ import { DoraTiles } from './dora-tiles';
 import { MetricsBanner } from './metrics-banner';
 import { STATUS_ORDER, StatusBar } from './status-bar';
 import { DepartmentsApi } from '@common/core/api';
+import { OneViewContext } from '@common/context/oneview-context';
 
 const ACTIVITY_RANGE = '30d';
 
@@ -46,6 +47,7 @@ const ACTIVITY_RANGE = '30d';
 export class MonitoringOverview {
   private readonly api = inject(MonitoringApi);
   private readonly departmentsApi = inject(DepartmentsApi);
+  private readonly context = inject(OneViewContext);
 
   protected readonly section = MONITORING;
   protected readonly newProduct = `${ADMIN_PRODUCTS.path}/new`;
@@ -53,7 +55,29 @@ export class MonitoringOverview {
   protected readonly status = rxResource({ stream: () => this.api.status() });
   protected readonly overview = rxResource({ stream: () => this.api.overview() });
   protected readonly departments = rxResource({ stream: () => this.departmentsApi.list() });
-  protected readonly activity = rxResource({ stream: () => this.api.activity(ACTIVITY_RANGE) });
+  protected readonly activity = rxResource({
+    params: () => this.context.scope(),
+    stream: ({ params }) => this.api.activity(ACTIVITY_RANGE, params),
+  });
+  protected readonly level = this.context.level;
+  protected readonly scopeName = computed(() => {
+    const { departmentId, productId } = this.context.scope();
+    if (productId !== null) {
+      const products = this.overview.hasValue() ? this.overview.value().products : [];
+      return (
+        products.find((product) => product.productId === productId)?.name ??
+        this.context.scopeName()
+      );
+    }
+    if (departmentId !== null) {
+      const departments = this.departments.hasValue() ? this.departments.value() : [];
+      return (
+        departments.find((department) => department.id === departmentId)?.name ??
+        this.context.scopeName()
+      );
+    }
+    return 'BBH';
+  });
 
   protected readonly search = new FormControl('', { nonNullable: true });
   private readonly query = toSignal(
@@ -63,20 +87,26 @@ export class MonitoringOverview {
     },
   );
 
+  /** The products of the chosen business service or application, or every product. */
+  protected readonly scoped = computed(() =>
+    this.overview.hasValue()
+      ? this.overview
+          .value()
+          .products.filter((product) =>
+            this.context.includes(product.departmentId, product.productId),
+          )
+      : [],
+  );
+
   protected readonly products = computed(() => {
-    if (!this.overview.hasValue()) {
-      return [];
-    }
     const query = this.query();
-    return this.overview
-      .value()
-      .products.filter(
-        (product) =>
-          !query ||
-          [product.name, product.code, product.ownerTeam ?? ''].some((value) =>
-            value.toLowerCase().includes(query),
-          ),
-      );
+    return this.scoped().filter(
+      (product) =>
+        !query ||
+        [product.name, product.code, product.ownerTeam ?? ''].some((value) =>
+          value.toLowerCase().includes(query),
+        ),
+    );
   });
 
   protected readonly groups = computed(() =>
@@ -88,24 +118,26 @@ export class MonitoringOverview {
   );
 
   protected readonly departmentStatus = computed<BarRow[]>(() =>
-    this.overview.hasValue() && this.departments.hasValue()
-      ? byDepartment(this.departments.value(), this.overview.value().products).map((group) => {
-          const counts = statusTotals(group.products);
-          return {
-            label: group.name,
-            note: `${counted(pipelineCount(counts), 'pipeline')} · ${counted(group.products.length, 'product')}`,
-            segments: STATUS_ORDER.map((entry) => ({
-              swatch: entry.status.toLowerCase(),
-              label: entry.label.toLowerCase(),
-              count: counts[entry.status] ?? 0,
-            })),
-          };
-        })
+    this.overview.hasValue() && this.departments.hasValue() && this.level() !== 'application'
+      ? byDepartment(this.departments.value(), this.scoped())
+          .filter((group) => this.level() === 'bbh' || group.products.length)
+          .map((group) => {
+            const counts = statusTotals(group.products);
+            return {
+              label: group.name,
+              note: `${counted(pipelineCount(counts), 'pipeline')} · ${counted(group.products.length, 'product')}`,
+              segments: STATUS_ORDER.map((entry) => ({
+                swatch: entry.status.toLowerCase(),
+                label: entry.label.toLowerCase(),
+                count: counts[entry.status] ?? 0,
+              })),
+            };
+          })
       : [],
   );
 
   protected readonly tiles = computed(() => {
-    const totals = statusTotals(this.overview.hasValue() ? this.overview.value().products : []);
+    const totals = statusTotals(this.scoped());
     return [
       { label: 'Pipelines', value: pipelineCount(totals), tone: 'info' },
       { label: 'Passed', value: totals.SUCCESS ?? 0, tone: 'success' },

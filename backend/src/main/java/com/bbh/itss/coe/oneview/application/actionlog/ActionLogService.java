@@ -39,6 +39,7 @@ public class ActionLogService implements ActionLogUseCase {
                 : departments.load(action.departmentId()).map(Department::name).orElse(null);
         repository.save(new ActionLog(null, null, user.username(), user.displayName(), user.email(), department,
                 action.actionType(), action.resourceType(), abbreviateBytes(trim(action.resourceName()), NAME_MAX),
-                abbreviateBytes(action.details(), DETAILS_MAX), action.success() ? "SUCCESS" : "FAILURE"));
+                abbreviateBytes(action.details(), DETAILS_MAX), action.success() ? "SUCCESS" : "FAILURE",
+                action.departmentId(), action.productId()));
     }
 }

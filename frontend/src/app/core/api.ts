@@ -1,8 +1,14 @@
 import { HttpClient, HttpParams } from '@angular/common/http';
 import { Injectable, inject } from '@angular/core';
 import { Observable, map } from 'rxjs';
+import { ContextScope, scopeParams } from '@common/context/oneview-context';
 import {
   ActionLog,
+  AgileApplication,
+  AgileAssessment,
+  AgileAssessmentRequest,
+  AgileModel,
+  AgileProfileRequest,
   DepartmentPipelines,
   GlobalSettings,
   GlobalSettingsRequest,
@@ -15,6 +21,10 @@ import {
   PipelineType,
   PortfolioActivity,
   Product,
+  QualityApplication,
+  QualityApplicationRequest,
+  QualityDefaults,
+  QualityDefaultsRequest,
   ProductMonitoring,
   ProductRequest,
   ProductSummary,
@@ -92,8 +102,10 @@ export class ProductsApi {
 export class PipelinesApi {
   private readonly http = inject(HttpClient);
 
-  listForDepartment(departmentId: number): Observable<DepartmentPipelines> {
-    return this.http.get<DepartmentPipelines>('/api/pipelines', { params: { departmentId } });
+  /** The pipelines of one business service, or of every one without it. */
+  listForDepartment(departmentId?: number | null): Observable<DepartmentPipelines> {
+    const params = departmentId == null ? undefined : { departmentId };
+    return this.http.get<DepartmentPipelines>('/api/pipelines', { params });
   }
 
   listForProduct(productId: number): Observable<ServicePipelines[]> {
@@ -134,7 +146,9 @@ export class PipelinesApi {
   }
 
   reportHtmlUrl(id: number, build?: number): string {
-    return build ? `/api/pipelines/${id}/runs/${build}/report/html` : `/api/pipelines/${id}/report/html`;
+    return build
+      ? `/api/pipelines/${id}/runs/${build}/report/html`
+      : `/api/pipelines/${id}/report/html`;
   }
 }
 
@@ -160,8 +174,11 @@ export class MonitoringApi {
     });
   }
 
-  activity(range: string): Observable<PortfolioActivity> {
-    return this.http.get<PortfolioActivity>('/api/monitoring/activity', { params: { range } });
+  /** The DORA activity of every pipeline, or of those of one business service or application. */
+  activity(range: string, scope?: ContextScope): Observable<PortfolioActivity> {
+    return this.http.get<PortfolioActivity>('/api/monitoring/activity', {
+      params: { range, ...scopeParams(scope) },
+    });
   }
 }
 
@@ -220,8 +237,11 @@ export class UserApi {
 export class SammApi {
   private readonly http = inject(HttpClient);
 
-  overview(): Observable<SammOrganizationOverview> {
-    return this.http.get<SammOrganizationOverview>('/api/samm/overview');
+  /** The maturity of BBH, or of one business service or application. */
+  overview(scope?: ContextScope): Observable<SammOrganizationOverview> {
+    return this.http.get<SammOrganizationOverview>('/api/samm/overview', {
+      params: scopeParams(scope),
+    });
   }
 
   departments(): Observable<SammDepartmentScore[]> {
@@ -237,3 +257,62 @@ export class SammApi {
   }
 }
 
+@Injectable({ providedIn: 'root' })
+export class QualityApi {
+  private readonly http = inject(HttpClient);
+
+  defaults(): Observable<QualityDefaults> {
+    return this.http.get<QualityDefaults>('/api/qa/defaults');
+  }
+
+  changeDefaults(request: QualityDefaultsRequest): Observable<QualityDefaults> {
+    return this.http.put<QualityDefaults>('/api/qa/defaults', request);
+  }
+
+  applications(): Observable<QualityApplication[]> {
+    return this.http.get<QualityApplication[]>('/api/qa/applications');
+  }
+
+  application(productId: number): Observable<QualityApplication> {
+    return this.http.get<QualityApplication>(`/api/qa/applications/${productId}`);
+  }
+
+  change(productId: number, request: QualityApplicationRequest): Observable<QualityApplication> {
+    return this.http.put<QualityApplication>(`/api/qa/applications/${productId}`, request);
+  }
+}
+
+@Injectable({ providedIn: 'root' })
+export class AgileApi {
+  private readonly http = inject(HttpClient);
+
+  model(): Observable<AgileModel> {
+    return this.http.get<AgileModel>('/api/agile/model');
+  }
+
+  applications(): Observable<AgileApplication[]> {
+    return this.http.get<AgileApplication[]>('/api/agile/applications');
+  }
+
+  application(productId: number): Observable<AgileApplication> {
+    return this.http.get<AgileApplication>(`/api/agile/applications/${productId}`);
+  }
+
+  changeProfile(productId: number, request: AgileProfileRequest): Observable<AgileApplication> {
+    return this.http.put<AgileApplication>(`/api/agile/applications/${productId}`, request);
+  }
+
+  recordAssessment(
+    productId: number,
+    request: AgileAssessmentRequest,
+  ): Observable<AgileAssessment> {
+    return this.http.post<AgileAssessment>(
+      `/api/agile/applications/${productId}/assessments`,
+      request,
+    );
+  }
+
+  deleteAssessment(id: number): Observable<void> {
+    return this.http.delete<void>(`/api/agile/assessments/${id}`);
+  }
+}

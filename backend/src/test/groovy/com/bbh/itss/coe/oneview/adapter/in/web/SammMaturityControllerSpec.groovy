@@ -18,10 +18,10 @@ class SammMaturityControllerSpec extends Specification {
         given:
         def now = Instant.parse('2026-11-04T12:00:00Z')
         def overview = new SammOrganizationOverview(5, 2, 2.4, 2, 'Defined', [], [], [], [:], now)
-        samm.overview() >> overview
+        samm.overview(null, null) >> overview
 
         when:
-        def response = controller.overview()
+        def response = controller.overview(null, null)
 
         then:
         response.totalApplications() == 5

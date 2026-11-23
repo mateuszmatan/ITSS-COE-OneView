@@ -130,6 +130,11 @@
   }
 }
 
+.side-separator {
+  margin: 10px 20px;
+  border-top: 1px solid var(--ov-border);
+}
+
 .content {
   flex: 1;
   min-width: 0;
@@ -171,6 +176,12 @@
     flex-wrap: wrap;
     gap: 0;
     padding: 0 12px;
+  }
+
+  .side-separator {
+    margin: 8px 6px;
+    border-top: 0;
+    border-left: 1px solid var(--ov-border);
   }
 
   .side-link {

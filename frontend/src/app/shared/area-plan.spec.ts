@@ -1,43 +1,42 @@
-import { Type } from '@angular/core';
 import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { text } from '@common/testing/dom';
-import { AgileOverviewPage } from '../agile/agile-overview';
-import { AGILE_MATURITY, QA_METRICS } from '../core/sections';
-import { QaOverviewPage } from '../qa/qa-overview';
+import { AGILE_CAPABILITIES } from '../agile/agile-overview';
+import { QA_CAPABILITIES } from '../qa/qa-overview';
+import { AreaPlan } from './area-plan';
 
-describe.each([
-  [
-    'QA',
-    QaOverviewPage,
-    QA_METRICS,
-    ['Test results', 'Code quality', 'Defects', 'Grafana dashboards'],
-  ],
-  [
-    'Agile',
-    AgileOverviewPage,
-    AGILE_MATURITY,
-    ['Maturity assessment', 'Maturity levels', 'Trend', 'Comparison'],
-  ],
-] as const)('the page of the %s area', (_, component, section, titles) => {
-  let fixture: ComponentFixture<unknown>;
+describe('AreaPlan', () => {
+  let fixture: ComponentFixture<AreaPlan>;
 
-  beforeEach(async () => {
-    fixture = TestBed.createComponent(component as Type<unknown>);
-    await fixture.whenStable();
+  beforeEach(() => {
+    fixture = TestBed.createComponent(AreaPlan);
+    fixture.componentRef.setInput('capabilities', QA_CAPABILITIES);
   });
 
   const page = () => fixture.nativeElement as HTMLElement;
 
-  it('names the area and says that it is being built', () => {
-    expect(text(page().querySelector('h1'))).toBe(section.heading);
-    expect(text(page().querySelector('.page-description'))).toBe(section.description);
-    expect(text(page().querySelector('[role=status]'))).toContain('This area is being built');
-  });
+  it('lists what an area is to show next, every item marked as planned', async () => {
+    await fixture.whenStable();
 
-  it('lists what is planned, every item marked as planned', () => {
-    expect([...page().querySelectorAll('.capability h2')].map(text)).toEqual(titles);
+    expect(text(page().querySelector('h2'))).toBe('Coming next');
+    expect(text(page().querySelector('.section-help'))).toBe(
+      'This area is being built. It will also show the following.',
+    );
+    const titles = [...page().querySelectorAll('.capability h3')].map(text);
+    expect(titles).toEqual(['Test results', 'Code quality', 'Defects', 'Quality trends']);
     expect([...page().querySelectorAll('.capability .planned')].map(text)).toEqual(
       titles.map(() => 'Planned'),
     );
+  });
+
+  it('says what the plan depends on', async () => {
+    fixture.componentRef.setInput('capabilities', AGILE_CAPABILITIES);
+    fixture.componentRef.setInput('intro', 'Next, this page will also show:');
+    await fixture.whenStable();
+
+    expect(text(page().querySelector('.section-help'))).toBe('Next, this page will also show:');
+    expect([...page().querySelectorAll('.capability h3')].map(text)).toEqual([
+      'Trend chart',
+      'What the next level asks for',
+    ]);
   });
 });

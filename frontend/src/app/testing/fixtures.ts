@@ -1,4 +1,7 @@
 import {
+  AgileApplication,
+  AgileAssessment,
+  AgileModel,
   DatabaseDefaults,
   DatabaseSettings,
   DatabaseTargetSettings,
@@ -18,6 +21,8 @@ import {
   ProductMonitoring,
   Product,
   ProductSummary,
+  QualityApplication,
+  QualityDefaults,
   Service,
   ServicePipelines,
   ServiceTemplate,
@@ -786,4 +791,138 @@ export function monitoringStatus(overrides: Partial<MonitoringStatus> = {}): Mon
     influxError: null,
     ...overrides,
   };
+}
+
+export function qualityDefaults(overrides: Partial<QualityDefaults> = {}): QualityDefaults {
+  return {
+    targets: { coveragePercent: 80, passRatePercent: 95, maxCriticalDefects: 0 },
+    version: null,
+    updatedAt: null,
+    ...overrides,
+  };
+}
+
+export function qualityApplication(
+  overrides: Partial<QualityApplication> = {},
+): QualityApplication {
+  return {
+    productId: 1,
+    code: 'CERT',
+    name: 'CertScanner',
+    departmentId: 3,
+    departmentName: 'Corporate Technology',
+    enabled: true,
+    qaLead: 'Ann Lee',
+    sonarProjectKey: 'com.bbh:cert-scanner',
+    defectProjectKey: 'CERT',
+    dashboardUrl: 'https://grafana.bbh.com/d/cert-quality',
+    targets: { coveragePercent: 85, passRatePercent: null, maxCriticalDefects: null },
+    effectiveTargets: { coveragePercent: 85, passRatePercent: 95, maxCriticalDefects: 0 },
+    version: 2,
+    updatedAt: '2026-11-20T09:00:00Z',
+    ...overrides,
+  };
+}
+
+export function notInQuality(overrides: Partial<QualityApplication> = {}): QualityApplication {
+  return qualityApplication({
+    productId: 2,
+    code: 'PAY',
+    name: 'PayHub',
+    departmentId: 5,
+    departmentName: 'Fund Services',
+    enabled: false,
+    qaLead: null,
+    sonarProjectKey: null,
+    defectProjectKey: null,
+    dashboardUrl: null,
+    targets: { coveragePercent: null, passRatePercent: null, maxCriticalDefects: null },
+    effectiveTargets: { coveragePercent: 80, passRatePercent: 95, maxCriticalDefects: 0 },
+    version: null,
+    updatedAt: null,
+    ...overrides,
+  });
+}
+
+export function agileModel(overrides: Partial<AgileModel> = {}): AgileModel {
+  return {
+    dimensions: [
+      { code: 'TEAM', label: 'Team and roles', description: 'How the team is set up.' },
+      { code: 'PLANNING', label: 'Planning and delivery', description: 'How work is planned.' },
+      { code: 'ENGINEERING', label: 'Engineering practices', description: 'How code is built.' },
+      { code: 'PRODUCT', label: 'Product ownership', description: 'How the backlog is owned.' },
+      {
+        code: 'IMPROVEMENT',
+        label: 'Continuous improvement',
+        description: 'How the team improves.',
+      },
+    ],
+    frameworks: [
+      { code: 'SCRUM', label: 'Scrum', description: null },
+      { code: 'KANBAN', label: 'Kanban', description: null },
+      { code: 'SAFE', label: 'SAFe', description: null },
+      { code: 'OTHER', label: 'Other', description: null },
+    ],
+    minLevel: 1,
+    maxLevel: 5,
+    ...overrides,
+  };
+}
+
+export function agileAssessment(overrides: Partial<AgileAssessment> = {}): AgileAssessment {
+  return {
+    id: 11,
+    productId: 1,
+    assessedOn: '2026-11-02',
+    assessor: 'Joe Coach',
+    levels: { TEAM: 4, PLANNING: 3, ENGINEERING: 3, PRODUCT: 2, IMPROVEMENT: 4 },
+    overallLevel: 3.2,
+    notes: 'Retrospectives every sprint.',
+    ...overrides,
+  };
+}
+
+export function agileApplication(overrides: Partial<AgileApplication> = {}): AgileApplication {
+  return {
+    productId: 1,
+    code: 'CERT',
+    name: 'CertScanner',
+    departmentId: 3,
+    departmentName: 'Corporate Technology',
+    enabled: true,
+    teamName: 'Cert Squad',
+    framework: 'SCRUM',
+    coach: 'Joe Coach',
+    version: 1,
+    updatedAt: '2026-11-01T09:00:00Z',
+    assessments: [
+      agileAssessment(),
+      agileAssessment({
+        id: 7,
+        assessedOn: '2026-08-15',
+        levels: { TEAM: 3, PLANNING: 2, ENGINEERING: 2, PRODUCT: 2, IMPROVEMENT: 3 },
+        overallLevel: 2.4,
+        notes: null,
+      }),
+    ],
+    ...overrides,
+  };
+}
+
+export function notInAgile(overrides: Partial<AgileApplication> = {}): AgileApplication {
+  return agileApplication({
+    productId: 2,
+    code: 'PAY',
+    name: 'PayHub',
+    departmentId: 5,
+    departmentName: 'Fund Services',
+    enabled: false,
+    teamName: null,
+    framework: null,
+    coach: null,
+    version: null,
+    updatedAt: null,
+    assessments: [],
+    ...overrides,
+  });
 }

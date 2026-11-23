@@ -28,8 +28,8 @@
         [attr.aria-selected]="activeTab() === 'applications'"
       >
         Applications Scoring
-        @if (overview.value(); as data) {
-          <span class="count-pill">{{ data.totalApplications }}</span>
+        @if (overview.hasValue()) {
+          <span class="count-pill">{{ overview.value().totalApplications }}</span>
         }
       </button>
     </div>
@@ -42,12 +42,11 @@
   } @else if (overview.error(); as error) {
     <ov-load-error what="The OWASP SAMM overview" [error]="error" (retry)="overview.reload()" />
   } @else if (overview.value(); as data) {
-
     @if (activeTab() === 'overview') {
       <section class="overview-section">
         <div class="global-banner">
           <div class="score-card">
-            <span class="score-label">BBH Organization Maturity</span>
+            <span class="score-label">{{ maturityLabel() }}</span>
             <div class="score-number-row">
               <span class="big-score">{{ data.overallScore | number: '1.1-1' }}</span>
               <span class="score-max">/ 3.0</span>
@@ -88,7 +87,9 @@
 
         <div class="section-title-row">
           <h2>5 Business Functions Posture</h2>
-          <span class="section-subtitle">Average score across all {{ data.totalApplications }} BBH applications</span>
+          <span class="section-subtitle"
+            >Average score across all {{ data.totalApplications }} BBH applications</span
+          >
         </div>
 
         <div class="domains-grid">
@@ -125,55 +126,57 @@
           }
         </div>
 
-        <div class="section-title-row">
-          <h2>Business Services Maturity Summary</h2>
-          <span class="section-subtitle">Aggregated SAMM scoring per department</span>
-        </div>
+        @if (data.departments.length) {
+          <div class="section-title-row">
+            <h2>Business Services Maturity Summary</h2>
+            <span class="section-subtitle">Aggregated SAMM scoring per department</span>
+          </div>
 
-        <div class="departments-grid">
-          @for (dept of data.departments; track dept.departmentId) {
-            <div class="department-card">
-              <div class="dept-header">
-                <div>
-                  <h3 class="dept-name">{{ dept.departmentName }}</h3>
-                  <span class="dept-apps-count">{{ dept.applicationCount }} applications</span>
-                </div>
-                <div class="dept-score-box">
-                  <span class="dept-score-value">{{ dept.overallScore | number: '1.1-1' }}</span>
-                  <span class="tier-badge" [class]="levelBadgeClass(dept.maturityLevel)">
-                    Level {{ dept.maturityLevel }} · {{ dept.maturityTier }}
-                  </span>
-                </div>
-              </div>
-
-              <div class="dept-domain-bars">
-                @for (domain of dept.domainScores; track domain.function) {
-                  <div class="dept-bar-row">
-                    <span class="bar-name">{{ domain.title }}</span>
-                    <div class="mini-bar-track">
-                      <div
-                        class="mini-bar-fill"
-                        [class]="levelBadgeClass(domain.maturityLevel)"
-                        [style.width.%]="scorePercent(domain.score)"
-                      ></div>
-                    </div>
-                    <span class="bar-val">{{ domain.score | number: '1.1-1' }}</span>
+          <div class="departments-grid">
+            @for (dept of data.departments; track dept.departmentId) {
+              <div class="department-card">
+                <div class="dept-header">
+                  <div>
+                    <h3 class="dept-name">{{ dept.departmentName }}</h3>
+                    <span class="dept-apps-count">{{ dept.applicationCount }} applications</span>
                   </div>
-                }
-              </div>
+                  <div class="dept-score-box">
+                    <span class="dept-score-value">{{ dept.overallScore | number: '1.1-1' }}</span>
+                    <span class="tier-badge" [class]="levelBadgeClass(dept.maturityLevel)">
+                      Level {{ dept.maturityLevel }} · {{ dept.maturityTier }}
+                    </span>
+                  </div>
+                </div>
 
-              <div class="dept-footer">
-                <button
-                  type="button"
-                  class="btn-inspect-dept"
-                  (click)="departmentFilter.setValue(dept.departmentId.toString()); setTab('applications')"
-                >
-                  View {{ dept.departmentName }} Applications &rarr;
-                </button>
+                <div class="dept-domain-bars">
+                  @for (domain of dept.domainScores; track domain.function) {
+                    <div class="dept-bar-row">
+                      <span class="bar-name">{{ domain.title }}</span>
+                      <div class="mini-bar-track">
+                        <div
+                          class="mini-bar-fill"
+                          [class]="levelBadgeClass(domain.maturityLevel)"
+                          [style.width.%]="scorePercent(domain.score)"
+                        ></div>
+                      </div>
+                      <span class="bar-val">{{ domain.score | number: '1.1-1' }}</span>
+                    </div>
+                  }
+                </div>
+
+                <div class="dept-footer">
+                  <button
+                    type="button"
+                    class="btn-inspect-dept"
+                    (click)="showDepartment(dept.departmentId)"
+                  >
+                    View {{ dept.departmentName }} Applications &rarr;
+                  </button>
+                </div>
               </div>
-            </div>
-          }
-        </div>
+            }
+          </div>
+        }
       </section>
     }
 
@@ -190,16 +193,6 @@
           </div>
 
           <div class="filters-row">
-            <div class="select-wrapper">
-              <label for="dept-select">Business Service:</label>
-              <select id="dept-select" class="form-select" [formControl]="departmentFilter">
-                <option value="ALL">All Business Services ({{ data.totalDepartments }})</option>
-                @for (dept of departmentsList(); track dept.departmentId) {
-                  <option [value]="dept.departmentId">{{ dept.departmentName }} ({{ dept.applicationCount }})</option>
-                }
-              </select>
-            </div>
-
             <div class="select-wrapper">
               <label for="lvl-select">Maturity Level:</label>
               <select id="lvl-select" class="form-select" [formControl]="levelFilter">
@@ -274,27 +267,42 @@
                     </span>
                   </td>
                   <td class="text-center">
-                    <span class="domain-num" [class]="levelBadgeClass(levelFor(domainScore(app, 'GOVERNANCE')))">
+                    <span
+                      class="domain-num"
+                      [class]="levelBadgeClass(levelFor(domainScore(app, 'GOVERNANCE')))"
+                    >
                       {{ domainScore(app, 'GOVERNANCE') | number: '1.1-1' }}
                     </span>
                   </td>
                   <td class="text-center">
-                    <span class="domain-num" [class]="levelBadgeClass(levelFor(domainScore(app, 'DESIGN')))">
+                    <span
+                      class="domain-num"
+                      [class]="levelBadgeClass(levelFor(domainScore(app, 'DESIGN')))"
+                    >
                       {{ domainScore(app, 'DESIGN') | number: '1.1-1' }}
                     </span>
                   </td>
                   <td class="text-center">
-                    <span class="domain-num" [class]="levelBadgeClass(levelFor(domainScore(app, 'IMPLEMENTATION')))">
+                    <span
+                      class="domain-num"
+                      [class]="levelBadgeClass(levelFor(domainScore(app, 'IMPLEMENTATION')))"
+                    >
                       {{ domainScore(app, 'IMPLEMENTATION') | number: '1.1-1' }}
                     </span>
                   </td>
                   <td class="text-center">
-                    <span class="domain-num" [class]="levelBadgeClass(levelFor(domainScore(app, 'VERIFICATION')))">
+                    <span
+                      class="domain-num"
+                      [class]="levelBadgeClass(levelFor(domainScore(app, 'VERIFICATION')))"
+                    >
                       {{ domainScore(app, 'VERIFICATION') | number: '1.1-1' }}
                     </span>
                   </td>
                   <td class="text-center">
-                    <span class="domain-num" [class]="levelBadgeClass(levelFor(domainScore(app, 'OPERATIONS')))">
+                    <span
+                      class="domain-num"
+                      [class]="levelBadgeClass(levelFor(domainScore(app, 'OPERATIONS')))"
+                    >
                       {{ domainScore(app, 'OPERATIONS') | number: '1.1-1' }}
                     </span>
                   </td>
@@ -325,7 +333,12 @@
 
   @if (selectedApp(); as app) {
     <div class="modal-backdrop" (click)="closeModal()">
-      <div class="scorecard-modal" (click)="$event.stopPropagation()" role="dialog" aria-modal="true">
+      <div
+        class="scorecard-modal"
+        (click)="$event.stopPropagation()"
+        role="dialog"
+        aria-modal="true"
+      >
         <header class="modal-header">
           <div>
             <div class="modal-title-row">
@@ -342,7 +355,12 @@
               <span class="modal-time">Assessed: {{ app.assessedAt | date: 'medium' }}</span>
             </div>
           </div>
-          <button type="button" class="btn-close" (click)="closeModal()" aria-label="Close scorecard">
+          <button
+            type="button"
+            class="btn-close"
+            (click)="closeModal()"
+            aria-label="Close scorecard"
+          >
             &times;
           </button>
         </header>
@@ -385,7 +403,9 @@
                     </div>
 
                     <div class="practice-score-box">
-                      <span class="practice-score-num">{{ practice.score | number: '1.1-1' }} / 3.0</span>
+                      <span class="practice-score-num"
+                        >{{ practice.score | number: '1.1-1' }} / 3.0</span
+                      >
                       <span class="tier-tag" [class]="levelBadgeClass(practice.maturityLevel)">
                         Level {{ practice.maturityLevel }}
                       </span>
@@ -421,7 +441,9 @@
                           }
                         </ul>
                       } @else {
-                        <p class="perfect-text">Maturity criteria fully satisfied for this practice.</p>
+                        <p class="perfect-text">
+                          Maturity criteria fully satisfied for this practice.
+                        </p>
                       }
                     </div>
                   </div>

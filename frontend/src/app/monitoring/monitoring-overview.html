@@ -24,6 +24,9 @@
   <section class="card results">
     <header class="card-header">
       <h2>Latest results</h2>
+      @if (level() !== 'bbh') {
+        <span class="muted">{{ scopeName() }}</span>
+      }
     </header>
     <p class="section-help">
       The result of the latest run of every pipeline: the automated build, test and security checks
@@ -82,11 +85,15 @@
         <div class="empty-state">
           @if (search.value) {
             <h3>No product matches "{{ search.value }}"</h3>
+          } @else if (level() !== 'bbh') {
+            <h3>No products in {{ scopeName() }} yet</h3>
+            <p>
+              Products added to it in OneView Admin appear here with the results of their pipelines.
+              Choose All business services above to see every product.
+            </p>
           } @else {
             <h3>No products yet</h3>
-            <p>
-              Products added in DevSecOps Admin appear here with the results of their pipelines.
-            </p>
+            <p>Products added in OneView Admin appear here with the results of their pipelines.</p>
             <a class="btn btn-primary" [routerLink]="newProduct">Add product</a>
           }
         </div>
@@ -143,8 +150,9 @@
         <header class="card-header">
           <h3>Runs per day</h3>
           <span class="muted"
-            >{{ dora.runs | counted: 'run' }} of all pipelines in the last
-            {{ dora.rangeDays | counted: 'day' }}</span
+            >{{ dora.runs | counted: 'run' }} of
+            {{ level() === 'bbh' ? 'all pipelines' : 'the pipelines of ' + scopeName() }} in the
+            last {{ dora.rangeDays | counted: 'day' }}</span
           >
         </header>
         <ov-activity-chart [daily]="dora.daily" />

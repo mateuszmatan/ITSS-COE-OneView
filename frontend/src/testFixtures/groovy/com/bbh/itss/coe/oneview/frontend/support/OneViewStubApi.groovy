@@ -1,9 +1,13 @@
 package com.bbh.itss.coe.oneview.frontend.support
 
+import java.time.Instant
+import java.util.concurrent.CopyOnWriteArrayList
+
 import static com.bbh.itss.coe.oneview.frontend.support.StubResponse.html
 import static com.bbh.itss.coe.oneview.frontend.support.StubResponse.json
 import static com.bbh.itss.coe.oneview.frontend.support.StubResponse.problem
 import static com.bbh.itss.coe.oneview.frontend.support.StubResponse.yaml
+import static java.math.RoundingMode.HALF_UP
 
 class OneViewStubApi extends StubApi {
 
@@ -31,10 +35,10 @@ class OneViewStubApi extends StubApi {
         get('/api/pipelines/(\\d+)/runs/(\\d+)/report/html') { html(REPORT_HTML) }
         get('/api/pipelines') { RecordedRequest request ->
             def departmentId = request.params().departmentId as Integer
-            if (!departments.any { it.id == departmentId }) {
+            if (departmentId != null && !departments.any { it.id == departmentId }) {
                 return problem(404, 'Not found', "Business service $departmentId does not exist")
             }
-            def products = (fixture('products.json') as List<Map>).findAll { it.departmentId == departmentId }
+            def products = (fixture('products.json') as List<Map>).findAll { departmentId == null || it.departmentId == departmentId }
             def pipelines = products.collectMany { product ->
                 hasFixture("monitoring-product-${product.id}.json") ? fixture("monitoring-product-${product.id}.json").pipelines as List : []
             }
@@ -62,5 +66,122 @@ class OneViewStubApi extends StubApi {
         get('/api/user/me') {
             json([username: 'mateusz.matan', displayName: 'Mateusz Matan', email: 'mateusz.matan@bbh.com', admin: true])
         }
+        get('/api/samm/overview') { RecordedRequest request -> sammOverview(request.params()) }
+        installQuality()
+        installAgile()
+    }
+
+    /** The QM Metric Tool: the BBH targets and the applications, saved as the portal saves them. */
+    void installQuality() {
+        def defaults = fixture('qa-defaults.json') as Map
+        def applications = new CopyOnWriteArrayList<Map>(fixture('qa-applications.json') as List<Map>)
+        get('/api/qa/defaults') { json(defaults) }
+        on('PUT', '/api/qa/defaults') { RecordedRequest request ->
+            def sent = request.json() as Map
+            if (sent.version != defaults.version) {
+                return problem(409, 'Conflict', 'The BBH quality targets were changed by someone else')
+            }
+            defaults.putAll(targets: sent.targets, version: nextVersion(defaults.version), updatedAt: now())
+            applications.each { it.effectiveTargets = effectiveTargets(it.targets as Map, defaults.targets as Map) }
+            json(defaults)
+        }
+        get('/api/qa/applications') { json(applications) }
+        get('/api/qa/applications/(\\d+)') { RecordedRequest request, List<String> ids ->
+            def application = applications.find { it.productId == ids[0] as int }
+            application ? json(application) : problem(404, 'Not found', "Product ${ids[0]} does not exist")
+        }
+        on('PUT', '/api/qa/applications/(\\d+)') { RecordedRequest request, List<String> ids ->
+            def application = applications.find { it.productId == ids[0] as int }
+            if (!application) {
+                return problem(404, 'Not found', "Product ${ids[0]} does not exist")
+            }
+            def sent = request.json() as Map
+            if (sent.version != application.version) {
+                return problem(409, 'Conflict', "${application.name} was changed by someone else")
+            }
+            application.putAll(sent.subMap(['enabled', 'qaLead', 'sonarProjectKey', 'defectProjectKey', 'dashboardUrl', 'targets']))
+            application.putAll(effectiveTargets: effectiveTargets(application.targets as Map, defaults.targets as Map),
+                    version: nextVersion(application.version), updatedAt: now())
+            json(application)
+        }
+    }
+
+    /** Agile Assessment & Adoption: the model, the teams and their assessments, saved as the portal saves them. */
+    void installAgile() {
+        def applications = new CopyOnWriteArrayList<Map>(fixture('agile-applications.json') as List<Map>)
+        long nextAssessmentId = 100
+        def application = { String id -> applications.find { it.productId == id as int } }
+        get('/api/agile/model') { json(fixture('agile-model.json')) }
+        get('/api/agile/applications') { json(applications) }
+        get('/api/agile/applications/(\\d+)') { RecordedRequest request, List<String> ids ->
+            application(ids[0]) ? json(application(ids[0])) : problem(404, 'Not found', "Product ${ids[0]} does not exist")
+        }
+        on('PUT', '/api/agile/applications/(\\d+)') { RecordedRequest request, List<String> ids ->
+            def team = application(ids[0])
+            if (!team) {
+                return problem(404, 'Not found', "Product ${ids[0]} does not exist")
+            }
+            def sent = request.json() as Map
+            if (sent.version != team.version) {
+                return problem(409, 'Conflict', "The team of ${team.name} was changed by someone else")
+            }
+            team.putAll(sent.subMap(['enabled', 'teamName', 'framework', 'coach']))
+            team.putAll(version: nextVersion(team.version), updatedAt: now())
+            json(team)
+        }
+        on('POST', '/api/agile/applications/(\\d+)/assessments') { RecordedRequest request, List<String> ids ->
+            def team = application(ids[0])
+            if (!team) {
+                return problem(404, 'Not found', "Product ${ids[0]} does not exist")
+            }
+            def sent = request.json() as Map
+            def levels = sent.levels as Map<String, Integer>
+            def assessment = [id          : nextAssessmentId++, productId: team.productId, assessedOn: sent.assessedOn,
+                              assessor    : sent.assessor, levels: levels,
+                              overallLevel: (levels.values().sum() as BigDecimal).divide(levels.size() as BigDecimal, 1, HALF_UP),
+                              notes       : sent.notes]
+            team.assessments = (([assessment] + (team.assessments as List<Map>)) as List<Map>)
+                    .sort { Map a, Map b -> (b.assessedOn as String) <=> (a.assessedOn as String) ?: (b.id as long) <=> (a.id as long) }
+            json(assessment, 201)
+        }
+        get('/api/agile/assessments/(\\d+)') { RecordedRequest request, List<String> ids ->
+            def assessment = applications.collectMany { it.assessments as List<Map> }.find { it.id == ids[0] as long }
+            assessment ? json(assessment) : problem(404, 'Not found', "Assessment ${ids[0]} does not exist")
+        }
+        on('DELETE', '/api/agile/assessments/(\\d+)') { RecordedRequest request, List<String> ids ->
+            def team = applications.find { (it.assessments as List<Map>).any { it.id == ids[0] as long } }
+            if (!team) {
+                return problem(404, 'Not found', "Assessment ${ids[0]} does not exist")
+            }
+            team.assessments = (team.assessments as List<Map>).findAll { it.id != ids[0] as long }
+            StubResponse.empty()
+        }
+    }
+
+    /** The OWASP SAMM maturity of the applications in the business service or the application asked for. */
+    static Map sammOverview(Map<String, String> params) {
+        def overview = fixture('samm-overview.json') as Map
+        def departmentId = params.departmentId as Integer
+        def productId = params.productId as Integer
+        def applications = (overview.applications as List<Map>).findAll {
+            (productId == null || it.productId == productId) && (departmentId == null || it.departmentId == departmentId)
+        }
+        def departments = (overview.departments as List<Map>).findAll { department ->
+            applications.any { it.departmentId == department.departmentId }
+        }
+        overview + [applications: applications, departments: departments, totalApplications: applications.size(),
+                    totalDepartments: departments.size()]
+    }
+
+    static Map effectiveTargets(Map own, Map bbh) {
+        bbh.collectEntries { key, value -> [(key): own?.get(key) != null ? own.get(key) : value] }
+    }
+
+    static long nextVersion(Object version) {
+        version == null ? 0 : (version as long) + 1
+    }
+
+    static String now() {
+        Instant.now().toString()
     }
 }

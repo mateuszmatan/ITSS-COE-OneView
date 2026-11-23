@@ -19,6 +19,7 @@ import {
   SammPracticeScore,
 } from '../core/models';
 import { SAMM_MATURITY } from '../core/sections';
+import { OneViewContext } from '@common/context/oneview-context';
 import { FORM_FIELD } from '@common/ui/form-field';
 import { LoadError } from '@common/ui/load-error';
 import { OvLoading } from '@common/ui/loading';
@@ -43,19 +44,42 @@ export type SammTab = 'overview' | 'applications';
 export class SammOverviewPage {
   private readonly api = inject(SammApi);
   private readonly route = inject(ActivatedRoute);
+  private readonly context = inject(OneViewContext);
 
   protected readonly section = SAMM_MATURITY;
-  protected readonly overview = rxResource({ stream: () => this.api.overview() });
+  protected readonly overview = rxResource({
+    params: () => this.context.scope(),
+    stream: ({ params }) => this.api.overview(params),
+  });
+
+  protected readonly level = this.context.level;
+  /** The application, business service or BBH whose maturity is shown, by name. */
+  protected readonly scopeName = computed(() => {
+    const { departmentId, productId } = this.context.scope();
+    const data = this.overview.hasValue() ? this.overview.value() : null;
+    if (productId !== null) {
+      return (
+        data?.applications.find((app) => app.productId === productId)?.productName ??
+        this.context.scopeName()
+      );
+    }
+    if (departmentId !== null) {
+      return (
+        data?.departments.find((dept) => dept.departmentId === departmentId)?.departmentName ??
+        this.context.scopeName()
+      );
+    }
+    return 'BBH';
+  });
+  protected readonly maturityLabel = computed(() =>
+    this.level() === 'bbh' ? 'BBH Organization Maturity' : `${this.scopeName()} Maturity`,
+  );
 
   protected readonly activeTab = signal<SammTab>('overview');
   protected readonly search = new FormControl('', { nonNullable: true });
-  protected readonly departmentFilter = new FormControl('ALL', { nonNullable: true });
   protected readonly levelFilter = new FormControl('ALL', { nonNullable: true });
 
   private readonly searchQuery = toSignal(this.search.valueChanges, { initialValue: '' });
-  private readonly selectedDept = toSignal(this.departmentFilter.valueChanges, {
-    initialValue: 'ALL',
-  });
   private readonly selectedLvl = toSignal(this.levelFilter.valueChanges, {
     initialValue: 'ALL',
   });
@@ -67,7 +91,7 @@ export class SammOverviewPage {
 
   constructor() {
     effect(() => {
-      const data = this.overview.value();
+      const data = this.overview.hasValue() ? this.overview.value() : null;
       if (!data) return;
       const targetPipelineId = this.route.snapshot.queryParamMap.get('pipelineId');
       if (targetPipelineId) {
@@ -80,14 +104,8 @@ export class SammOverviewPage {
     });
   }
 
-  protected readonly departmentsList = computed(() => {
-    const data = this.overview.value();
-    if (!data) return [];
-    return data.departments;
-  });
-
   protected readonly filteredApplications = computed(() => {
-    const data = this.overview.value();
+    const data = this.overview.hasValue() ? this.overview.value() : null;
     if (!data) return [];
     let list = data.applications;
 
@@ -102,12 +120,6 @@ export class SammOverviewPage {
       );
     }
 
-    const dept = this.selectedDept();
-    if (dept !== 'ALL') {
-      const deptId = Number(dept);
-      list = list.filter((app) => app.departmentId === deptId);
-    }
-
     const lvl = this.selectedLvl();
     if (lvl !== 'ALL') {
       const targetLvl = Number(lvl);
@@ -120,7 +132,9 @@ export class SammOverviewPage {
       let cmp = 0;
       switch (col) {
         case 'name':
-          cmp = a.productName.localeCompare(b.productName) || a.serviceName.localeCompare(b.serviceName);
+          cmp =
+            a.productName.localeCompare(b.productName) ||
+            a.serviceName.localeCompare(b.serviceName);
           break;
         case 'department':
           cmp = a.departmentName.localeCompare(b.departmentName);
@@ -167,6 +181,12 @@ export class SammOverviewPage {
 
   protected setTab(tab: SammTab): void {
     this.activeTab.set(tab);
+  }
+
+  /** Shows the applications of one business service, which every page then follows. */
+  protected showDepartment(departmentId: number): void {
+    this.context.choose(departmentId);
+    this.setTab('applications');
   }
 
   protected selectApplication(app: SammApplicationScore): void {

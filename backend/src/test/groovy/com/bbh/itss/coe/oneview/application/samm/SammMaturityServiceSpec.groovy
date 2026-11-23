@@ -56,6 +56,38 @@ class SammMaturityServiceSpec extends Specification {
         overview.domainScores().size() == 5
     }
 
+    def "the overview of a business service or of one application holds only their pipelines"() {
+        given:
+        def advisory = new Department(1L, 'Corporate Advisory', 1)
+        def custody = new Department(2L, 'Custody & Clearing', 1)
+        def advisor = Fixtures.product(id: 10L, name: 'Advisor Portal', departmentId: 1L, services: [[id: 20L, name: 'advisor-api']])
+        def ledger = Fixtures.product(id: 11L, name: 'Ledger', departmentId: 2L, services: [[id: 21L, name: 'ledger-api']])
+        def views = [new PipelineView(advisor, advisor.services()[0], Fixtures.pipeline(id: 100L, productId: 10L, serviceId: 20L),
+                                      'https://jenkins.bbh.com'),
+                     new PipelineView(ledger, ledger.services()[0], Fixtures.pipeline(id: 101L, productId: 11L, serviceId: 21L),
+                                      'https://jenkins.bbh.com')]
+        def platform = PlatformSettings.builder().jenkinsUrl('https://jenkins.bbh.com').build()
+
+        departments.findAll() >> [advisory, custody]
+        monitoringTargets.everything() >> new MonitoringTargets([advisor, ledger], views, platform, [] as Set)
+        runs.configured(platform) >> false
+        reports.findLatestByPipelineId(_) >> Optional.empty()
+
+        expect:
+        with(service.overview(2L, null)) {
+            applications()*.pipelineId() == [101L]
+            departments()*.departmentName() == ['Custody & Clearing']
+            totalApplications() == 1
+        }
+        with(service.overview(null, 10L)) {
+            applications()*.pipelineId() == [100L]
+            departments() == []
+            totalDepartments() == 0
+        }
+        service.overview(null, null).applications()*.pipelineId() == [100L, 101L]
+        service.overview().departments().size() == 2
+    }
+
     def "queries department and application score by id"() {
         given:
         def dept = new Department(5L, 'Treasury', 1)

@@ -3,7 +3,7 @@ import { TestBed } from '@angular/core/testing';
 import { Route, Router, Routes, provideRouter } from '@angular/router';
 import { AdminPage } from '@common/admin/admin-page';
 import { routes } from './app.routes';
-import { DEVSECOPS_ADMIN } from './core/sections';
+import { ONEVIEW_ADMIN } from './core/sections';
 import { PipelineDepartments } from './departments/pipeline-departments';
 import { MonitoringOverview } from './monitoring/monitoring-overview';
 import { PipelineMonitoringPage } from './monitoring/pipeline-monitoring';
@@ -20,6 +20,8 @@ import { ServiceTemplatePage } from './settings/service-template-page';
 import { SammOverviewPage } from './samm/samm-overview';
 import { QaOverviewPage } from './qa/qa-overview';
 import { AgileOverviewPage } from './agile/agile-overview';
+import { AgileAdmin } from './agile/agile-admin';
+import { QaAdmin } from './qa/qa-admin';
 import { LandingPage } from './landing/landing-page';
 
 @Component({ template: '' })
@@ -66,11 +68,32 @@ describe('routes', () => {
       'admin/products': ProductList,
       'admin/template': ServiceTemplatePage,
       'admin/settings': GlobalSettingsPage,
+      'admin/qa': QaAdmin,
+      'admin/agile': AgileAdmin,
     });
   });
 
   it('gives the admin area its tabs', () => {
-    expect(routes.find((route) => route.path === 'admin')?.data).toEqual({ area: DEVSECOPS_ADMIN });
+    expect(routes.find((route) => route.path === 'admin')?.data).toEqual({ area: ONEVIEW_ADMIN });
+  });
+
+  it('shows the business service and application bar above the pages that sum up applications', () => {
+    expect(
+      flattened(routes)
+        .filter(([, route]) => route.data?.['context'] === true)
+        .map(([path]) => path),
+    ).toEqual([
+      '',
+      'pipelines',
+      'monitoring',
+      'samm',
+      'qa',
+      'agile',
+      'history',
+      'admin/products',
+      'admin/qa',
+      'admin/agile',
+    ]);
   });
 
   it('guards the editors against leaving with unsaved changes', () => {
@@ -84,6 +107,7 @@ describe('routes', () => {
       'admin/products/:id/edit',
       'admin/template',
       'admin/settings',
+      'admin/qa',
     ]);
   });
 

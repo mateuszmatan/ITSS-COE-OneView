@@ -6,6 +6,7 @@ import {
   effect,
   inject,
   signal,
+  untracked,
 } from '@angular/core';
 import { NgTemplateOutlet } from '@angular/common';
 import { rxResource, takeUntilDestroyed, toSignal } from '@angular/core/rxjs-interop';
@@ -31,7 +32,7 @@ import {
   switchMap,
   tap,
 } from 'rxjs';
-import { MyDepartment } from '@common/departments/my-department';
+import { OneViewContext } from '@common/context/oneview-context';
 import { PipelinesApi, ProductsApi, ServiceTemplateApi, SettingsApi } from '../core/api';
 import { errorMessage, fieldProblems } from '@common/core/errors';
 import { Department, Product } from '../core/models';
@@ -110,7 +111,7 @@ export class SelfService implements HasUnsavedChanges {
   private readonly dialog = inject(Dialog);
   private readonly notifier = inject(Notifier);
   private readonly destroyRef = inject(DestroyRef);
-  private readonly myDepartment = inject(MyDepartment);
+  private readonly context = inject(OneViewContext);
 
   protected readonly section = SELF_SERVICE;
   protected readonly admin = ADMIN.heading;
@@ -265,10 +266,7 @@ export class SelfService implements HasUnsavedChanges {
   }));
 
   protected readonly productForm = new FormGroup({
-    departmentId: new FormControl<number | null>(
-      this.myDepartment.departmentId(),
-      Validators.required,
-    ),
+    departmentId: new FormControl<number | null>(this.context.departmentId(), Validators.required),
     name: text('', filled, max(200), (control: AbstractControl) => this.nameInUse(control)),
     ownerTeam: text('', max(200)),
     contactEmail: text('', Validators.email, max(320)),
@@ -341,6 +339,11 @@ export class SelfService implements HasUnsavedChanges {
       if (labels && !this.agents.dirty) {
         this.agents.setValue(joinWords(labels, ', '));
       }
+    });
+    // A name typed before the products in the portal arrived is checked against them once they do.
+    effect(() => {
+      this.products();
+      untracked(() => this.productForm.controls.name.updateValueAndValidity());
     });
     this.productForm.controls.name.valueChanges
       .pipe(
@@ -470,7 +473,7 @@ export class SelfService implements HasUnsavedChanges {
     this.result.set(null);
     this.pipeline.set(null);
     this.chooseMode('new');
-    this.productForm.reset({ departmentId: this.myDepartment.departmentId() });
+    this.productForm.reset({ departmentId: this.context.departmentId() });
     this.forgetUnlistedDepartment(this.departments());
     this.services.set([]);
     this.removed.set([]);

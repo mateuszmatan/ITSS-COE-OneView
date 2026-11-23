@@ -64,6 +64,8 @@ export interface GridColumn<T> {
   cellClass?: string;
   numeric?: boolean;
   wrap?: boolean;
+  /** The header may take more than one line, so the column is as wide as its cells and not as its header. */
+  wrapHeader?: boolean;
   width?: number;
   minWidth?: number;
 }
@@ -252,9 +254,18 @@ export class OvGrid<T> {
       params.data ? this.rowClass()?.(params.data) : undefined,
   };
 
-  /** Sizes columns to their content and fills spare width; wider content scrolls horizontally. */
+  /**
+   * Sizes columns to their content and fills spare width; wider content scrolls horizontally. A column whose header
+   * may wrap is sized to its cells, so its header takes a second line instead of widening the table.
+   */
   protected fit({ api }: AgGridEvent<T>): void {
-    api.autoSizeAllColumns();
+    const columns = api.getColumns() ?? [];
+    for (const wrapsHeader of [false, true]) {
+      const sized = columns.filter((column) => !!column.getColDef().wrapHeaderText === wrapsHeader);
+      if (sized.length > 0) {
+        api.autoSizeColumns(sized, wrapsHeader);
+      }
+    }
     api.sizeColumnsToFit({
       columnLimits: (api.getColumns() ?? []).map((column) => ({
         key: column,
@@ -304,8 +315,12 @@ function columnDef<T>(
     floatingFilterComponentParams: column.filter ? { filter: column.filter } : undefined,
     cellRenderer: template ? GridCell : undefined,
     cellRendererParams: template ? { template } : undefined,
+    // A template may show anything of its row, so its cell is drawn again whenever the row changes.
+    equals: template ? () => false : undefined,
     wrapText: column.wrap,
     autoHeight: column.wrap,
+    wrapHeaderText: column.wrapHeader,
+    autoHeaderHeight: column.wrapHeader,
     suppressAutoSize: column.wrap,
     suppressSizeToFit: !!column.width,
     width: column.width ?? (column.wrap ? (column.minWidth ?? WRAP_WIDTH) : undefined),

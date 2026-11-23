@@ -19,18 +19,18 @@ class ActionLogServiceSpec extends Specification {
     }
     def service = new ActionLogService(repository, departments)
 
-    def "a change is stored with its user, its trimmed name, the name of its department and its outcome"() {
+    def "a change is stored with its user, its trimmed name, its department and product and its outcome"() {
         when:
         service.record(ActionRecord.of('CREATE_PRODUCT', 'PRODUCT', ' Payments ', departmentId).withUser(ANN)
-                .done('Created product PAY with 2 service(s)'))
+                .withProductId(7L).done('Created product PAY with 2 service(s)'))
         service.record(ActionRecord.of('DELETE_PIPELINE', 'PIPELINE', 'api · Full', departmentId).withUser(ANN)
                 .failed('Pipeline 9 does not exist'))
 
         then:
         1 * repository.save(new ActionLog(null, null, 'ann', 'Ann Lee', 'ann@bbh.com', department, 'CREATE_PRODUCT',
-                'PRODUCT', 'Payments', 'Created product PAY with 2 service(s)', 'SUCCESS'))
+                'PRODUCT', 'Payments', 'Created product PAY with 2 service(s)', 'SUCCESS', departmentId, 7L))
         1 * repository.save(new ActionLog(null, null, 'ann', 'Ann Lee', 'ann@bbh.com', department, 'DELETE_PIPELINE',
-                'PIPELINE', 'api · Full', 'Pipeline 9 does not exist', 'FAILURE'))
+                'PIPELINE', 'api · Full', 'Pipeline 9 does not exist', 'FAILURE', departmentId, null))
 
         where:
         departmentId | department
@@ -59,7 +59,7 @@ class ActionLogServiceSpec extends Specification {
     def "the history is listed newest first as stored"() {
         given:
         def stored = [new ActionLog(2L, null, 'ann', 'Ann Lee', null, null, 'DELETE_PRODUCT', 'PRODUCT', 'Pay', null,
-                'SUCCESS')]
+                'SUCCESS', 4L, 7L)]
         repository.findAll() >> stored
 
         expect:

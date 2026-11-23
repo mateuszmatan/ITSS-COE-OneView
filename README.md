@@ -5,8 +5,11 @@ ITSS COE OneView is the portal of the ITSS Center of Excellence at BBH. It joins
 | Area | Shows and manages | State |
 |------|-------------------|-------|
 | **DevSecOps** | the products, pipelines and pipeline keys of the Jenkins shared library DSOEnhanced, the configuration every build reads, Pipeline Monitoring with the charts of Grafana and InfluxDB, and the OWASP SAMM maturity | in use |
-| **QM Metric Tool** | the quality assurance metrics of every product, with their charts in Grafana and InfluxDB | page and package layout; see `TODO.md` |
-| **Agile Assessment & Adoption** | the agile maturity of teams and business services | page and package layout; see `TODO.md` |
+| **QM Metric Tool** | the quality assurance of every application: whether it takes part, its QA lead, its SonarQube and defect projects, its Grafana dashboard and its quality targets, under the targets of BBH | in use; the metrics from InfluxDB and Grafana follow, see `TODO.md` |
+| **Agile Assessment & Adoption** | the agile team of every application and its maturity assessments in five dimensions, summed up by business service and for BBH | in use; the BBH maturity model and the trend chart follow, see `TODO.md` |
+
+Above its pages a bar chooses the business service and, if wanted, one application (a product of the catalog): the
+pages then show that application alone, a summary of every application of the business service, or the whole of BBH.
 
 It is one Spring Boot service (Java 21, Spring Boot 4) with the Angular GUI inside, packaged as one jar and one
 container image. It runs on an embedded H2 database on a laptop and on Oracle in the test and production environments.
@@ -53,7 +56,7 @@ The guide is rendered by plain Groovy in `gradle/documentation.gradle`, with no 
 offline on Windows too. `checkDocumentation`, part of `check`, fails when `docs/documentation.html` is not the page
 the Markdown renders to, or when a link names a heading or a file that does not exist: run `./gradlew documentation`
 and commit both files. The Vitest spec `frontend/src/app/documentation.spec.ts` fails when a field shows a
-`devsecops_config.yaml` key chip that the guide does not name, so a new field needs a line in chapter 20 of the guide.
+`devsecops_config.yaml` key chip that the guide does not name, so a new field needs a line in chapter 22 of the guide.
 
 ## Running locally
 
@@ -198,11 +201,19 @@ A feature is one package name in every layer, and every feature belongs to an ar
 | Agile Assessment & Adoption | `agile` | `agile` |
 | shared by the areas | `actionlog`, `user`, `shared` | `history`, `core`, `shared`, and `frontend/src/common` |
 
-The areas are listed in `frontend/src/app/core/sections.ts` (`AREAS`, with the landing page `LANDING`). The side
-menu on the left links the Main Landing Page and every area; the landing page (`/`, `frontend/src/app/landing`)
-has one card for each area; the header shows the sections of the area of the current page when it has more than
-one. A new page of the GUI also needs its first path segment in
+The areas are listed in `frontend/src/app/core/sections.ts` (`AREAS`, with the landing page `LANDING` and the pages
+of every area `TOOLS`: Action history and Admin). The side menu on the left links the Main Landing Page, every area
+and, below them, the tools; the landing page (`/`, `frontend/src/app/landing`) has one card for each area with its
+figures; the header shows the sections of the area of the current page when it has more than one. The tabs of Admin
+(`ONEVIEW_ADMIN`) are grouped by the area they belong to. A new page of the GUI also needs its first path segment in
 `oneview.gui.pages` of `application.yml`, so that the service answers a reload of it with the Angular page.
+
+The business service and the application chosen in the bar above the pages are `OneViewContext`
+(`frontend/src/common/context`), which the browser keeps in `localStorage` (`oneview.department`, which Self-service
+has always read, and `oneview.application`). A route with the data `WITH_CONTEXT` shows the bar, and its page follows
+the choice: the API takes `departmentId` for `/api/pipelines`, and `departmentId` and `productId` for
+`/api/monitoring/activity` and `/api/samm/overview`; the other pages narrow the lists they read. Every action of the
+history keeps the business service and the product it was on (`DEPARTMENT_ID`, `PRODUCT_ID` of `DSO_ACTION_LOG`).
 
 The database is the same Liquibase changelog on both databases (`db/changelog`, `dbms:oracle,h2`): the profile
 `local` runs H2 in Oracle mode in a file, the profiles `rd`, `qc` and `prod` run Oracle (`DB_URL`, `DB_USERNAME`,
@@ -258,6 +269,14 @@ with who, what, when and the result, and shown under Action history.
   "Retry a Gradle or Maven step with these repositories when a plugin is missing" is ticked after the upgrade and the
   settings sent to Jenkins carry `defaults.pluginRepositories`, the values of the library defaults. A settings request
   without the new fields ticks the box and leaves the repositories to the library defaults; a rollback drops the columns.
+- Changeset 047 adds the tables of the QM Metric Tool (`QA_SETTINGS`, the BBH quality targets, and `QA_APPLICATION`)
+  and of Agile Assessment & Adoption (`AGL_APPLICATION`, `AGL_ASSESSMENT`, `AGL_ASSESSMENT_LEVEL`). They start empty:
+  OneView works to the BBH targets of 80% code coverage, a 95% test pass rate and no open critical defects until they
+  are saved, and no application takes part in either area. The rows of an application go with its product; a
+  rollback drops the tables with whatever they hold.
+- Changeset 048 adds `DEPARTMENT_ID` and `PRODUCT_ID` to `DSO_ACTION_LOG`, so the Action history follows the business
+  service and the application chosen. Earlier entries keep both empty and are matched by the name of their business
+  service; a rollback drops the columns and their indexes.
 
 ## Known gaps
 

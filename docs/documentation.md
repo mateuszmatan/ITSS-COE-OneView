@@ -1,6 +1,6 @@
 # ITSS COE OneView - User and Administrator Guide
 
-This guide explains BBH ITSS COE OneView to the people who use it. Product teams use it to set up the DevSecOps pipelines of their products. The DevSecOps team uses it to look after products, pipelines, keys and the settings every pipeline shares. No DevSecOps knowledge is needed to follow the step-by-step chapters.
+This guide explains BBH ITSS COE OneView to the people who use it. Product teams use it to set up the DevSecOps pipelines of their products, QA leads to follow the quality of their applications and agile coaches to record the agile maturity of their teams. The ITSS COE uses it to look after products, pipelines, keys, quality targets and assessments, and the settings every pipeline shares. No DevSecOps knowledge is needed to follow the step-by-step chapters.
 
 The guide is written in `docs/documentation.md`. The page `docs/documentation.html` is generated from it by the build (`gradle documentation`), and `gradle check` fails when the page is out of date. Developers find the build, the tests and the architecture in the [README](../README.md).
 
@@ -25,9 +25,11 @@ The guide is written in `docs/documentation.md`. The page `docs/documentation.ht
 - [17. Bitbucket Pull Request Decoration & Shift-Left Feedback](#17-bitbucket-pull-request-decoration--shift-left-feedback)
 - [18. Business Services](#18-business-services)
 - [19. Action history](#19-action-history)
-- [20. Field reference: from the portal to devsecops_config.yaml](#20-field-reference-from-the-portal-to-devsecops_configyaml)
-- [21. Database and environments](#21-database-and-environments)
-- [22. Troubleshooting](#22-troubleshooting)
+- [20. QM Metric Tool](#20-qm-metric-tool)
+- [21. Agile Assessment & Adoption](#21-agile-assessment--adoption)
+- [22. Field reference: from the portal to devsecops_config.yaml](#22-field-reference-from-the-portal-to-devsecops_configyaml)
+- [23. Database and environments](#23-database-and-environments)
+- [24. Troubleshooting](#24-troubleshooting)
 
 ## 1. What the portal does
 
@@ -47,6 +49,7 @@ The portal does five things:
 |------|---------|
 | Business Service | A group of products, for example Custody or Fund Services. The API and the database call it a department. |
 | Product | An application that BBH builds and runs, for example Payments Hub. It has a short upper-case code, for example `PAYHUB`. |
+| Application | A product of the catalog, as the QM Metric Tool and Agile Assessment & Adoption call it. The bar above the pages chooses one, or all applications of a Business Service; see [Business service and application](#business-service-and-application). |
 | Service | One part of a product that is built and deployed on its own, for example its API or its web front end. |
 | Pipeline | The automated build, test and security checks that Jenkins runs on the code of one service. A service has at most one pipeline of each type. |
 | Pipeline key | The secret code that the Jenkins job of a pipeline uses to fetch its settings from the portal. |
@@ -70,30 +73,60 @@ The portal does five things:
 
 ## 2. The pages of the portal
 
-ITSS COE OneView joins three areas. The menu on the left of every page links them, with the Main Landing Page
-first; the Main Landing Page (the address of OneView itself, `/`) shows one card for each area, and a click on a card
-opens that area. An address OneView does not know leads to the Main Landing Page.
+ITSS COE OneView joins three areas. The menu on the left of every page links them, with the Main Landing Page first and, below the areas, the two pages that serve every area: Action history and Admin. The Main Landing Page (the address of OneView itself, `/`) shows one card for each area with its figures, and a click on a card opens that area. An address OneView does not know leads to the Main Landing Page.
 
 | Area | What it holds |
 |------|---------------|
-| DevSecOps | The pipelines of the products, their monitoring with the charts of Grafana and InfluxDB, and the OWASP SAMM maturity. This guide describes this area. |
-| QM Metric Tool | The quality assurance metrics of every product, with their charts in Grafana and InfluxDB. The page names what is planned; it shows no data yet. |
-| Agile Assessment & Adoption | The agile maturity of teams and business services. The page names what is planned; it shows no data yet. |
+| DevSecOps | The pipelines of the products, their monitoring with the charts of Grafana and InfluxDB, and the OWASP SAMM maturity. Most chapters of this guide describe this area. |
+| QM Metric Tool | The quality assurance of every application: whether it takes part, its QA lead, where its test results, code quality and defects are, and the quality targets it works to. See [chapter 20](#20-qm-metric-tool). |
+| Agile Assessment & Adoption | The agile maturity of the team of every application and of every business service, from the assessments of the agile coaches. See [chapter 21](#21-agile-assessment--adoption). |
 
-The menu at the top shows the entries of the area of the current page. The area DevSecOps has six entries, and a click on DevSecOps in the menu on the left opens Pipeline Monitoring.
+### Business service and application
+
+Every product of the catalog is an application. The bar above the pages that sum up applications chooses what they show:
+
+| Choice | What the pages show |
+|--------|---------------------|
+| All business services | The whole of BBH: every application of every business service. |
+| A business service, with All applications of it | A summary of all the applications of that business service. |
+| One application | That application alone. Choosing an application also chooses its business service. |
+
+The choice stays the same from page to page, and the browser remembers it for the next visit. Self-service preselects the business service chosen for a new product. A business service or an application that no longer exists is dropped from the choice, and an application that moved to another business service takes it along.
+
+The bar is above the Main Landing Page, Pipelines, Pipeline Monitoring, OWASP SAMM, the QM Metric Tool, Agile Assessment & Adoption, the Action history and the Admin tabs Products, Applications and targets, and Teams and assessments. The page of one pipeline or one product, Self-service and the other Admin tabs show what they hold whatever is chosen.
+
+| Page | With a business service chosen | With one application chosen |
+|------|--------------------------------|-----------------------------|
+| Main Landing Page | The figures of every card count the applications of the business service. | The cards show the application: its pipelines and their latest results, whether it takes part in the QM Metric Tool with its coverage and pass rate targets, and the level of its latest agile assessment. |
+| Pipelines | The pipelines of its products. | The pipelines of the application. |
+| Pipeline Monitoring | The latest results, the products and the delivery performance (DORA) of its pipelines. | The same, for the pipelines of the application. |
+| OWASP SAMM | The maturity of its applications. | The maturity of the application. |
+| QM Metric Tool | A summary of its applications and how they take part. | The application with its QA lead, its projects, its dashboard and its quality targets. |
+| Agile Assessment & Adoption | A summary of its teams, with the mean level of every dimension. | The team with its latest assessment, how it changed and every assessment. |
+| Action history | The actions on the business service and on its products and applications. | The actions on the application. |
+| Admin: Products, Applications and targets, Teams and assessments | Only its products and applications. | Only the application. |
+
+### The menus
+
+The menu at the top shows the sections of the area of the current page. The area DevSecOps has four sections, and a click on DevSecOps in the menu on the left opens Pipeline Monitoring.
 
 | Menu | What you do there |
 |------|-------------------|
-| Pipelines | Choose your Business Service and see every pipeline of its products, with its key state, its Jenkins job and its last run. Open a pipeline to see its key, its settings, its Jenkinsfile and its latest runs. |
+| Pipelines | See every pipeline of the business service or the application chosen above, or of the whole of BBH, with its key state, its Jenkins job and its last run. Open a pipeline to see its key, its settings, its Jenkinsfile and its latest runs. |
 | Self-service | Set up the pipelines of a product, or change them, in five guided steps. See [chapter 4](#4-add-a-service-in-the-self-service-wizard). |
 | Pipeline Monitoring | See whether the latest runs passed and how often and how safely changes reach production. See [chapter 14](#14-pipeline-monitoring-and-dora). |
 | OWASP SAMM | Software Assurance Maturity Model (OWASP SAMM v2.0) posture across BBH applications and business services. Continuous maturity evaluation across 5 domains and 11 practices, scorecards, and improvement roadmaps. See [chapter 15](#15-owasp-samm-software-assurance-maturity-model). |
-| Action history | See who changed what and when, with the result. See [chapter 19](#19-action-history). |
-| Admin | The DevSecOps administration with four tabs: Business Services, Products, Service template and Library defaults. |
+
+Below the areas, the menu on the left has the two pages of every area:
+
+| Menu | What you do there |
+|------|-------------------|
+| Action history | See who changed what and when, with the result, in every area. See [chapter 19](#19-action-history). |
+| Admin | The administration of OneView, with six tabs in four groups: Catalog (Business Services, Products), DevSecOps (Service template, Library defaults), QM Metric Tool (Applications and targets) and Agile Assessment & Adoption (Teams and assessments). |
 
 ### The help icons and the key chips
 
-Every field has a help icon. Point at it or move the keyboard focus to it to read what the field does. The grey text under a field is its hint. A hint ends with a code chip such as `build.node.enabled`. The chip is the key the field writes in `devsecops_config.yaml`. [Chapter 20](#20-field-reference-from-the-portal-to-devsecops_configyaml) lists every chip.
+Every field has a help icon. Point at it or move the keyboard focus to it to read what the field does. The grey text under a field is its hint. A hint ends with a code chip such as `build.node.enabled`. The chip is the key the field writes in `devsecops_config.yaml`. [Chapter 22](#22-field-reference-from-the-portal-to-devsecops_configyaml) lists every chip.
 
 A hint that says "Library default: X" shows the value the service takes from the Library defaults page. A hint that says "Library default" alone shows that the field still holds that value.
 
@@ -882,7 +915,7 @@ The portal refuses the settings that the pipelines would refuse. While you type,
 | `Service <service> delivers its database package to Nexus in the <type> pipeline but has no <item>` | the save | Set the item under Database changes or in the Library defaults, or untick "Deliver the package to Nexus". |
 | `Service <service> is a Liquibase service with database changes, for which the library runs no Nexus IQ GoldenFix pipeline` | Add pipeline, the save | Choose another pipeline type, or delete the Nexus IQ GoldenFix pipeline before you set the changelog file. |
 
-The library checks the settings again when a pipeline starts, together with what the portal cannot see: whether the changelog file and the utPLSQL folders exist in the checkout, and whether the allowed databases have changed. Its messages, and the messages of Liquibase and utPLSQL, are explained in chapter 14 of the library guide, under "Troubleshooting". [Chapter 22](#22-troubleshooting) of this guide describes the portal refusals in more detail.
+The library checks the settings again when a pipeline starts, together with what the portal cannot see: whether the changelog file and the utPLSQL folders exist in the checkout, and whether the allowed databases have changed. Its messages, and the messages of Liquibase and utPLSQL, are explained in chapter 14 of the library guide, under "Troubleshooting". [Chapter 24](#24-troubleshooting) of this guide describes the portal refusals in more detail.
 
 ## 8. Shared version catalogs and the combined Jenkinsfile
 
@@ -1512,17 +1545,112 @@ Admin, Business Services lists the groups of products with their product, servic
 - A Business Service can be renamed or deleted. A Business Service that still holds products cannot be deleted.
 - The portal starts with the five BBH Business Services: AI Lab, Capital Partners, Corporate Technology, Custody and Fund Services.
 
-The Pipelines page shows the pipelines of one Business Service at a time. Its first table counts the pipelines of each Business Service, active and with an invalidated key.
+The Pipelines page shows the pipelines of the Business Service chosen in the bar above it, or of every Business Service; see [Business service and application](#business-service-and-application). The table of Admin, Business Services counts the pipelines of each Business Service, active and with an invalidated key.
 
 ## 19. Action history
 
 The Action history records every change made in the portal: who did it, when, what was done, on which resource and with which result. Search by user, resource or details, and filter by action, resource and status.
 
-The recorded actions are: create, update and delete a product; create, update and delete a pipeline; issue a new key; invalidate a key; create, rename and delete a business service; update the service template; update the library defaults; initialize the portal. An import of a devsecops_config.yaml or config.yaml stores nothing and is not recorded.
+The recorded actions are: create, update and delete a product; create, update and delete a pipeline; issue a new key; invalidate a key; create, rename and delete a business service; update the service template; update the library defaults; update the BBH quality targets; set up or change an application of the QM Metric Tool; set up or change an agile team; record and delete an agile assessment; initialize the portal. An import of a devsecops_config.yaml or config.yaml stores nothing and is not recorded.
+
+The Action history shows the actions of the business service or the application chosen in the bar above it. Every action keeps the business service and the application it was on. Actions recorded before changeset 048 kept only the name of their business service: they are shown for the business service of that name, and not for one application.
 
 The portal has no sign-in yet. Every action is recorded as the default administrator until BBH single sign-on is added.
 
-## 20. Field reference: from the portal to devsecops_config.yaml
+## 20. QM Metric Tool
+
+The QM Metric Tool follows the quality assurance of every application. Every product of the catalog is an application. It takes part once an administrator sets it up with its QA lead, where its results are and, where it needs them, quality targets of its own.
+
+| State | Meaning |
+|-------|---------|
+| Takes part | The application was set up and takes part. It is counted in the figures of its business service and of BBH. |
+| Not set up | Nobody has set up the application yet. It works to the BBH targets. |
+| Does not take part | The application was set up and then taken out. Its settings are kept for when it takes part again. |
+
+### The page of the QM Metric Tool
+
+With All business services or one business service chosen, the page sums up the applications: how many there are, how many take part, how many do not take part yet and how many have a Grafana dashboard, and it names the BBH targets. The table lists every application with its business service, whether it takes part, its QA lead, the targets it sets for itself and a link to its dashboard. A click on an application shows it alone, as if it had been chosen above.
+
+With one application chosen, the page shows it with its business service, its QA lead, its SonarQube project, its defect project, a link to its quality dashboard in Grafana and when it was last changed, and the quality targets it works to. A target the application does not set for itself is the BBH target, and the page says which is which.
+
+The results themselves, the test results, the code quality, the defects and their trends, come from InfluxDB and Grafana once the quality metrics are connected; the card "Coming next" names them.
+
+### Quality targets
+
+| Target | Meaning | Values | BBH target when OneView starts |
+|--------|---------|--------|--------------------------------|
+| Code coverage (%) | At least this share of the code is covered by tests. | 0 to 100 | at least 80% |
+| Test pass rate (%) | At least this share of the tests passes. | 0 to 100 | at least 95% |
+| Open critical defects (at most) | At most this many critical defects are open. | 0 to 999999 | at most 0 |
+
+Admin, Applications and targets, BBH quality targets sets the targets of BBH. They need all three values. A change applies at once to every application without a target of its own, and leaving the page with a change that is not saved asks first. When someone else saved the targets after you opened the page, nothing is saved and nothing is overwritten: Reload shows their targets, then make your change again.
+
+### Set up an application
+
+Admin, Applications and targets lists the applications of the business service or the application chosen above. Set up, or Edit for an application set up before, opens the application:
+
+| Field | Meaning |
+|-------|---------|
+| Takes part in the QM Metric Tool | Ticked for an application that was never set up. Untick it to keep the application out; its settings are kept. |
+| QA lead | The person who leads the quality of the application. At most 200 characters. |
+| SonarQube project key | The key of its project in SonarQube, for example `com.bbh:cert-scanner`. At most 400 characters. |
+| Defect project key | The key of the project its defects are tracked in, for example `CERT`. At most 100 characters. |
+| Grafana dashboard | The address of its quality dashboard in Grafana, starting with `http://` or `https://`. At most 1000 characters. |
+| Code coverage (%), Test pass rate (%), Open critical defects (at most) | The targets of its own. Leave one empty to use the BBH target, which the hint under the field shows. |
+
+A field left empty is not set. When someone else changed the application after you opened it, nothing is saved: close the window and open it again to see their changes.
+
+### REST API of the QM Metric Tool
+
+| Request | What it does |
+|---------|--------------|
+| `GET /api/qa/defaults` | The BBH targets (`coveragePercent`, `passRatePercent`, `maxCriticalDefects`) with their `version`, which is `null` while they were never saved. |
+| `PUT /api/qa/defaults` | Saves the BBH targets: `{"targets": {...}, "version": <the version read>}`. 400 names a target that is missing or out of range; 409 means someone else saved first. |
+| `GET /api/qa/applications` | Every application with how it takes part, its own `targets` and the `effectiveTargets` it works to, by business service and name. |
+| `GET /api/qa/applications/{productId}` | One application; 404 for an unknown product. |
+| `PUT /api/qa/applications/{productId}` | Sets up or changes one application: `enabled`, `qaLead`, `sonarProjectKey`, `defectProjectKey`, `dashboardUrl`, `targets` (a target left `null` is the BBH target) and the `version` read, `null` for an application never set up. |
+
+## 21. Agile Assessment & Adoption
+
+Agile Assessment & Adoption follows how mature the agile way of working of the team of every application is. An agile coach rates the team in five dimensions, from level 1, just starting, to level 5, fully mature and improving on its own. The overall level of an assessment is the mean of its levels, with one decimal.
+
+| Dimension | What it rates |
+|-----------|---------------|
+| Team and roles | A stable, cross-functional team with a product owner and an agile lead who know their part. |
+| Planning and delivery | A refined backlog, short planning cycles and a steady flow of finished work. |
+| Engineering practices | Automated build, tests and deployment, and a definition of done the team keeps. |
+| Product ownership | Work ordered by business value, with stakeholders reviewing what is delivered. |
+| Continuous improvement | Retrospectives that lead to changes, and metrics the team uses to improve. |
+
+The dimensions are the starting set of the ITSS COE. The BBH maturity model is still to be agreed, see `TODO.md`.
+
+### The page of Agile Assessment & Adoption
+
+With All business services or one business service chosen, the page sums up the teams: how many applications there are, how many teams take part, how many were assessed and their average level. The table lists every team with its business service, whether it takes part, its name, its way of working, its agile coach, the day of its latest assessment and its level. Maturity by dimension shows the mean level of every dimension over the latest assessments, and with All business services, By business service shows the mean overall level of every business service. A team without an assessment is not counted in the means. A click on an application shows its team alone.
+
+With one application chosen, the page shows the team with its business service, its name, its way of working and its agile coach, its latest assessment with the level of every dimension and how it changed since the assessment before (for example "up 1 from 3"), the notes of the assessment and every assessment, the latest first.
+
+### Set up a team and record an assessment
+
+Admin, Teams and assessments lists the teams of the business service or the application chosen above, and every assessment of these teams, the latest first.
+
+1. Set up, or Edit for a team set up before, opens the team: Takes part in Agile Assessment & Adoption (ticked for a team that was never set up), Team (at most 200 characters), Way of working (Scrum, Kanban, SAFe, Other or Not set) and Agile coach (at most 200 characters).
+2. Record assessment opens the assessment of a team that takes part: the day of the assessment, today unless you change it and never in the future; who made it, the agile coach of the team unless you change it; a level from 1 to 5 for every dimension; and notes of at most 4000 characters, which everyone who opens the application sees.
+3. An assessment cannot be changed. Delete an assessment that was recorded by mistake under Assessments, and record it again with the right levels. The other assessments of the team stay as they are.
+
+### REST API of Agile Assessment & Adoption
+
+| Request | What it does |
+|---------|--------------|
+| `GET /api/agile/model` | The dimensions and the ways of working with their codes, labels and descriptions, and the lowest and highest level. |
+| `GET /api/agile/applications` | Every application with its team and its assessments, the latest first, by business service and name. |
+| `GET /api/agile/applications/{productId}` | One application; 404 for an unknown product. |
+| `PUT /api/agile/applications/{productId}` | Sets up or changes the team: `enabled`, `teamName`, `framework` (`SCRUM`, `KANBAN`, `SAFE`, `OTHER` or `null`), `coach` and the `version` read, `null` for a team never set up. 409 means someone else changed the team first. |
+| `POST /api/agile/applications/{productId}/assessments` | Records an assessment: `assessedOn`, `assessor`, `levels` (one level for every dimension code) and `notes`. 201 with the assessment and its `overallLevel`; 400 names what is missing or out of range. |
+| `GET /api/agile/assessments/{id}` | One assessment. |
+| `DELETE /api/agile/assessments/{id}` | Deletes one assessment; 204. |
+
+## 22. Field reference: from the portal to devsecops_config.yaml
 
 This chapter lists every field that writes to `devsecops_config.yaml`. The column "Key" shows the key in the code chip of the field. Service keys sit under `projects.<service>`. A chip that shows only the last part of a key is listed with its full key. A field that is empty writes nothing, and a checkbox that is off writes nothing unless the table says otherwise.
 
@@ -2034,7 +2162,7 @@ The Portal monitoring block sets the portal itself and is not written to `devsec
 
 Some headings of the service form name the section they write to: `deploy.vm.rd` and `deploy.vm.qc` (SSH targets), `deploy.openshift.rd` and `deploy.openshift.qc` (OpenShift targets), `tools.nexusIq.application` (Nexus IQ), `deploy.vm.dod.applications` and `components` (UrbanCode Deploy), `build.credentialsId` (Flutter credentials) and `database.test`, `database.rd` and `database.qc` (Database changes).
 
-## 21. Database and environments
+## 23. Database and environments
 
 ### Where the portal runs
 
@@ -2120,7 +2248,22 @@ Changeset `042-parallel-dynamic-analysis` adds `PARALLEL_DYNAMIC_ANALYSIS` (0 or
 
 Changeset `043-plugin-repositories` adds `PLUGIN_REPOSITORIES_ENABLED` (0 or 1, 1 by default, with the check `CK_DSO_GLOBAL_PLUGIN_REPOS`), `GRADLE_PLUGIN_REPOSITORY` and `MAVEN_PLUGIN_REPOSITORY` to `DSO_GLOBAL_SETTINGS`. The saved settings get 1 and the two repositories of the BBH Nexus, so the settings sent to Jenkins hold the `defaults.pluginRepositories` of the library defaults after the upgrade. A request to `PUT /api/settings` without the three fields, such as one of an older client, ticks the box and leaves the repositories empty, which means the repositories of the library defaults. A library version without the retry ignores the keys. A rollback drops the columns.
 
-## 22. Troubleshooting
+### Upgrade note: changeset 047
+
+Changeset 047 adds the tables of the QM Metric Tool and of Agile Assessment & Adoption, in five changesets, one table each:
+
+- `047-qa-settings` creates `QA_SETTINGS`, the one row of the BBH quality targets (check `CK_QA_SETTINGS_ONE_ROW`). It starts empty: until the targets are saved the first time, OneView works to at least 80% code coverage, at least a 95% test pass rate and no open critical defects.
+- `047-qa-application` creates `QA_APPLICATION`, one row for each application set up in the QM Metric Tool, with its targets of its own.
+- `047-agl-application` creates `AGL_APPLICATION`, one row for each team set up, with the check `CK_AGL_APPLICATION_FRAMEWORK`.
+- `047-agl-assessment` creates `AGL_ASSESSMENT` with the index `IX_AGL_ASSESSMENT_PRODUCT`, and `047-agl-assessment-level` creates `AGL_ASSESSMENT_LEVEL`, the level of each dimension of an assessment, with the check `CK_AGL_LEVEL_RANGE`.
+
+The rows of an application are deleted with its product. Every application starts as not set up in both areas, so DevSecOps and every pipeline stay as they were. A rollback drops the tables with whatever they hold.
+
+### Upgrade note: changeset 048
+
+Changeset `048-action-log-context` adds `DEPARTMENT_ID` and `PRODUCT_ID` to `DSO_ACTION_LOG`, with the indexes `IX_DSO_ACTION_LOG_DEPARTMENT` and `IX_DSO_ACTION_LOG_PRODUCT`, so that the Action history shows the actions of the business service or the application chosen. The entries recorded before keep both empty; they are shown for the business service they name, and not for one application. A rollback drops the indexes and the columns.
+
+## 24. Troubleshooting
 
 ### "Add service" stays disabled
 

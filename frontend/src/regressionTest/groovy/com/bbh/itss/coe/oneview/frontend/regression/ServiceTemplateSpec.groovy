@@ -14,7 +14,7 @@ class ServiceTemplateSpec extends EditorSpecification {
         page.waitForURL('**/admin/template')
 
         then:
-        assertThat(page).hasTitle(~'^Service template · DevSecOps Admin')
+        assertThat(page).hasTitle(~'^Service template · OneView Admin')
         assertThat(page.locator('.save-bar .saved')).containsText('(version 2)')
         assertThat(page.locator('.section h2'))
                 .hasText(['Pipelines', 'Build', 'Nexus IQ and Bitbucket', 'OpenShift', 'What a new service gets'] as String[])

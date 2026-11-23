@@ -22,7 +22,11 @@ export const scripted = (tool: BuildTool | null | undefined): boolean =>
 
 /** Build tools whose commands the library picks itself when the service gives none. */
 export const autoCommands = (tool: BuildTool | null | undefined): boolean =>
-  tool === 'LIQUIBASE' || tool === 'FLUTTER' || tool === 'DOTNET' || tool === 'SQL' || scripted(tool);
+  tool === 'LIQUIBASE' ||
+  tool === 'FLUTTER' ||
+  tool === 'DOTNET' ||
+  tool === 'SQL' ||
+  scripted(tool);
 
 /** Build tools that need a JDK on the agent. */
 export const needsJdk = (tool: BuildTool | null | undefined): boolean =>
@@ -961,14 +965,14 @@ export interface ActionLog {
   resourceName?: string;
   details?: string;
   status: 'SUCCESS' | 'FAILURE' | string;
+  /** The business service the action was on, when it was on one; older entries have only its name. */
+  departmentId?: number | null;
+  /** The application (product) the action was on, when it was on one. */
+  productId?: number | null;
 }
 
 export type SammBusinessFunction =
-  | 'GOVERNANCE'
-  | 'DESIGN'
-  | 'IMPLEMENTATION'
-  | 'VERIFICATION'
-  | 'OPERATIONS';
+  'GOVERNANCE' | 'DESIGN' | 'IMPLEMENTATION' | 'VERIFICATION' | 'OPERATIONS';
 
 export interface SammPracticeScore {
   practice: string;
@@ -1031,4 +1035,114 @@ export interface SammOrganizationOverview {
   applications: SammApplicationScore[];
   levelDistribution: Record<number, number>;
   generatedAt: string;
+}
+
+/** The quality targets of the QM Metric Tool; on an application a target left out is the one of BBH. */
+export interface QualityTargets {
+  coveragePercent: number | null;
+  passRatePercent: number | null;
+  maxCriticalDefects: number | null;
+}
+
+export interface QualityDefaults {
+  targets: QualityTargets;
+  /** Null while the BBH targets were never saved. */
+  version: number | null;
+  updatedAt: string | null;
+}
+
+export interface QualityDefaultsRequest {
+  targets: QualityTargets;
+  version: number | null;
+}
+
+/** An application (a product of the catalog) and how it takes part in the QM Metric Tool. */
+export interface QualityApplication {
+  productId: number;
+  code: string;
+  name: string;
+  departmentId: number | null;
+  departmentName: string | null;
+  enabled: boolean;
+  qaLead: string | null;
+  sonarProjectKey: string | null;
+  defectProjectKey: string | null;
+  dashboardUrl: string | null;
+  /** The targets the application sets for itself. */
+  targets: QualityTargets;
+  /** Its own targets, and the BBH ones where it sets none. */
+  effectiveTargets: QualityTargets;
+  /** Null while the application was never set up. */
+  version: number | null;
+  updatedAt: string | null;
+}
+
+export interface QualityApplicationRequest {
+  enabled: boolean;
+  qaLead: string | null;
+  sonarProjectKey: string | null;
+  defectProjectKey: string | null;
+  dashboardUrl: string | null;
+  targets: QualityTargets;
+  version: number | null;
+}
+
+export type AgileDimension = 'TEAM' | 'PLANNING' | 'ENGINEERING' | 'PRODUCT' | 'IMPROVEMENT';
+export type AgileFramework = 'SCRUM' | 'KANBAN' | 'SAFE' | 'OTHER';
+
+export interface AgileChoice<C extends string = string> {
+  code: C;
+  label: string;
+  description: string | null;
+}
+
+/** The dimensions an agile maturity assessment rates, the ways of working and the levels. */
+export interface AgileModel {
+  dimensions: AgileChoice<AgileDimension>[];
+  frameworks: AgileChoice<AgileFramework>[];
+  minLevel: number;
+  maxLevel: number;
+}
+
+export interface AgileAssessment {
+  id: number;
+  productId: number;
+  assessedOn: string;
+  assessor: string;
+  levels: Partial<Record<AgileDimension, number>>;
+  /** The mean of the levels, to one decimal. */
+  overallLevel: number | null;
+  notes: string | null;
+}
+
+export interface AgileAssessmentRequest {
+  assessedOn: string;
+  assessor: string;
+  levels: Partial<Record<AgileDimension, number>>;
+  notes: string | null;
+}
+
+/** An application (a product of the catalog) and how its team takes part in Agile Assessment & Adoption. */
+export interface AgileApplication {
+  productId: number;
+  code: string;
+  name: string;
+  departmentId: number | null;
+  departmentName: string | null;
+  enabled: boolean;
+  teamName: string | null;
+  framework: AgileFramework | null;
+  coach: string | null;
+  version: number | null;
+  updatedAt: string | null;
+  /** The latest first. */
+  assessments: AgileAssessment[];
+}
+
+export interface AgileProfileRequest {
+  enabled: boolean;
+  teamName: string | null;
+  framework: AgileFramework | null;
+  coach: string | null;
+  version: number | null;
 }

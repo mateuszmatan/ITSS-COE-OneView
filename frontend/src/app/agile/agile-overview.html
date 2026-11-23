@@ -1,0 +1,243 @@
+<div class="page">
+  <header class="page-header">
+    <div>
+      <h1>{{ section.heading }}</h1>
+      <p class="page-description">{{ section.description }}</p>
+    </div>
+    <div class="actions">
+      <a class="btn btn-outline-primary" [routerLink]="adminPath">Set up in OneView Admin</a>
+      <button
+        type="button"
+        class="btn btn-outline-primary"
+        (click)="refresh()"
+        [disabled]="applications.isLoading() || model.isLoading()"
+      >
+        Refresh
+      </button>
+    </div>
+  </header>
+
+  @if (applications.isLoading() || model.isLoading()) {
+    <ov-loading />
+  }
+
+  @if (applications.error() ?? model.error(); as error) {
+    <ov-load-error what="Agile Assessment & Adoption" [error]="error" (retry)="refresh()" />
+  } @else if (applications.hasValue() && model.hasValue()) {
+    @if (application(); as app) {
+      <section class="card profile">
+        <header class="card-header">
+          <h2>
+            {{ app.name }} <span class="mono muted">{{ app.code }}</span>
+          </h2>
+          <span
+            class="chip participation"
+            [class.success]="app.enabled"
+            [class.neutral]="!app.enabled"
+            >{{ participation(app) }}</span
+          >
+        </header>
+        @if (!app.enabled) {
+          <div class="banner info not-taking-part" role="status">
+            <span class="banner-text"
+              >The team of {{ app.name }} does not take part in Agile Assessment & Adoption yet. An
+              administrator sets it up in OneView Admin with the team, its way of working and its
+              agile coach.</span
+            >
+            <a class="btn btn-outline-primary" [routerLink]="adminPath">Open OneView Admin</a>
+          </div>
+        }
+        <dl class="rows">
+          <dt>Business service</dt>
+          <dd>{{ app.departmentName ?? 'Not in a business service' }}</dd>
+          <dt>Team</dt>
+          <dd>{{ app.teamName ?? 'Not named yet' }}</dd>
+          <dt>Way of working</dt>
+          <dd>{{ frameworkOf(app) }}</dd>
+          <dt>Agile coach</dt>
+          <dd>{{ app.coach ?? 'Not named yet' }}</dd>
+        </dl>
+      </section>
+
+      <section class="card latest">
+        <header class="card-header">
+          <h2>Maturity</h2>
+          @if (latest(); as assessment) {
+            <span class="muted"
+              >Assessed {{ dayText(assessment.assessedOn) }} by {{ assessment.assessor }}</span
+            >
+          }
+        </header>
+        @if (latest(); as assessment) {
+          <p class="overall">
+            <strong>{{ levelText(assessment.overallLevel) }}</strong
+            >&ngsp;<span>overall level, of {{ maxLevel() }}</span>
+          </p>
+          <ul class="levels" aria-label="Level of every dimension">
+            @for (entry of latestLevels(); track entry.code) {
+              <li class="dimension">
+                <span class="dimension-label">
+                  <strong>{{ entry.label }}</strong>
+                  @if (entry.description) {
+                    <span class="muted">{{ entry.description }}</span>
+                  }
+                </span>
+                <span class="bar" aria-hidden="true"
+                  ><span class="fill" [style.width.%]="share(entry.level)"></span
+                ></span>
+                <span class="value">{{ entry.level ?? '–' }}</span>
+                @if (change(entry); as text) {
+                  <span class="change muted">{{ text }}</span>
+                }
+              </li>
+            }
+          </ul>
+          @if (assessment.notes) {
+            <p class="notes"><strong>Notes:</strong> {{ assessment.notes }}</p>
+          }
+        } @else {
+          <div class="empty-state">
+            <h3>No assessment of {{ app.name }} yet</h3>
+            <p>
+              An agile coach rates the team in every dimension from 1 to {{ maxLevel() }}, and an
+              administrator records the assessment in OneView Admin.
+            </p>
+            <a class="btn btn-primary" [routerLink]="adminPath">Record an assessment</a>
+          </div>
+        }
+      </section>
+
+      @if (app.assessments.length > 1) {
+        <section class="card history">
+          <header class="card-header">
+            <h2>Assessments</h2>
+            <span class="muted">{{ app.assessments.length }} assessments, the latest first</span>
+          </header>
+          <ov-grid
+            label="Assessments"
+            [rows]="app.assessments"
+            [columns]="historyColumns()"
+            [rowId]="assessmentId"
+          />
+        </section>
+      }
+    } @else if (level() === 'application') {
+      <section class="card empty-state">
+        <h3>{{ scopeName() }} is not in Agile Assessment & Adoption</h3>
+        <p>Choose another application above, or all applications of its business service.</p>
+      </section>
+    } @else {
+      <section class="card summary">
+        <header class="card-header">
+          <h2>Application teams</h2>
+          <span class="muted">{{ scopeName() }}</span>
+        </header>
+        <p class="section-help">
+          The team of every application, how it works and how mature its agile way of working is in
+          its latest assessment. Open one to see its assessments.
+        </p>
+        <div class="stats">
+          @for (tile of tiles(); track tile.label) {
+            <div class="stat" [class]="tile.tone">
+              <strong>{{ tile.value }}</strong
+              >&ngsp;<span>{{ tile.label }}</span>
+            </div>
+          }
+        </div>
+
+        @if (scoped().length === 0) {
+          <div class="empty-state">
+            @if (level() === 'department') {
+              <h3>No applications in {{ scopeName() }} yet</h3>
+              <p>
+                Every product of the catalog is an application. Add its products in OneView Admin,
+                or choose All business services above to see every application.
+              </p>
+            } @else {
+              <h3>No applications yet</h3>
+              <p>Every product of the catalog is an application. Add the first in OneView Admin.</p>
+            }
+            <a class="btn btn-primary" [routerLink]="newProduct">Add product</a>
+          </div>
+        } @else {
+          <ov-grid
+            label="Application teams"
+            [rows]="scoped()"
+            [columns]="columns()"
+            [rowId]="rowId"
+            (rowClick)="open($event)"
+          >
+            <ng-template ovCell="name" let-application>
+              <button
+                type="button"
+                class="text-link name"
+                [attr.aria-label]="'Show ' + application.name + ' alone'"
+                (click)="open(application)"
+              >
+                {{ application.name }}
+              </button>
+              <span class="mono muted code">{{ application.code }}</span>
+            </ng-template>
+            <ng-template ovCell="enabled" let-application>
+              <span
+                class="chip"
+                [class.success]="application.enabled"
+                [class.neutral]="!application.enabled"
+                >{{ participation(application) }}</span
+              >
+            </ng-template>
+          </ov-grid>
+        }
+      </section>
+
+      @if (anyAssessed()) {
+        <div class="charts">
+          <section class="card dimensions">
+            <header class="card-header">
+              <h2>Maturity by dimension</h2>
+              <span class="muted">The mean of the latest assessments</span>
+            </header>
+            <ul class="levels" aria-label="Mean level of every dimension">
+              @for (entry of dimensionAverages(); track entry.code) {
+                <li class="dimension">
+                  <span class="dimension-label"
+                    ><strong>{{ entry.label }}</strong></span
+                  >
+                  <span class="bar" aria-hidden="true"
+                    ><span class="fill" [style.width.%]="share(entry.level)"></span
+                  ></span>
+                  <span class="value">{{ levelText(entry.level) }}</span>
+                </li>
+              }
+            </ul>
+          </section>
+
+          @if (departmentLevels().length) {
+            <section class="card departments">
+              <header class="card-header">
+                <h2>By business service</h2>
+                <span class="muted">The mean overall level of the latest assessments</span>
+              </header>
+              <ul class="levels" aria-label="Mean level of every business service">
+                @for (entry of departmentLevels(); track entry.name) {
+                  <li class="dimension">
+                    <span class="dimension-label"
+                      ><strong>{{ entry.name }}</strong
+                      ><span class="muted">{{ entry.note }}</span></span
+                    >
+                    <span class="bar" aria-hidden="true"
+                      ><span class="fill" [style.width.%]="share(entry.level)"></span
+                    ></span>
+                    <span class="value">{{ levelText(entry.level) }}</span>
+                  </li>
+                }
+              </ul>
+            </section>
+          }
+        </div>
+      }
+    }
+  }
+
+  <ov-area-plan [capabilities]="capabilities" intro="Next, this page will also show:" />
+</div>

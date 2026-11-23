@@ -11,6 +11,7 @@ import {
   SammOrganizationOverview,
   SammPracticeScore,
 } from '../core/models';
+import { OneViewContext } from '@common/context/oneview-context';
 import { SammOverviewPage } from './samm-overview';
 
 describe('SammOverviewPage', () => {
@@ -114,12 +115,18 @@ describe('SammOverviewPage', () => {
     generatedAt: '2026-11-04T12:00:00Z',
   };
 
+  const overviewOf = vi.fn((_scope?: unknown) => of(mockOverview));
   const mockSammApi = {
-    overview: () => of(mockOverview),
+    overview: overviewOf,
     departments: () => of([mockDept]),
     department: () => of(mockDept),
     application: () => of(mockApp),
   };
+
+  afterEach(() => {
+    localStorage.removeItem('oneview.department');
+    localStorage.removeItem('oneview.application');
+  });
 
   beforeEach(async () => {
     await TestBed.configureTestingModule({
@@ -206,5 +213,36 @@ describe('SammOverviewPage', () => {
     await fixture.whenStable();
 
     expect(el.querySelector('.scorecard-modal')).toBeFalsy();
+  });
+
+  it('scores BBH while nothing is chosen, and a business service or application once chosen', async () => {
+    expect(overviewOf).toHaveBeenLastCalledWith({ departmentId: null, productId: null });
+    const el = fixture.nativeElement as HTMLElement;
+    expect(el.querySelector('.score-label')?.textContent).toContain('BBH Organization Maturity');
+
+    TestBed.inject(OneViewContext).choose(1);
+    fixture.detectChanges();
+    await fixture.whenStable();
+
+    expect(overviewOf).toHaveBeenLastCalledWith({ departmentId: 1, productId: null });
+    expect(el.querySelector('.score-label')?.textContent).toContain('Core Banking Maturity');
+
+    TestBed.inject(OneViewContext).choose(1, 10);
+    fixture.detectChanges();
+    await fixture.whenStable();
+
+    expect(overviewOf).toHaveBeenLastCalledWith({ departmentId: 1, productId: 10 });
+    expect(el.querySelector('.score-label')?.textContent).toContain('Billing Platform Maturity');
+  });
+
+  it('opens the applications of a business service from its card and chooses it for every page', async () => {
+    const el = fixture.nativeElement as HTMLElement;
+    el.querySelector<HTMLButtonElement>('.btn-inspect-dept')!.click();
+    fixture.detectChanges();
+    await fixture.whenStable();
+
+    expect(TestBed.inject(OneViewContext).scope()).toEqual({ departmentId: 1, productId: null });
+    expect(el.querySelector('.applications-table')).toBeTruthy();
+    expect(el.querySelector('#dept-select')).toBeNull();
   });
 });

@@ -15,12 +15,12 @@ Rules for every item: change `DSOEnhancedWithoutPortal` first, then `main` and t
 
 ## ITSS COE OneView: the three areas
 
-OneView joins the areas DevSecOps, QM Metric Tool and Agile Assessment & Adoption. The Main Landing Page with a card per area, the menu on the left, the pages `/qa` and `/agile` and the packages `domain.qa`, `application.qa`, `domain.agile` and `application.agile` exist; the functions below are open and need their scope agreed first.
+OneView joins the areas DevSecOps, QM Metric Tool and Agile Assessment & Adoption. The Main Landing Page with a card per area, the menu on the left and the bar that chooses a business service and one of its applications exist. The QM Metric Tool keeps, for every application, whether it takes part, its QA lead, its SonarQube and defect projects, its Grafana dashboard and its quality targets under the BBH targets; Agile Assessment & Adoption keeps the team of every application and the assessments of its agile coach. The items below are open and need their scope agreed first.
 
 | # | Item | Where | Why |
 |---|------|-------|-----|
-| O.1 | **QM Metric Tool.** Agree the metrics (test results of the pipelines, coverage and the SonarQube quality gate, defects), their InfluxDB measurements and the Grafana dashboards; then the use cases, the InfluxDB and Grafana adapters, the REST API and the page. | Portal, area QM Metric Tool | The page of the area only names what is planned. |
-| O.2 | **Agile Assessment & Adoption.** Agree the maturity model (dimensions, levels, who assesses and how often); then the tables (`AGL_`), the use cases, the REST API and the page with the trend and the comparison of business services. | Portal, area Agile Assessment & Adoption | The page of the area only names what is planned. |
+| O.1 | **QM Metric Tool: the results.** Agree the metrics (test results of the pipelines, coverage and the SonarQube quality gate, defects), their InfluxDB measurements and the Grafana dashboards; then read them for every application that takes part, from the SonarQube project, the defect project and the dashboard it already keeps, show them with their trend on its page and compare them with the quality targets it works to. | Portal, area QM Metric Tool | The page names who leads the quality of an application, where its results are and its targets, but shows no result yet. |
+| O.2 | **Agile Assessment & Adoption: the BBH maturity model.** Agree the dimensions, the levels, who assesses and how often; OneView starts with the five dimensions and the levels 1 to 5 of the ITSS COE. Then the chart of the trend of a team and of a business service, and for every dimension what the next level asks for. | Portal, area Agile Assessment & Adoption | The assessments are recorded against a starting model that BBH has not agreed yet. |
 | O.3 | **SAMM charts in Grafana and InfluxDB.** Write the SAMM scores to InfluxDB as a time series and link their Grafana dashboard from the SAMM page. | Portal, area DevSecOps | SAMM is calculated at the moment of the request and has no history. |
 | O.5 | **Area of a section under its own address** (`/devsecops/...`), once the QM Metric Tool and Agile Assessment & Adoption areas have more than one section. | Portal | The sections of DevSecOps keep their addresses today. |
 
@@ -44,6 +44,13 @@ OneView joins the areas DevSecOps, QM Metric Tool and Agile Assessment & Adoptio
 | 3.4 | **GoldenFix beyond the repository of the service**: a catalog published as an artifact or kept in another repository, a BOM or parent from Nexus, a constant in `buildSrc`; one pull request for the services of one repository. | Library, both branches | Today such a component is named with the reason and not raised. |
 | 3.5 | **Front-end formatting.** Four files of the portal front end do not pass the Prettier check. | Portal | Keeps the lint run clean. |
 | 3.6 | **Dart rules in SonarQube**, and the name of a pub component in a real Nexus IQ report. | Library, both branches | Known limitations of Flutter projects. |
+
+## Done on 2026-11-23
+
+- The bar above the pages chooses a business service and, optionally, one of its applications; every product of the catalog is an application. With no application chosen, the Main Landing Page, Pipelines, Pipeline Monitoring, OWASP SAMM, the QM Metric Tool, Agile Assessment & Adoption, the Action history and the Admin tabs of the products and applications sum up every application of the business service, or of BBH with All business services; with one chosen, they show it alone. The choice stays from page to page and the browser remembers it.
+- QM Metric Tool: an administrator sets up every application with its QA lead, its SonarQube and defect projects, its Grafana dashboard and quality targets of its own, and sets the BBH targets (code coverage, test pass rate, open critical defects) that the others work to; the page sums up the applications and shows one application with the targets it works to (tables `QA_`, changeset `047-qm-metric-tool-and-agile`).
+- Agile Assessment & Adoption: an administrator sets up the team of every application (its name, way of working and agile coach) and records its assessments, a level from 1 to 5 in five dimensions; the page shows the mean level by dimension and by business service and how a team changed since its assessment before (tables `AGL_`, changeset 047).
+- Action history and Admin are in the menu on the left. OneView Admin has six tabs in four groups (Catalog, DevSecOps, QM Metric Tool, Agile Assessment & Adoption), and the action history records the business service and the application of every action (changeset `048-action-log-context`).
 
 ## Done on 2026-11-22
 

@@ -32,8 +32,9 @@ class ProductCatalogueSpec extends ProductPageSpecification {
         assertThat(row('Payments Hub').locator('.pipelines.revoked')).hasText('6, 1 key invalidated')
         assertThat(row('CertScanner').locator('.pipelines')).hasText('3, all active')
         assertThat(row('CertScanner').locator('.pipelines.revoked')).hasCount(0)
-        api.requests('GET', '/api/products')*.params() == [[:]]
-        api.requests('GET', '/api/departments').size() == 1
+        // once for the list and once for the business service and application bar above it
+        api.requests('GET', '/api/products')*.params() == [[:], [:]]
+        api.requests('GET', '/api/departments').size() == 2
         ownErrors().isEmpty()
     }
 
