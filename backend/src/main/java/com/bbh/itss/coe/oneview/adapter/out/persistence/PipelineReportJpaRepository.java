@@ -24,5 +24,5 @@ public interface PipelineReportJpaRepository extends JpaRepository<PipelineRepor
     Optional<Long> findPipelineIdByActiveKey(@Param("key") String key);
 
     @Query("SELECT p.id FROM PipelineEntity p WHERE p.settings.jenkinsJob = :jobName")
-    Optional<Long> findPipelineIdByJenkinsJob(@Param("jobName") String jobName);
+    List<Long> findPipelineIdsByJenkinsJob(@Param("jobName") String jobName);
 }

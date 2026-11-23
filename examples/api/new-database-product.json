@@ -20,9 +20,7 @@
       },
       "deployment": { "target": "VM" },
       "appScan": {
-        "applicationId": "6f0c2a9e-4b1d-4e57-9a43-0d8e2f6b7c10",
-        "keyId": "bbh_6f0c2a9e-4b1d-4e57-9a43-0d8e2f6b7c10",
-        "secretCredentialsId": "appscan-orders-key-secret"
+        "applicationId": "6f0c2a9e-4b1d-4e57-9a43-0d8e2f6b7c10"
       },
       "sonar": { "projectKey": "bbh-orders-db" },
       "scm": {
