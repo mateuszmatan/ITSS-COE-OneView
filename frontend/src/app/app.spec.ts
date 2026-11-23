@@ -25,6 +25,7 @@ describe('App', () => {
       ],
     });
     fixture = TestBed.createComponent(App);
+    await TestBed.inject(Router).navigateByUrl('/monitoring');
     await fixture.whenStable();
   });
 
@@ -66,31 +67,45 @@ describe('App', () => {
     expect(text(page())).not.toContain('Change Evidence');
   });
 
-  it('joins the areas DevSecOps, QA and Agile, each with its own sections', async () => {
-    const areas = () => [...page().querySelectorAll<HTMLAnchorElement>('nav.areas a')];
+  it('has a side menu with the landing page and the three areas instead of an area switch', async () => {
+    const areas = () => [...page().querySelectorAll<HTMLAnchorElement>('nav.sidebar a')];
+    const activeAreas = () =>
+      areas()
+        .filter((link) => link.classList.contains('active'))
+        .map(text);
 
-    expect(areas().map(text)).toEqual(['DevSecOps', 'QA', 'Agile']);
+    expect(areas().map(text)).toEqual([
+      'Main Landing Page',
+      'DevSecOps',
+      'QM Metric Tool',
+      'Agile Assessment & Adoption',
+    ]);
     expect(areas().map((link) => link.getAttribute('href'))).toEqual([
-      '/pipelines',
+      '/',
+      '/monitoring',
       '/qa',
       '/agile',
     ]);
+    expect(activeAreas()).toEqual(['DevSecOps']);
+    expect(page().querySelector('nav.areas')).toBeNull();
 
     await TestBed.inject(Router).navigateByUrl('/qa');
     await fixture.whenStable();
 
-    expect(links().map(text)).toEqual(['QA Metrics']);
-    expect(active()).toEqual(['QA Metrics']);
+    expect(activeAreas()).toEqual(['QM Metric Tool']);
+    expect(links()).toEqual([]);
 
     await TestBed.inject(Router).navigateByUrl('/agile');
     await fixture.whenStable();
 
-    expect(links().map(text)).toEqual(['Agile Maturity']);
-    expect(
-      areas()
-        .filter((link) => link.classList.contains('active'))
-        .map(text),
-    ).toEqual(['Agile']);
+    expect(activeAreas()).toEqual(['Agile Assessment & Adoption']);
+    expect(links()).toEqual([]);
+
+    await TestBed.inject(Router).navigateByUrl('/');
+    await fixture.whenStable();
+
+    expect(activeAreas()).toEqual(['Main Landing Page']);
+    expect(links()).toEqual([]);
   });
 
   it('gives every section the full DevSecOps name as its page heading', () => {

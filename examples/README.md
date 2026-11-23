@@ -203,7 +203,7 @@ describes Liquibase services with and without database changes.
 
 ## Screenshots
 
-`screenshots/v1` to `screenshots/v19` hold screenshots of the GUI across versions. `v1` to `v18` show the portal under its working name, DevSecOps Management Portal; `v19` shows it as ITSS COE OneView.
+`screenshots/v1` to `screenshots/v20` hold screenshots of the GUI across versions. `v1` to `v18` show the portal under its working name, DevSecOps Management Portal; `v19` and `v20` show it as ITSS COE OneView.
 - `v7` shows the departments.
 - `v8` shows the demo integrations with the charts of Product Management and Pipeline Monitoring.
 - `v10` shows the Self-service wizard and the Admin tabs of DevSecOps Management.
@@ -222,3 +222,11 @@ describes Liquibase services with and without database changes.
   - `09-admin-library-defaults.png`: Admin, Library defaults, Tools and servers.
   - `10-qa-metrics.png`: the area QA with the page QA Metrics and what is planned.
   - `11-agile-maturity.png`: the area Agile with the page Agile Maturity and what is planned.
+  The area switch in the header of `01` and the names QA and Agile of `10` and `11` were replaced in `v20`.
+- `v20` shows the Main Landing Page and the menu on the left that replace the area switch, and the new names of the areas QM Metric Tool (was QA) and Agile Assessment & Adoption (was Agile), taken the same way as `v19` at 1440 by 900 with Trade Archive in Custody (`api/create-product.sh`) and Payments Hub in Fund Services (`config/payhub-gateway-full.yaml`). No InfluxDB was connected.
+  - `01-main-landing-page.png`: the Main Landing Page at `/`, with one card for each area: DevSecOps with its six sections, QM Metric Tool and Agile Assessment & Adoption. The menu on the left marks Main Landing Page, and the header shows no sections.
+  - `02-main-landing-page-card-hover.png`: the same page with the pointer on the DevSecOps card, which is raised and opens Pipeline Monitoring on a click.
+  - `03-devsecops-pipeline-monitoring.png`: DevSecOps marked in the menu on the left, its six sections in the header and Pipeline Monitoring open.
+  - `04-devsecops-pipelines.png`: Pipelines of the area DevSecOps with the same menu.
+  - `05-qm-metric-tool.png` and `06-agile-assessment-and-adoption.png`: the pages of the two other areas under their new names, with what is planned.
+  - `07-main-landing-page-narrow-window.png`: the Main Landing Page in a window 800 pixels wide, where the menu on the left becomes a row under the header and the cards wrap; nothing scrolls sideways.

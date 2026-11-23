@@ -3,7 +3,7 @@ import { toSignal } from '@angular/core/rxjs-interop';
 import { NavigationEnd, Router, RouterLink, RouterLinkActive, RouterOutlet } from '@angular/router';
 import { filter, map } from 'rxjs';
 import { APP_NAME } from '../core/app-name';
-import { OneViewArea } from '../core/sections';
+import { OneViewArea, OneViewSection } from '../core/sections';
 
 export interface ShellUser {
   displayName: string;
@@ -22,6 +22,7 @@ const within = (url: string, path: string): boolean =>
   styleUrl: './app-shell.scss',
 })
 export class AppShell {
+  readonly home = input.required<OneViewSection>();
   readonly areas = input.required<readonly OneViewArea[]>();
   readonly user = input<ShellUser>();
 
@@ -36,10 +37,12 @@ export class AppShell {
     { initialValue: this.router.url },
   );
 
-  protected readonly area = computed(
-    () =>
-      this.areas().find((area) =>
-        area.sections.some((section) => within(this.url(), section.path)),
-      ) ?? this.areas()[0],
+  protected readonly area = computed(() =>
+    this.areas().find((area) => area.sections.some((section) => within(this.url(), section.path))),
   );
+
+  protected readonly sections = computed(() => {
+    const sections = this.area()?.sections ?? [];
+    return sections.length > 1 ? sections : [];
+  });
 }

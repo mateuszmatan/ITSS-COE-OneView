@@ -15,14 +15,14 @@ Rules for every item: change `DSOEnhancedWithoutPortal` first, then `main` and t
 
 ## ITSS COE OneView: the three areas
 
-OneView joins the areas DevSecOps, QA and Agile. The area switch, the pages `/qa` and `/agile` and the packages `domain.qa`, `application.qa`, `domain.agile` and `application.agile` exist; the functions below are open and need their scope agreed first.
+OneView joins the areas DevSecOps, QM Metric Tool and Agile Assessment & Adoption. The Main Landing Page with a card per area, the menu on the left, the pages `/qa` and `/agile` and the packages `domain.qa`, `application.qa`, `domain.agile` and `application.agile` exist; the functions below are open and need their scope agreed first.
 
 | # | Item | Where | Why |
 |---|------|-------|-----|
-| O.1 | **QA metrics.** Agree the metrics (test results of the pipelines, coverage and the SonarQube quality gate, defects), their InfluxDB measurements and the Grafana dashboards; then the use cases, the InfluxDB and Grafana adapters, the REST API and the page. | Portal, area QA | The page of the area only names what is planned. |
-| O.2 | **Agile maturity.** Agree the maturity model (dimensions, levels, who assesses and how often); then the tables (`AGL_`), the use cases, the REST API and the page with the trend and the comparison of business services. | Portal, area Agile | The page of the area only names what is planned. |
+| O.1 | **QM Metric Tool.** Agree the metrics (test results of the pipelines, coverage and the SonarQube quality gate, defects), their InfluxDB measurements and the Grafana dashboards; then the use cases, the InfluxDB and Grafana adapters, the REST API and the page. | Portal, area QM Metric Tool | The page of the area only names what is planned. |
+| O.2 | **Agile Assessment & Adoption.** Agree the maturity model (dimensions, levels, who assesses and how often); then the tables (`AGL_`), the use cases, the REST API and the page with the trend and the comparison of business services. | Portal, area Agile Assessment & Adoption | The page of the area only names what is planned. |
 | O.3 | **SAMM charts in Grafana and InfluxDB.** Write the SAMM scores to InfluxDB as a time series and link their Grafana dashboard from the SAMM page. | Portal, area DevSecOps | SAMM is calculated at the moment of the request and has no history. |
-| O.5 | **Area of a section under its own address** (`/devsecops/...`), once the QA and Agile areas have more than one section. | Portal | The sections of DevSecOps keep their addresses today. |
+| O.5 | **Area of a section under its own address** (`/devsecops/...`), once the QM Metric Tool and Agile Assessment & Adoption areas have more than one section. | Portal | The sections of DevSecOps keep their addresses today. |
 
 ## Priority 2: consistency of the three sources
 

@@ -224,6 +224,14 @@ abstract class GuiSpecification extends Specification {
         page.locator('nav.menu a.active')
     }
 
+    Locator sideLinks() {
+        page.locator('nav.sidebar a')
+    }
+
+    Locator sideLink(String label) {
+        page.locator('nav.sidebar').getByRole(LINK, new Locator.GetByRoleOptions().setName(label).setExact(true))
+    }
+
     void hasValues(Locator scope, Map<String, String> expected) {
         expected.each { label, value -> assertThat(input(scope, label)).hasValue(value) }
     }

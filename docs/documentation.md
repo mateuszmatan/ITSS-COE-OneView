@@ -70,15 +70,17 @@ The portal does five things:
 
 ## 2. The pages of the portal
 
-ITSS COE OneView joins three areas, and the switch next to its name at the top chooses one of them:
+ITSS COE OneView joins three areas. The menu on the left of every page links them, with the Main Landing Page
+first; the Main Landing Page (the address of OneView itself, `/`) shows one card for each area, and a click on a card
+opens that area. An address OneView does not know leads to the Main Landing Page.
 
 | Area | What it holds |
 |------|---------------|
 | DevSecOps | The pipelines of the products, their monitoring with the charts of Grafana and InfluxDB, and the OWASP SAMM maturity. This guide describes this area. |
-| QA | QA Metrics: the quality assurance metrics of every product, with their charts in Grafana and InfluxDB. The page names what is planned; it shows no data yet. |
-| Agile | Agile Maturity: the agile maturity of teams and business services. The page names what is planned; it shows no data yet. |
+| QM Metric Tool | The quality assurance metrics of every product, with their charts in Grafana and InfluxDB. The page names what is planned; it shows no data yet. |
+| Agile Assessment & Adoption | The agile maturity of teams and business services. The page names what is planned; it shows no data yet. |
 
-The menu at the top shows the entries of the chosen area. The area DevSecOps has six entries.
+The menu at the top shows the entries of the area of the current page. The area DevSecOps has six entries, and a click on DevSecOps in the menu on the left opens Pipeline Monitoring.
 
 | Menu | What you do there |
 |------|-------------------|

@@ -105,7 +105,7 @@ class GuiSmokeSpec extends OvSpecification {
 
         and:
         page.setViewportSize(800, 900)
-        ['/pipelines', '/self-service', '/monitoring', '/admin/products'].every { String path ->
+        ['/', '/pipelines', '/self-service', '/monitoring', '/admin/products'].every { String path ->
             open(path)
             assert (page.evaluate('() => document.documentElement.scrollWidth - document.documentElement.clientWidth') as int) == 0
             true
@@ -202,13 +202,57 @@ class GuiSmokeSpec extends OvSpecification {
         ownErrors().isEmpty()
     }
 
-    def "an unknown address falls back to pipeline monitoring"() {
+    def "the landing page has a card for every area and the side menu opens each of them"() {
         when:
-        open('/no-such-page')
+        open('/')
+
+        then:
+        assertThat(page.locator('h1')).hasText('ITSS COE OneView')
+        assertThat(sideLinks()).hasText(SIDE_MENU as String[])
+        assertThat(page.locator('nav.sidebar a.active')).hasText('Main Landing Page')
+        assertThat(page.locator('a.area-card h2')).hasText(SIDE_MENU.drop(1) as String[])
+        assertThat(menuLinks()).hasCount(0)
+        assertThat(page.locator('header nav.areas')).hasCount(0)
+
+        when:
+        page.locator('a.area-card', new Page.LocatorOptions().setHasText('QM Metric Tool')).click()
+
+        then:
+        page.waitForURL('**/qa')
+        assertThat(page.locator('h1')).hasText('QM Metric Tool')
+        assertThat(page.locator('nav.sidebar a.active')).hasText('QM Metric Tool')
+
+        when:
+        sideLink('Agile Assessment & Adoption').click()
+
+        then:
+        page.waitForURL('**/agile')
+        assertThat(page.locator('h1')).hasText('Agile Assessment & Adoption')
+
+        when:
+        sideLink('DevSecOps').click()
 
         then:
         page.waitForURL('**/monitoring')
         assertThat(page.locator('h1')).hasText('DevSecOps Pipeline Monitoring')
+        assertThat(menuLinks()).hasText(MENU as String[])
+
+        when:
+        sideLink('Main Landing Page').click()
+
+        then:
+        page.waitForURL(url('/'))
+        assertThat(page.locator('a.area-card')).hasCount(3)
+        ownErrors().isEmpty()
+    }
+
+    def "an unknown address falls back to the landing page"() {
+        when:
+        open('/no-such-page')
+
+        then:
+        page.waitForURL(url('/'))
+        assertThat(page.locator('h1')).hasText('ITSS COE OneView')
     }
 
     boolean productSaved() {

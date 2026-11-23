@@ -20,6 +20,7 @@ import { ServiceTemplatePage } from './settings/service-template-page';
 import { SammOverviewPage } from './samm/samm-overview';
 import { QaOverviewPage } from './qa/qa-overview';
 import { AgileOverviewPage } from './agile/agile-overview';
+import { LandingPage } from './landing/landing-page';
 
 @Component({ template: '' })
 class Blank {}
@@ -46,6 +47,7 @@ describe('routes', () => {
     );
 
     expect(Object.fromEntries(pages)).toEqual({
+      '': LandingPage,
       pipelines: PipelineList,
       'pipelines/:id': PipelinePage,
       'self-service': SelfService,
@@ -86,14 +88,13 @@ describe('routes', () => {
   });
 
   it.each([
-    ['/', '/monitoring'],
     ['/admin', '/admin/products'],
     ['/products', '/admin/products'],
     ['/products/new', '/admin/products/new'],
     ['/products/5/edit', '/admin/products/5/edit'],
     ['/settings', '/admin/settings'],
-    ['/evidence', '/monitoring'],
-    ['/beadle/changes', '/monitoring'],
+    ['/evidence', '/'],
+    ['/beadle/changes', '/'],
   ])('sends %s to %s', async (from, to) => {
     TestBed.configureTestingModule({ providers: [provideRouter(stubbed(routes))] });
     const router = TestBed.inject(Router);
