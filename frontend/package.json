@@ -10,8 +10,8 @@
   },
   "packageManager": "npm@10.8.2",
   "engines": {
-    "node": ">=20.19.4 <21.0.0",
-    "npm": ">=10.8.2 <11.0.0"
+    "node": "^20.19.0 || ^22.12.0",
+    "npm": ">=10.8.2"
   },
   "dependencies": {
     "@angular/cdk": "21.2.14",
@@ -19,8 +19,13 @@
     "@angular/compiler": "21.2.20",
     "@angular/core": "21.2.20",
     "@angular/forms": "21.2.20",
+    "@angular/localize": "21.2.20",
     "@angular/platform-browser": "21.2.20",
     "@angular/router": "21.2.20",
+    "@ng-bootstrap/ng-bootstrap": "20.0.0",
+    "@v6/v6-icons": "^21.0.0",
+    "@v6/v6-table": "21.0.0",
+    "@v6/v6-themes": "^21.0.0",
     "ag-grid-angular": "~33.1.0",
     "ag-grid-community": "~33.1.0",
     "angular-svg-icon": "^19.1.1",
