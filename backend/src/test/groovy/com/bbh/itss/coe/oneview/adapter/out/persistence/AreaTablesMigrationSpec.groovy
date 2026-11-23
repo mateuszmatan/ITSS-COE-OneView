@@ -54,7 +54,7 @@ class AreaTablesMigrationSpec extends MigrationSpecification {
         jdbc.queryForObject('SELECT RESOURCE_NAME FROM DSO_ACTION_LOG WHERE ID = ?', String, action) == 'Ledger'
     }
 
-    def "the area tables keep one row of BBH targets, known frameworks, levels from 1 to 5 and rows of existing products"() {
+    def "the area tables keep one row of BBH targets, flags of 0 or 1, known frameworks, levels from 1 to 5 and rows of existing products"() {
         given:
         liquibase.update('')
         long product = insert('DSO_PRODUCT', [CODE: 'LEDGER', NAME: 'Ledger'])
@@ -64,6 +64,20 @@ class AreaTablesMigrationSpec extends MigrationSpecification {
         when:
         jdbc.update("""INSERT INTO QA_SETTINGS (ID, COVERAGE_TARGET, PASS_RATE_TARGET, MAX_CRITICAL_DEFECTS, CREATED_AT,
                 UPDATED_AT) VALUES (2, 80, 95, 0, SYSDATE, SYSDATE)""")
+
+        then:
+        thrown(DataIntegrityViolationException)
+
+        when:
+        jdbc.update('INSERT INTO QA_APPLICATION (PRODUCT_ID, ENABLED, CREATED_AT, UPDATED_AT) VALUES (?, 2, SYSDATE, SYSDATE)',
+                product)
+
+        then:
+        thrown(DataIntegrityViolationException)
+
+        when:
+        jdbc.update('INSERT INTO AGL_APPLICATION (PRODUCT_ID, ENABLED, CREATED_AT, UPDATED_AT) VALUES (?, 2, SYSDATE, SYSDATE)',
+                product)
 
         then:
         thrown(DataIntegrityViolationException)

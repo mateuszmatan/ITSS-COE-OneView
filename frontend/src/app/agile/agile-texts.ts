@@ -58,6 +58,20 @@ export function agileParticipation(application: AgileApplication): string {
   return application.version === null ? 'Not set up' : 'Does not take part';
 }
 
+/** What brings the team of an application that does not take part into Agile Assessment & Adoption. */
+export function firstStepToAssess(application: AgileApplication): string {
+  return application.version === null
+    ? `Set up the team of ${application.name} first`
+    : `Edit the team of ${application.name} and tick Takes part first`;
+}
+
+/** Why the team of an application is not in Agile Assessment & Adoption, and how an administrator brings it in. */
+export function notTakingPartText(application: AgileApplication): string {
+  return application.version === null
+    ? `The team of ${application.name} does not take part in Agile Assessment & Adoption yet. An administrator sets it up in OneView Admin with the team, its way of working and its agile coach.`
+    : `The team of ${application.name} no longer takes part in Agile Assessment & Adoption. An administrator brings it back in OneView Admin by editing its team and ticking Takes part.`;
+}
+
 /** A day of an assessment, for example 2 Nov 2026. */
 export function dayText(day: string | null | undefined): string {
   return day ? formatDate(day, 'd MMM y', 'en-US') : '–';

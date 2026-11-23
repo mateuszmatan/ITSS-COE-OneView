@@ -5,7 +5,7 @@ export const PIPELINES: OneViewSection = {
   label: 'Pipelines',
   heading: 'DevSecOps Pipelines',
   description:
-    "Every automated build, test and security pipeline of your business service's products. Open one to see its key, its Jenkinsfile and its latest runs.",
+    'Every automated build, test and security pipeline of the business service or application chosen above. Open one to see its key, its Jenkinsfile and its latest runs.',
 };
 
 export const SELF_SERVICE: OneViewSection = {

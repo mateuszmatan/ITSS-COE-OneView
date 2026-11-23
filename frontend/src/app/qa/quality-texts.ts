@@ -75,6 +75,13 @@ export function ownTargetsSummary(targets: QualityTargets): string {
   return text.charAt(0).toUpperCase() + text.slice(1);
 }
 
+/** Why an application is not in the QM Metric Tool, and how an administrator brings it in. */
+export function notTakingPartText(application: QualityApplication): string {
+  return application.version === null
+    ? `${application.name} does not take part in the QM Metric Tool yet. An administrator sets it up in OneView Admin with its QA lead, where its results are and its own quality targets.`
+    : `${application.name} no longer takes part in the QM Metric Tool. An administrator brings it back in OneView Admin by editing it and ticking Takes part.`;
+}
+
 /** Whether an application takes part in the QM Metric Tool, in words. */
 export function participation(application: QualityApplication): string {
   if (application.enabled) {

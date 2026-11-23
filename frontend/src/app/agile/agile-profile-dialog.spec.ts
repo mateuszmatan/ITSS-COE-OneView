@@ -19,6 +19,7 @@ describe('AgileProfileDialog', () => {
   let fixture: ComponentFixture<AgileProfileDialog>;
   let http: HttpTestingController;
   const close = vi.fn();
+  const reloaded = vi.fn();
 
   async function open(application: AgileApplication) {
     TestBed.configureTestingModule({
@@ -28,7 +29,7 @@ describe('AgileProfileDialog', () => {
         provideHttpClientTesting(),
         {
           provide: DIALOG_DATA,
-          useValue: { application, model: agileModel() } satisfies AgileProfileDialogData,
+          useValue: { application, model: agileModel(), reloaded } satisfies AgileProfileDialogData,
         },
         { provide: DialogRef, useValue: { close } },
       ],
@@ -41,6 +42,7 @@ describe('AgileProfileDialog', () => {
   afterEach(() => {
     http.verify();
     close.mockReset();
+    reloaded.mockReset();
   });
 
   const page = () => fixture.nativeElement as HTMLElement;
@@ -113,18 +115,30 @@ describe('AgileProfileDialog', () => {
     expect(close).toHaveBeenCalled();
   });
 
-  it('says when someone else changed the team first and stays open', async () => {
+  it('shows the changes of someone else who changed the team first, and saves on top of them', async () => {
     await open(agileApplication());
 
     await submit();
     http
-      .expectOne('/api/agile/applications/1')
+      .expectOne({ method: 'PUT', url: '/api/agile/applications/1' })
       .flush({ detail: 'stale' }, { status: 409, statusText: 'Conflict' });
+    http
+      .expectOne({ method: 'GET', url: '/api/agile/applications/1' })
+      .flush(agileApplication({ coach: 'Ann Coach', version: 4 }));
     await fixture.whenStable();
 
     expect(text(page().querySelector('[role=alert]'))).toBe(
-      'Someone else changed the team of CertScanner after you opened it, so nothing was saved. Close this, then open it again to see their changes.',
+      'Not saved: someone else changed the team of CertScanner after you opened it. The form now shows their changes: make your change again, then save.',
     );
+    expect(inputOf(page(), 'Agile coach').value).toBe('Ann Coach');
+    expect(reloaded).toHaveBeenCalledWith(agileApplication({ coach: 'Ann Coach', version: 4 }));
     expect(close).not.toHaveBeenCalled();
+
+    await submit();
+    const again = http.expectOne({ method: 'PUT', url: '/api/agile/applications/1' });
+    expect(again.request.body).toMatchObject({ coach: 'Ann Coach', version: 4 });
+    again.flush(agileApplication({ coach: 'Ann Coach', version: 5 }));
+
+    expect(close).toHaveBeenCalled();
   });
 });

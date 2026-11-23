@@ -20,6 +20,8 @@ import {
 } from '../core/models';
 import { SAMM_MATURITY } from '../core/sections';
 import { OneViewContext } from '@common/context/oneview-context';
+import { Notifier } from '@common/core/notifier';
+import { counted } from '@common/shared/formatting';
 import { FORM_FIELD } from '@common/ui/form-field';
 import { LoadError } from '@common/ui/load-error';
 import { OvLoading } from '@common/ui/loading';
@@ -45,6 +47,7 @@ export class SammOverviewPage {
   private readonly api = inject(SammApi);
   private readonly route = inject(ActivatedRoute);
   private readonly context = inject(OneViewContext);
+  private readonly notifier = inject(Notifier);
 
   protected readonly section = SAMM_MATURITY;
   protected readonly overview = rxResource({
@@ -74,6 +77,20 @@ export class SammOverviewPage {
   protected readonly maturityLabel = computed(() =>
     this.level() === 'bbh' ? 'BBH Organization Maturity' : `${this.scopeName()} Maturity`,
   );
+  /** What the scores of the business functions are the mean of, in the words of the scope. */
+  protected readonly averageNote = computed(() => {
+    const total = this.overview.hasValue() ? this.overview.value().totalApplications : 0;
+    switch (this.level()) {
+      case 'application':
+        return `Average score across ${counted(total, 'pipeline')} of ${this.scopeName()}`;
+      case 'department':
+        return `Average score across ${counted(total, 'application')} of ${this.scopeName()}`;
+      default:
+        return total === 1
+          ? 'Average score across the 1 BBH application'
+          : `Average score across all ${total} BBH applications`;
+    }
+  });
 
   protected readonly activeTab = signal<SammTab>('overview');
   protected readonly search = new FormControl('', { nonNullable: true });
@@ -89,17 +106,25 @@ export class SammOverviewPage {
   protected readonly sortColumn = signal<string>('name');
   protected readonly sortAsc = signal<boolean>(true);
 
+  /** The pipeline whose scorecard a link such as /samm?pipelineId=12 opens, until it is opened once. */
+  private linkedPipelineId = Number(this.route.snapshot.queryParamMap.get('pipelineId')) || null;
+
   constructor() {
     effect(() => {
       const data = this.overview.hasValue() ? this.overview.value() : null;
-      if (!data) return;
-      const targetPipelineId = this.route.snapshot.queryParamMap.get('pipelineId');
-      if (targetPipelineId) {
-        const id = Number(targetPipelineId);
-        const match = data.applications.find((a) => a.pipelineId === id);
-        if (match) {
-          this.selectedApp.set(match);
-        }
+      const id = this.linkedPipelineId;
+      if (!data || id === null) return;
+      // Opened once: closing it, or choosing another business service, does not open it again.
+      this.linkedPipelineId = null;
+      const match = data.applications.find((a) => a.pipelineId === id);
+      if (match) {
+        this.selectedApp.set(match);
+      } else {
+        // The pipeline is outside the business service or application chosen: its scorecard is read alone.
+        this.api.application(id).subscribe({
+          next: (app) => this.selectedApp.set(app),
+          error: (error) => this.notifier.error(error),
+        });
       }
     });
   }

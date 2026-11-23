@@ -22,7 +22,7 @@ import { AgileApplication } from '../core/models';
 import { agileApplication, agileAssessment, agileModel, notInAgile } from '../testing/fixtures';
 import { AgileAdmin } from './agile-admin';
 import { AgileAssessmentDialog } from './agile-assessment-dialog';
-import { AgileProfileDialog } from './agile-profile-dialog';
+import { AgileProfileDialog, AgileProfileDialogData } from './agile-profile-dialog';
 
 describe('AgileAdmin', () => {
   let fixture: ComponentFixture<AgileAdmin>;
@@ -84,7 +84,7 @@ describe('AgileAdmin', () => {
       [...gridCell(row(name), 'actions').querySelectorAll('button')].map(text);
     expect(actions('CertScanner')).toEqual(['Edit', 'Record assessment']);
     expect(actions('PayHub')).toEqual(['Set up', 'Record assessment']);
-    const assess = buttonOf(row('PayHub'), 'Record an assessment of PayHub');
+    const assess = buttonOf(row('PayHub'), 'Record assessment of PayHub');
     expect(assess.disabled).toBe(true);
     expect(text(page().querySelector(`#${assess.getAttribute('aria-describedby')}`))).toBe(
       'Set up the team of PayHub first: only a team that takes part is assessed.',
@@ -94,6 +94,17 @@ describe('AgileAdmin', () => {
     expect(gridColumn(assessments()!, 'assessedOn')).toEqual(['2 Nov 2026', '15 Aug 2026']);
     expect(gridColumn(assessments()!, 'overall')).toEqual(['3.2', '2.4']);
     expect(gridColumn(assessments()!, 'notes')).toEqual(['Retrospectives every sprint.', '']);
+  });
+
+  it('tells how to bring back a team that was set up and taken out before it is assessed', async () => {
+    await load([notInAgile({ version: 2, teamName: 'Pay Squad' })]);
+
+    const assess = buttonOf(row('PayHub'), 'Record assessment of PayHub');
+    expect(gridColumn(teams(), 'enabled')).toEqual(['Does not take part']);
+    expect(assess.disabled).toBe(true);
+    expect(text(page().querySelector(`#${assess.getAttribute('aria-describedby')}`))).toBe(
+      'Edit the team of PayHub and tick Takes part first: only a team that takes part is assessed.',
+    );
   });
 
   it('lists only the teams of the chosen business service', async () => {
@@ -115,12 +126,32 @@ describe('AgileAdmin', () => {
     await fixture.whenStable();
 
     expect(open.mock.calls[0][0]).toBe(AgileProfileDialog);
-    expect(open.mock.calls[0][1]?.data).toEqual({ application: notInAgile(), model: agileModel() });
+    expect(open.mock.calls[0][1]?.data).toEqual({
+      application: notInAgile(),
+      model: agileModel(),
+      reloaded: expect.any(Function),
+    });
     expect(text(toast())).toContain(
       'The team of PayHub saved. It takes part in Agile Assessment & Adoption.',
     );
     expect(text(gridCell(row('PayHub'), 'team'))).toBe('Pay Team');
-    expect(buttonOf(row('PayHub'), 'Record an assessment of PayHub').disabled).toBe(false);
+    expect(buttonOf(row('PayHub'), 'Record assessment of PayHub').disabled).toBe(false);
+  });
+
+  it('shows what someone else saved once the dialog loaded it, also when it closes unsaved', async () => {
+    await load();
+    const open = dialogClosing(undefined);
+
+    buttonOf(row('PayHub'), 'Set up the team of PayHub').click();
+    await fixture.whenStable();
+    const data = open.mock.calls[0][1]?.data as AgileProfileDialogData;
+    data.reloaded?.(notInAgile({ enabled: true, teamName: 'Pay Team', version: 2 }));
+    await fixture.whenStable();
+
+    expect(text(gridCell(row('PayHub'), 'team'))).toBe('Pay Team');
+    expect(buttonOf(row('PayHub'), 'Record assessment of PayHub').disabled).toBe(false);
+    expect(toast()).toBeNull();
+    http.expectNone('/api/agile/applications');
   });
 
   it('records an assessment in a dialog and lists the teams again', async () => {
@@ -128,7 +159,7 @@ describe('AgileAdmin', () => {
     const recorded = agileAssessment({ id: 12, assessedOn: '2026-11-20', overallLevel: 3.6 });
     const open = dialogClosing(recorded, undefined);
 
-    buttonOf(row('CertScanner'), 'Record an assessment of CertScanner').click();
+    buttonOf(row('CertScanner'), 'Record assessment of CertScanner').click();
     fixture.detectChanges();
 
     expect(open.mock.calls[0][0]).toBe(AgileAssessmentDialog);
@@ -153,7 +184,7 @@ describe('AgileAdmin', () => {
       '15 Aug 2026',
     ]);
 
-    buttonOf(row('CertScanner'), 'Record an assessment of CertScanner').click();
+    buttonOf(row('CertScanner'), 'Record assessment of CertScanner').click();
     await fixture.whenStable();
     http.expectNone('/api/agile/applications');
   });

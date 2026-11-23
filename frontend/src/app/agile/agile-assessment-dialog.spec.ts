@@ -156,4 +156,23 @@ describe('AgileAssessmentDialog', () => {
     );
     expect(close).not.toHaveBeenCalled();
   });
+
+  it('says why the portal refused the assessment of a team taken out meanwhile', async () => {
+    await rate([4, 3, 3, 2, 5]);
+    await submit();
+
+    http.expectOne('/api/agile/applications/1/assessments').flush(
+      {
+        detail:
+          'Edit the team of CertScanner and tick Takes part first: only a team that takes part is assessed.',
+      },
+      { status: 409, statusText: 'Conflict' },
+    );
+    await fixture.whenStable();
+
+    expect(text(page().querySelector('[role=alert]'))).toBe(
+      'Edit the team of CertScanner and tick Takes part first: only a team that takes part is assessed.',
+    );
+    expect(close).not.toHaveBeenCalled();
+  });
 });

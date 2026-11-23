@@ -19,6 +19,7 @@ import {
   latestAssessment,
   levelShare,
   levelText,
+  notTakingPartText,
 } from './agile-texts';
 
 export const AGILE_CAPABILITIES: readonly PlannedCapability[] = [
@@ -58,6 +59,7 @@ export class AgileOverviewPage {
   protected readonly adminPath = ADMIN_AGILE.path;
   protected readonly newProduct = `${ADMIN_PRODUCTS.path}/new`;
   protected readonly participation = agileParticipation;
+  protected readonly notTakingPart = notTakingPartText;
   protected readonly levelText = levelText;
   protected readonly dayText = dayText;
 
@@ -91,8 +93,11 @@ export class AgileOverviewPage {
     this.model.hasValue() ? this.model.value().maxLevel : 5,
   );
 
+  /** The teams that take part and were assessed: the summaries count only them. */
   private readonly assessed = computed(() =>
-    this.scoped().filter((application) => application.assessments.length > 0),
+    this.scoped().filter(
+      (application) => application.enabled && application.assessments.length > 0,
+    ),
   );
   protected readonly anyAssessed = computed(() => this.assessed().length > 0);
 

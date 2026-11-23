@@ -1,12 +1,13 @@
 package com.bbh.itss.coe.oneview.domain.qa;
 
-import com.bbh.itss.coe.oneview.domain.shared.Text;
 import com.bbh.itss.coe.oneview.domain.shared.ValidationProblems;
 
 import java.time.Instant;
 import java.util.Objects;
+import java.util.regex.Pattern;
 
 import static com.bbh.itss.coe.oneview.domain.shared.Failures.staleVersion;
+import static java.util.regex.Pattern.UNICODE_CHARACTER_CLASS;
 import static org.apache.commons.lang3.ObjectUtils.getIfNull;
 import static org.apache.commons.lang3.StringUtils.trimToNull;
 
@@ -23,6 +24,11 @@ public record QualityProfile(long productId, boolean enabled, String qaLead, Str
     public static final int MAX_SONAR_KEY = 400;
     public static final int MAX_DEFECT_KEY = 100;
     public static final int MAX_URL = 1000;
+    public static final String DASHBOARD_URL_MESSAGE =
+            "must be an http:// or https:// address without spaces, double quotes, backslashes, $ or backticks";
+    /** The addresses the form of the portal takes: no blank of any kind, double quote, backslash, $ or backtick. */
+    private static final Pattern DASHBOARD_URL = Pattern.compile("^https?://[^\\s\\x{FEFF}$`\"\\\\]+$",
+            UNICODE_CHARACTER_CLASS);
 
     public QualityProfile {
         qaLead = trimToNull(qaLead);
@@ -59,8 +65,8 @@ public record QualityProfile(long productId, boolean enabled, String qaLead, Str
                 .fits("sonarProjectKey", sonarProjectKey, MAX_SONAR_KEY)
                 .fits("defectProjectKey", defectProjectKey, MAX_DEFECT_KEY)
                 .fits("dashboardUrl", dashboardUrl, MAX_URL);
-        if (dashboardUrl != null && (!Text.isUrl(dashboardUrl) || dashboardUrl.chars().anyMatch(Character::isWhitespace))) {
-            problems.add("dashboardUrl", "must be an http:// or https:// address");
+        if (dashboardUrl != null && !DASHBOARD_URL.matcher(dashboardUrl).matches()) {
+            problems.add("dashboardUrl", DASHBOARD_URL_MESSAGE);
         }
         targets.check(problems.at("targets"), false);
         problems.throwIfAny();

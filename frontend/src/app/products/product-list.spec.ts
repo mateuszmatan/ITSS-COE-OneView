@@ -273,6 +273,22 @@ describe('ProductList', () => {
     expect(gridRows(page())).toHaveLength(1);
   });
 
+  it('shows no empty card of the chosen business service when a search matches none of its products', async () => {
+    TestBed.inject(OneViewContext).choose(5);
+    await load([productSummary({ id: 2, code: 'PAY', name: 'Payments Hub', departmentId: 5 })]);
+
+    const input = page().querySelector<HTMLInputElement>('input[aria-label="Search products"]')!;
+    input.value = 'ledger';
+    input.dispatchEvent(new Event('input'));
+    await new Promise((resolve) => setTimeout(resolve, 300));
+    fixture.detectChanges();
+    http.expectOne('/api/products?search=ledger').flush([]);
+    await fixture.whenStable();
+
+    expect(text(page().querySelector('.empty-state h3'))).toBe('No product matches "ledger"');
+    expect(cards()).toEqual([]);
+  });
+
   it('says when the chosen business service has no products yet', async () => {
     TestBed.inject(OneViewContext).choose(5);
     await load([summary]);

@@ -56,7 +56,7 @@ public class DepartmentController {
     @DeleteMapping("/{id}")
     @ResponseStatus(NO_CONTENT)
     public void delete(@PathVariable long id) {
-        actions.record(ActionRecord.of("DELETE_DEPARTMENT", DEPARTMENT, departments.get(id).name(), null),
+        actions.record(ActionRecord.of("DELETE_DEPARTMENT", DEPARTMENT, departments.get(id).name(), id),
                 () -> departments.delete(id), "Deleted business service");
     }
 }

@@ -49,15 +49,17 @@ public class SammMaturityService implements GetSammMaturityUseCase {
     }
 
     /**
-     * The overview of one business service or one application (product) when it is given: the scores of its
-     * applications, and of the business service itself. An application shows no business service score, which would
-     * otherwise stand for the whole business service.
+     * The overview of one application (product) or one business service when it is given, as the other DevSecOps
+     * pages take them: the application wins over the business service, and an unknown one is not found. It holds the
+     * scores of their applications, and of the business service itself. An application shows no business service
+     * score, which would otherwise stand for the whole business service.
      */
     @Override
     @ReadOnly
     public SammOrganizationOverview overview(Long departmentId, Long productId) {
         Instant now = clock.instant();
-        MonitoringTargets targets = monitoringTargets.everything();
+        MonitoringTargets targets = productId != null ? monitoringTargets.ofProduct(productId)
+                : departmentId != null ? monitoringTargets.ofDepartment(departmentId) : monitoringTargets.everything();
         List<Department> allDepts = departments.findAll();
         Map<Long, Department> deptMap = allDepts.stream()
                 .collect(toMap(Department::id, Function.identity(), (a, b) -> a));
@@ -68,9 +70,6 @@ public class SammMaturityService implements GetSammMaturityUseCase {
 
         List<SammApplicationScore> appScores = new ArrayList<>();
         for (PipelineView view : targets.pipelines()) {
-            if (!within(view, departmentId, productId)) {
-                continue;
-            }
             PipelineRun run = latestRuns.of(view.metricsTag(), view.pipeline());
             PipelineReport report = reports.findLatestByPipelineId(view.pipeline().id()).orElse(null);
             Department dept = deptMap.get(view.product().details().departmentId());
@@ -91,11 +90,6 @@ public class SammMaturityService implements GetSammMaturityUseCase {
                 .toList();
 
         return SammCalculator.evaluateOrganization(deptScores, appScores, now);
-    }
-
-    private static boolean within(PipelineView view, Long departmentId, Long productId) {
-        return (departmentId == null || departmentId.equals(view.product().details().departmentId()))
-                && (productId == null || productId.equals(view.product().id()));
     }
 
     @Override

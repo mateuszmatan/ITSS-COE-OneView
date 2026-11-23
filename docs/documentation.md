@@ -100,7 +100,7 @@ The bar is above the Main Landing Page, Pipelines, Pipeline Monitoring, OWASP SA
 | Main Landing Page | The figures of every card count the applications of the business service. | The cards show the application: its pipelines and their latest results, whether it takes part in the QM Metric Tool with its coverage and pass rate targets, and the level of its latest agile assessment. |
 | Pipelines | The pipelines of its products. | The pipelines of the application. |
 | Pipeline Monitoring | The latest results, the products and the delivery performance (DORA) of its pipelines. | The same, for the pipelines of the application. |
-| OWASP SAMM | The maturity of its applications. | The maturity of the application. |
+| OWASP SAMM | The maturity of its applications. The figures and the subtitle name the business service. | The maturity of the pipelines of the application, without a business service summary. |
 | QM Metric Tool | A summary of its applications and how they take part. | The application with its QA lead, its projects, its dashboard and its quality targets. |
 | Agile Assessment & Adoption | A summary of its teams, with the mean level of every dimension. | The team with its latest assessment, how it changed and every assessment. |
 | Action history | The actions on the business service and on its products and applications. | The actions on the application. |
@@ -1343,15 +1343,15 @@ A domain score is the arithmetic mean of its practice scores. The application ov
 
 ### The OWASP SAMM Overview Page
 
-The OWASP SAMM page (`/samm`) has two main tabs:
+The OWASP SAMM page (`/samm`) shows the business service or the application chosen in the bar above it, or the whole of BBH with All business services, in two main tabs:
 
 - **Executive Overview**:
-  - Organization posture card displaying BBH-wide average maturity score, overall level badge, assessed application count, and level distribution (Levels 0 through 3).
+  - Posture card displaying the average maturity score of the choice, overall level badge, assessed application count, and level distribution (Levels 0 through 3); with All business services it also counts the business services covered.
   - 5 Domain cards with visual progress meters and individual practice score badges.
   - Department breakdown grid showing each business service's average score, maturity tier, and application count.
 - **Applications Inventory**:
-  - Searchable, filterable list of all onboarded applications.
-  - Filter by business service / department, minimum maturity level, or free-text search.
+  - Searchable, filterable list of the onboarded applications of the choice.
+  - Filter by minimum maturity level or free-text search; the bar above the page chooses the business service or the application.
   - Columns for Application, Department, Build Tool, Domain scores (Governance, Design, Implementation, Verification, Operations), and Overall Score.
   - Clicking any application opens the detailed **Application Scorecard Modal**.
 
@@ -1365,12 +1365,12 @@ The scorecard modal displays:
 
 ### Deep Link from Pipeline Monitoring
 
-Every application card in **Pipeline Monitoring** includes an **OWASP SAMM Scorecard** action button. Clicking it navigates directly to the SAMM page and automatically opens the application's detailed scorecard modal (`/samm?pipelineId=<id>`).
+Every application card in **Pipeline Monitoring** includes an **OWASP SAMM Scorecard** action button. Clicking it navigates directly to the SAMM page and automatically opens the application's detailed scorecard modal (`/samm?pipelineId=<id>`). The link opens the scorecard once, also when the pipeline is outside the business service or the application chosen in the bar; closing it, or choosing another business service, does not open it again.
 
 ### REST API Endpoints
 
 The portal exposes the following REST endpoints under `/api/samm`:
-- `GET /api/samm/overview`: BBH organization overview, domain scores, department summaries, and all application maturity scores.
+- `GET /api/samm/overview`: BBH organization overview, domain scores, department summaries, and all application maturity scores. With `departmentId` the overview of one business service, with `productId` of one application, which wins over `departmentId`; an unknown business service or application is answered with 404, as by `GET /api/monitoring/activity`.
 - `GET /api/samm/departments`: List of department summaries with maturity scores and application tallies.
 - `GET /api/samm/departments/{id}`: Department summary and its application scores.
 - `GET /api/samm/pipelines/{id}`: Detailed application scorecard for a single pipeline, including practice scores, criteria checklist, and recommendations.
@@ -1569,7 +1569,7 @@ The QM Metric Tool follows the quality assurance of every application. Every pro
 
 ### The page of the QM Metric Tool
 
-With All business services or one business service chosen, the page sums up the applications: how many there are, how many take part, how many do not take part yet and how many have a Grafana dashboard, and it names the BBH targets. The table lists every application with its business service, whether it takes part, its QA lead, the targets it sets for itself and a link to its dashboard. A click on an application shows it alone, as if it had been chosen above.
+With All business services or one business service chosen, the page sums up the applications: how many there are, how many take part, how many do not take part yet and how many of those that take part have a Grafana dashboard, and it names the BBH targets. The table lists every application with its business service, whether it takes part, its QA lead, the targets it sets for itself and a link to its dashboard. A click on an application shows it alone, as if it had been chosen above.
 
 With one application chosen, the page shows it with its business service, its QA lead, its SonarQube project, its defect project, a link to its quality dashboard in Grafana and when it was last changed, and the quality targets it works to. A target the application does not set for itself is the BBH target, and the page says which is which.
 
@@ -1595,10 +1595,10 @@ Admin, Applications and targets lists the applications of the business service o
 | QA lead | The person who leads the quality of the application. At most 200 characters. |
 | SonarQube project key | The key of its project in SonarQube, for example `com.bbh:cert-scanner`. At most 400 characters. |
 | Defect project key | The key of the project its defects are tracked in, for example `CERT`. At most 100 characters. |
-| Grafana dashboard | The address of its quality dashboard in Grafana, starting with `http://` or `https://`. At most 1000 characters. |
+| Grafana dashboard | The address of its quality dashboard in Grafana, starting with `http://` or `https://`, without spaces, double quotes, backslashes, `$` or backticks. At most 1000 characters. |
 | Code coverage (%), Test pass rate (%), Open critical defects (at most) | The targets of its own. Leave one empty to use the BBH target, which the hint under the field shows. |
 
-A field left empty is not set. When someone else changed the application after you opened it, nothing is saved: close the window and open it again to see their changes.
+A field left empty is not set. The limits count an accented letter or a symbol as two or three characters. When someone else changed the application after you opened it, nothing is saved and nothing is overwritten: the window and the list then show their changes, so make your change again and save.
 
 ### REST API of the QM Metric Tool
 
@@ -1626,7 +1626,7 @@ The dimensions are the starting set of the ITSS COE. The BBH maturity model is s
 
 ### The page of Agile Assessment & Adoption
 
-With All business services or one business service chosen, the page sums up the teams: how many applications there are, how many teams take part, how many were assessed and their average level. The table lists every team with its business service, whether it takes part, its name, its way of working, its agile coach, the day of its latest assessment and its level. Maturity by dimension shows the mean level of every dimension over the latest assessments, and with All business services, By business service shows the mean overall level of every business service. A team without an assessment is not counted in the means. A click on an application shows its team alone.
+With All business services or one business service chosen, the page sums up the teams: how many applications there are, how many teams take part, how many were assessed and their average level. The table lists every team with its business service, whether it takes part, its name, its way of working, its agile coach, the day of its latest assessment and its level. Maturity by dimension shows the mean level of every dimension over the latest assessments, and with All business services, By business service shows the mean overall level of every business service. Assessed and the means count only the teams that take part and were assessed. A team taken out keeps its assessments for when it takes part again, but they are not counted. A click on an application shows its team alone.
 
 With one application chosen, the page shows the team with its business service, its name, its way of working and its agile coach, its latest assessment with the level of every dimension and how it changed since the assessment before (for example "up 1 from 3"), the notes of the assessment and every assessment, the latest first.
 
@@ -1638,6 +1638,8 @@ Admin, Teams and assessments lists the teams of the business service or the appl
 2. Record assessment opens the assessment of a team that takes part: the day of the assessment, today unless you change it and never in the future; who made it, the agile coach of the team unless you change it; a level from 1 to 5 for every dimension; and notes of at most 4000 characters, which everyone who opens the application sees.
 3. An assessment cannot be changed. Delete an assessment that was recorded by mistake under Assessments, and record it again with the right levels. The other assessments of the team stay as they are.
 
+Only a team that takes part is assessed. For a team that was never set up, or was taken out, Record assessment is off and says what to do first: set up the team, or edit it and tick Takes part. The limits count an accented letter or a symbol as two or three characters. When someone else changed the team after you opened it, nothing is saved and nothing is overwritten: the window and the list then show their changes, so make your change again and save.
+
 ### REST API of Agile Assessment & Adoption
 
 | Request | What it does |
@@ -1646,7 +1648,7 @@ Admin, Teams and assessments lists the teams of the business service or the appl
 | `GET /api/agile/applications` | Every application with its team and its assessments, the latest first, by business service and name. |
 | `GET /api/agile/applications/{productId}` | One application; 404 for an unknown product. |
 | `PUT /api/agile/applications/{productId}` | Sets up or changes the team: `enabled`, `teamName`, `framework` (`SCRUM`, `KANBAN`, `SAFE`, `OTHER` or `null`), `coach` and the `version` read, `null` for a team never set up. 409 means someone else changed the team first. |
-| `POST /api/agile/applications/{productId}/assessments` | Records an assessment: `assessedOn`, `assessor`, `levels` (one level for every dimension code) and `notes`. 201 with the assessment and its `overallLevel`; 400 names what is missing or out of range. |
+| `POST /api/agile/applications/{productId}/assessments` | Records an assessment of a team that takes part: `assessedOn`, `assessor`, `levels` (one level for every dimension code) and `notes`. `assessedOn` can be any day up to today in UTC+14, the earliest time zone, so that today in any browser is accepted. 201 with the assessment and its `overallLevel`; 400 names what is missing or out of range; 409 means the team does not take part. |
 | `GET /api/agile/assessments/{id}` | One assessment. |
 | `DELETE /api/agile/assessments/{id}` | Deletes one assessment; 204. |
 

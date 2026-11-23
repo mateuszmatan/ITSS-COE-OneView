@@ -96,6 +96,39 @@ class ContextBarSpec extends OvSpecification {
         ownErrors().isEmpty()
     }
 
+    def "OWASP SAMM names the business service or the application chosen, and a link opens a scorecard outside the choice"() {
+        when:
+        open('/samm')
+
+        then:
+        assertThat(page.locator('.score-label')).hasText('BBH Organization Maturity')
+        assertThat(page.locator('.section-subtitle').first()).hasText('Average score across the 1 BBH application')
+        assertThat(page.locator(".stat-label:text-is('Business Services Covered')")).hasCount(1)
+
+        when:
+        chooseBusinessService('Corporate Technology')
+
+        then:
+        assertThat(page.locator('.score-label')).hasText('Corporate Technology Maturity')
+        assertThat(page.locator('.section-subtitle').first()).hasText('Average score across 1 application of Corporate Technology')
+        assertThat(page.locator(".stat-label:text-is('Business Services Covered')")).hasCount(0)
+
+        when:
+        chooseApplication('CertScanner')
+
+        then:
+        assertThat(page.locator('.section-subtitle').first()).hasText('Average score across 1 pipeline of CertScanner')
+
+        when: 'the link of Pipeline Monitoring names a pipeline of another business service'
+        chooseBusinessService('Fund Services')
+        open('/samm?pipelineId=1')
+
+        then:
+        assertThat(page.locator('.scorecard-modal')).containsText('CertScanner / gui')
+        awaitRequest('GET', '/api/samm/pipelines/1')
+        ownErrors().isEmpty()
+    }
+
     def "the bar stays away from the pages of one pipeline, Self-service and the settings"() {
         expect:
         ['/pipelines/1', '/self-service', '/admin/template', '/admin/settings', '/admin/departments'].every { String path ->

@@ -56,20 +56,22 @@ class SammMaturityServiceSpec extends Specification {
         overview.domainScores().size() == 5
     }
 
-    def "the overview of a business service or of one application holds only their pipelines"() {
+    def "the overview of a business service or of one application holds only their pipelines, the application first"() {
         given:
         def advisory = new Department(1L, 'Corporate Advisory', 1)
         def custody = new Department(2L, 'Custody & Clearing', 1)
         def advisor = Fixtures.product(id: 10L, name: 'Advisor Portal', departmentId: 1L, services: [[id: 20L, name: 'advisor-api']])
         def ledger = Fixtures.product(id: 11L, name: 'Ledger', departmentId: 2L, services: [[id: 21L, name: 'ledger-api']])
-        def views = [new PipelineView(advisor, advisor.services()[0], Fixtures.pipeline(id: 100L, productId: 10L, serviceId: 20L),
-                                      'https://jenkins.bbh.com'),
-                     new PipelineView(ledger, ledger.services()[0], Fixtures.pipeline(id: 101L, productId: 11L, serviceId: 21L),
-                                      'https://jenkins.bbh.com')]
+        def ofAdvisor = new PipelineView(advisor, advisor.services()[0], Fixtures.pipeline(id: 100L, productId: 10L, serviceId: 20L),
+                'https://jenkins.bbh.com')
+        def ofLedger = new PipelineView(ledger, ledger.services()[0], Fixtures.pipeline(id: 101L, productId: 11L, serviceId: 21L),
+                'https://jenkins.bbh.com')
         def platform = PlatformSettings.builder().jenkinsUrl('https://jenkins.bbh.com').build()
 
         departments.findAll() >> [advisory, custody]
-        monitoringTargets.everything() >> new MonitoringTargets([advisor, ledger], views, platform, [] as Set)
+        monitoringTargets.everything() >> new MonitoringTargets([advisor, ledger], [ofAdvisor, ofLedger], platform, [] as Set)
+        monitoringTargets.ofDepartment(2L) >> new MonitoringTargets([ledger], [ofLedger], platform, [] as Set)
+        monitoringTargets.ofProduct(10L) >> new MonitoringTargets([advisor], [ofAdvisor], platform, [] as Set)
         runs.configured(platform) >> false
         reports.findLatestByPipelineId(_) >> Optional.empty()
 
@@ -84,8 +86,29 @@ class SammMaturityServiceSpec extends Specification {
             departments() == []
             totalDepartments() == 0
         }
+        service.overview(2L, 10L).applications()*.pipelineId() == [100L]
         service.overview(null, null).applications()*.pipelineId() == [100L, 101L]
         service.overview().departments().size() == 2
+    }
+
+    def "the overview of an unknown business service or application is not found"() {
+        given:
+        monitoringTargets.ofDepartment(99L) >> { throw new NoSuchElementException('Business service 99 does not exist') }
+        monitoringTargets.ofProduct(98L) >> { throw new NoSuchElementException('Product 98 does not exist') }
+
+        when:
+        service.overview(99L, null)
+
+        then:
+        def unknownService = thrown(NoSuchElementException)
+        unknownService.message == 'Business service 99 does not exist'
+
+        when:
+        service.overview(null, 98L)
+
+        then:
+        def unknownApplication = thrown(NoSuchElementException)
+        unknownApplication.message == 'Product 98 does not exist'
     }
 
     def "queries department and application score by id"() {

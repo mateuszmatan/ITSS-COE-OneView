@@ -120,6 +120,10 @@ class DepartmentRegressionSpec extends OneViewSpecification {
         moved.status == 200
         moved.json.departmentId == DEPARTMENT_ID
         api.delete("/api/departments/$department.id").status == 204
+
+        and: 'both deletes are in the action history of the business service, the refused one under its name'
+        api.get('/api/action-history').json.findAll { it.actionType == 'DELETE_DEPARTMENT' && it.departmentId == department.id }
+                .collect { [it.departmentName, it.status] } == [[null, 'SUCCESS'], [department.name, 'FAILURE']]
     }
 
     def "department names are unique in any case, also on rename"() {

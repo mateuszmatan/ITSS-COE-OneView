@@ -12,6 +12,7 @@ import { ADMIN_PRODUCTS, ADMIN_QA, QA_METRICS } from '../core/sections';
 import { AreaPlan, PlannedCapability } from '../shared/area-plan';
 import {
   TARGET_FIELDS,
+  notTakingPartText,
   ownTargetsSummary,
   participation,
   targetText,
@@ -57,6 +58,7 @@ export class QaOverviewPage {
   protected readonly adminPath = ADMIN_QA.path;
   protected readonly newProduct = `${ADMIN_PRODUCTS.path}/new`;
   protected readonly participation = participation;
+  protected readonly notTakingPart = notTakingPartText;
 
   protected readonly defaults = rxResource({ stream: () => this.api.defaults() });
   protected readonly applications = rxResource({ stream: () => this.api.applications() });

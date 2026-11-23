@@ -62,10 +62,12 @@
               <span class="stat-value">{{ data.totalApplications }}</span>
               <span class="stat-label">Applications Assessed</span>
             </div>
-            <div class="stat-item">
-              <span class="stat-value">{{ data.totalDepartments }}</span>
-              <span class="stat-label">Business Services Covered</span>
-            </div>
+            @if (level() === 'bbh') {
+              <div class="stat-item">
+                <span class="stat-value">{{ data.totalDepartments }}</span>
+                <span class="stat-label">Business Services Covered</span>
+              </div>
+            }
             <div class="stat-item">
               <span class="stat-value">{{ data.levelDistribution[3] || 0 }}</span>
               <span class="stat-label">Level 3 (Optimized)</span>
@@ -87,9 +89,7 @@
 
         <div class="section-title-row">
           <h2>5 Business Functions Posture</h2>
-          <span class="section-subtitle"
-            >Average score across all {{ data.totalApplications }} BBH applications</span
-          >
+          <span class="section-subtitle">{{ averageNote() }}</span>
         </div>
 
         <div class="domains-grid">

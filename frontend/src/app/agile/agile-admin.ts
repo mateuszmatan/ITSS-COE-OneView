@@ -16,6 +16,7 @@ import { AgileProfileDialog, AgileProfileDialogData } from './agile-profile-dial
 import {
   agileParticipation,
   dayText,
+  firstStepToAssess,
   frameworkLabel,
   latestAssessment,
   levelText,
@@ -175,7 +176,7 @@ export class AgileAdmin {
   protected assessHint(application: AgileApplication): string | null {
     return application.enabled
       ? null
-      : `Set up the team of ${application.name} first: only a team that takes part is assessed.`;
+      : `${firstStepToAssess(application)}: only a team that takes part is assessed.`;
   }
 
   protected editTeam(application: AgileApplication): void {
@@ -185,13 +186,16 @@ export class AgileAdmin {
     }
     this.dialog
       .open<AgileApplication, AgileProfileDialogData, AgileProfileDialog>(AgileProfileDialog, {
-        data: { application, model },
+        data: {
+          application,
+          model,
+          // The list shows what someone else saved even when the window is then closed unsaved.
+          reloaded: (current) => this.show(current),
+        },
       })
       .closed.pipe(filter((saved): saved is AgileApplication => !!saved))
       .subscribe((saved) => {
-        this.applications.update((list) =>
-          list?.map((entry) => (entry.productId === saved.productId ? saved : entry)),
-        );
+        this.show(saved);
         this.notifier.success(
           saved.enabled
             ? `The team of ${saved.name} saved. It takes part in Agile Assessment & Adoption.`
@@ -250,5 +254,12 @@ export class AgileAdmin {
 
   private loadedModel(): AgileModel | null {
     return this.model.hasValue() ? this.model.value() : null;
+  }
+
+  /** Shows the team of an application in the list as the portal has it now. */
+  private show(changed: AgileApplication): void {
+    this.applications.update((list) =>
+      list?.map((entry) => (entry.productId === changed.productId ? changed : entry)),
+    );
   }
 }

@@ -61,7 +61,7 @@
               <button
                 type="button"
                 class="btn btn-link"
-                [attr.aria-label]="'Record an assessment of ' + application.name"
+                [attr.aria-label]="'Record assessment of ' + application.name"
                 [attr.aria-describedby]="reason ? 'assess-reason-' + application.productId : null"
                 [disabled]="reason !== null"
                 (click)="assess(application)"

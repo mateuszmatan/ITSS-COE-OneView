@@ -23,7 +23,10 @@ import {
 import { QualityApplication } from '../core/models';
 import { notInQuality, qualityApplication, qualityDefaults } from '../testing/fixtures';
 import { QaAdmin } from './qa-admin';
-import { QualityApplicationDialog } from './quality-application-dialog';
+import {
+  QualityApplicationDialog,
+  QualityApplicationDialogData,
+} from './quality-application-dialog';
 
 describe('QaAdmin', () => {
   let fixture: ComponentFixture<QaAdmin>;
@@ -212,6 +215,7 @@ describe('QaAdmin', () => {
     expect(open.mock.calls[0][1]?.data).toEqual({
       application: notInQuality(),
       bbhTargets: { coveragePercent: 80, passRatePercent: 95, maxCriticalDefects: 0 },
+      reloaded: expect.any(Function),
     });
     expect(text(toast())).toContain('PayHub saved. It takes part in the QM Metric Tool.');
     expect(text(gridCell(row('PayHub'), 'qaLead'))).toBe('Eve Ray');
@@ -219,6 +223,22 @@ describe('QaAdmin', () => {
 
     buttonOf(row('CertScanner'), 'Edit CertScanner').click();
     await fixture.whenStable();
+    http.expectNone('/api/qa/applications');
+  });
+
+  it('shows what someone else saved once the dialog loaded it, also when it closes unsaved', async () => {
+    await load();
+    const open = dialogClosing(undefined);
+
+    buttonOf(row('PayHub'), 'Set up PayHub').click();
+    await fixture.whenStable();
+    const data = open.mock.calls[0][1]?.data as QualityApplicationDialogData;
+    data.reloaded?.(notInQuality({ enabled: true, qaLead: 'Bea Lane', version: 2 }));
+    await fixture.whenStable();
+
+    expect(text(gridCell(row('PayHub'), 'qaLead'))).toBe('Bea Lane');
+    expect(text(gridCell(row('PayHub'), 'actions'))).toBe('Edit');
+    expect(toast()).toBeNull();
     http.expectNone('/api/qa/applications');
   });
 

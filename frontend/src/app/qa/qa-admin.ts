@@ -195,18 +195,30 @@ export class QaAdmin implements HasUnsavedChanges {
     this.dialog
       .open<QualityApplication, QualityApplicationDialogData, QualityApplicationDialog>(
         QualityApplicationDialog,
-        { data: { application, bbhTargets: this.defaults.value().targets } },
+        {
+          data: {
+            application,
+            bbhTargets: this.defaults.value().targets,
+            // The list shows what someone else saved even when the window is then closed unsaved.
+            reloaded: (current) => this.show(current),
+          },
+        },
       )
       .closed.pipe(filter((saved): saved is QualityApplication => !!saved))
       .subscribe((saved) => {
-        this.applications.update((list) =>
-          list?.map((entry) => (entry.productId === saved.productId ? saved : entry)),
-        );
+        this.show(saved);
         this.notifier.success(
           saved.enabled
             ? `${saved.name} saved. It takes part in the QM Metric Tool.`
             : `${saved.name} saved. It does not take part in the QM Metric Tool.`,
         );
       });
+  }
+
+  /** Shows an application in the list as the portal has it now. */
+  private show(changed: QualityApplication): void {
+    this.applications.update((list) =>
+      list?.map((entry) => (entry.productId === changed.productId ? changed : entry)),
+    );
   }
 }
