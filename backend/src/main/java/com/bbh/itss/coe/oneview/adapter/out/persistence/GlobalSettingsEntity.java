@@ -116,7 +116,11 @@ public class GlobalSettingsEntity extends SingletonEntity {
             @Enumerated(STRING) @Column(name = "DEFAULT_DEPLOY_TARGET") DeployTarget deployTarget,
             @Column(name = "DEFAULT_SOURCE_DIR") String sourceDir,
             Integer testsMaxParallel, String nodeInstallationName, String npmRegistry, String npmrcCredentialsId,
-            Boolean pluginRepositoriesEnabled, String gradlePluginRepository, String mavenPluginRepository) {
+            Boolean pluginRepositoriesEnabled, String gradlePluginRepository, String mavenPluginRepository,
+            @Column(name = "DELIVERY_RELEASE_ENABLED") Boolean releaseEnabled,
+            @Column(name = "DELIVERY_RELEASE_REPOSITORY_URL") String releaseRepositoryUrl,
+            @Column(name = "DELIVERY_RELEASE_REPOSITORY_ID") String releaseRepositoryId,
+            @Column(name = "DELIVERY_RELEASE_CREDENTIALS_ID") String releaseCredentialsId) {
     }
 
     @Embeddable

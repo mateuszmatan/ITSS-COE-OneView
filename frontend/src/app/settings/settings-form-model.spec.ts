@@ -45,6 +45,10 @@ describe('createSettingsForm', () => {
       pluginRepositoriesEnabled: true,
       gradlePluginRepository: '',
       mavenPluginRepository: '',
+      releaseEnabled: true,
+      releaseRepositoryUrl: '',
+      releaseRepositoryId: '',
+      releaseCredentialsId: '',
     });
     expect(value.scans.parallelStaticAnalysis).toBe(true);
     expect(value.scans.parallelDynamicAnalysis).toBe(true);

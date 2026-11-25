@@ -44,6 +44,8 @@ import static com.bbh.itss.coe.oneview.domain.catalog.BuildTool.GRADLE;
 import static com.bbh.itss.coe.oneview.domain.catalog.BuildTool.LIQUIBASE;
 import static com.bbh.itss.coe.oneview.domain.catalog.BuildTool.SQL;
 import static com.bbh.itss.coe.oneview.domain.catalog.BuildTool.MAVEN;
+import static com.bbh.itss.coe.oneview.domain.catalog.BuildTool.NPM;
+import static com.bbh.itss.coe.oneview.domain.catalog.BuildTool.PIP;
 import static com.bbh.itss.coe.oneview.domain.catalog.DeployTarget.VM;
 import static com.bbh.itss.coe.oneview.domain.catalog.NexusIqSettings.ONE_APPLICATION;
 import static java.util.Locale.ROOT;
@@ -285,6 +287,8 @@ final class ServiceConfigReader {
         global.goldenFix().writeTo(inherited);
         inherited.set("tests.maxParallel", global.serviceDefaults().testsMaxParallel());
         global.serviceDefaults().writeNodeTo(inherited);
+        global.serviceDefaults().writeReleaseTo(inherited);
+        inherited.set("delivery.release.enabled", global.serviceDefaults().releaseEnabled());
         inherited.set("build.node.commands", List.of("npm ci", "npm run build")).set("build.node.timeoutMin", 30)
                 .set("build.node.nexusIqScan", true);
         global.database().writePackageTo(inherited);
@@ -507,6 +511,68 @@ final class ServiceConfigReader {
             readMavenDelivery(project, request);
         } else if (tool == GRADLE) {
             readGradleDelivery(project, request);
+        } else if (tool == NPM || tool == PIP) {
+            read(project, concat(prefixed("delivery.push.maven.", "delivery.", COMMANDS.get(MAVEN)),
+                    List.of(rule("delivery.push.maven.artifacts", "nexusDelivery.artifacts", ARTIFACTS))), request);
+        } else if (tool == DOTNET) {
+            readNugetDelivery(project, request);
+        }
+        if (tool != DOTNET && project.unread("delivery.nuget") && project.take("delivery.nuget") != null) {
+            project.note("delivery.nuget", "not imported: the service builds with " + tool.name().toLowerCase(ROOT));
+        }
+        boolean releases = NexusDeliverySettings.releases(tool);
+        if (releases && target == VM) {
+            readRelease(project, tool, request);
+        } else if (project.unread("delivery.release") && project.take("delivery.release") != null) {
+            project.note("delivery.release", tool == DOTNET
+                    ? "not imported: a .NET service releases its NuGet package to delivery.nuget.releaseSource"
+                    : releases ? "not imported: an OpenShift service delivers its image, and stage 12 releases no"
+                    + " artifact of it"
+                    : "not imported: the library releases no artifact of a " + tool.name().toLowerCase(ROOT)
+                    + " service in stage 12");
+        }
+    }
+
+    /**
+     * The release of stage 12, delivery.release: a value equal to that of the Library defaults comes back unset. A Maven
+     * upload logs in with the server ID, a Gradle upload with the credentials, so the other one is left out with a note.
+     */
+    private static void readRelease(ConfigInput project, BuildTool tool, ConfigTree request) {
+        String unused = tool == GRADLE ? "delivery.release.repositoryId" : "delivery.release.credentialsId";
+        read(project, List.of(rule("delivery.release.enabled", "nexusDelivery.releaseEnabled", FLAG),
+                rule("delivery.release.repositoryUrl", "nexusDelivery.releaseRepositoryUrl", TEXT),
+                rule(tool == GRADLE ? "delivery.release.credentialsId" : "delivery.release.repositoryId",
+                        tool == GRADLE ? "nexusDelivery.releaseCredentialsId" : "nexusDelivery.releaseRepositoryId",
+                        TEXT)), request);
+        if (project.take(unused) != null) {
+            project.note(unused, tool == GRADLE
+                    ? "not imported: a Gradle upload logs in to the release repository with delivery.release.credentialsId"
+                    : "not imported: a Maven upload logs in to the release repository with delivery.release.repositoryId");
+        }
+    }
+
+    /**
+     * The NuGet feeds of a .NET service: delivery.nuget or, without it, delivery.dotnet, with the other names the
+     * library reads (repositoryUrl for source, apiKeyCredentialsId for credentialsId).
+     */
+    private static void readNugetDelivery(ConfigInput project, ConfigTree request) {
+        boolean nuget = project.unread("delivery.nuget");
+        String block = nuget ? "delivery.nuget." : "delivery.dotnet.";
+        for (List<String> names : List.of(List.of("source", "repositoryUrl"),
+                List.of("credentialsId", "apiKeyCredentialsId"))) {
+            String field = "nexusDelivery.nuget" + capitalize(names.get(0));
+            read(project, List.of(rule(block + names.get(0), field, TEXT)), request);
+            if (request.get(field) == null) {
+                read(project, List.of(rule(block + names.get(1), field, TEXT)), request);
+            } else if (project.take(block + names.get(1)) != null) {
+                project.note(block + names.get(1), "not imported: " + block + names.get(0) + " wins over it");
+            }
+        }
+        read(project, List.of(rule(block + "releaseSource", "nexusDelivery.nugetReleaseSource", TEXT),
+                rule(block + "releaseCredentialsId", "nexusDelivery.nugetReleaseCredentialsId", TEXT),
+                rule(block + "packagePattern", "nexusDelivery.nugetPackagePattern", TEXT)), request);
+        if (nuget && project.take("delivery.dotnet") != null) {
+            project.note("delivery.dotnet", "not imported: delivery.nuget replaces it");
         }
     }
 

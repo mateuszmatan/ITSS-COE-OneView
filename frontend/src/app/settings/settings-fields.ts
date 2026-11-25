@@ -1,5 +1,6 @@
 import { Field, area, check, choice, count, line, mono } from '@common/shared/fields';
 import {
+  DELIVERY_URL_ERROR,
   HTTP_URL_ERROR,
   SHELL_SAFE_ERROR,
   SHELL_SAFE_URL_ERROR,
@@ -454,7 +455,8 @@ export const SETTINGS_PAGE: SettingsSection[] = [
     note:
       'What a new service starts with in the product editor and in self-service. A saved ' +
       'service keeps its own values; only the number of test jobs at the same time, the ' +
-      'Node.js build values and the plugin repositories also apply later, to every service.',
+      'Node.js build values, the plugin repositories and the release of the safe artifact ' +
+      'also apply later, to every service that leaves them empty.',
     fields: [
       choice('buildTool', 'Build tool', DEFAULT_BUILD_TOOLS, 'buildTool', 3, {
         help: 'The build tool a new service starts with. It decides which commands, test reports and artifacts the pipeline expects.',
@@ -512,6 +514,47 @@ export const SETTINGS_PAGE: SettingsSection[] = [
             help: 'The Nexus repository with the Maven plugins, such as a group of Maven Central and the BBH releases. Empty: the repository of the library defaults.',
             error: SHELL_SAFE_URL_ERROR,
           }),
+        ],
+      },
+      {
+        heading: 'Release of the safe artifact',
+        note: 'After the release gate, stage 12 (Nexus delivery - Safe Artifact - 0 known Security Vulnerabilities) publishes the files that stage 6 uploaded as the snapshot of the run once more, as the release of its build tag, without building again. It checks their SHA-256 first and never replaces a release. Without a release repository, here or in the service, the stage is not required and the snapshot stays the delivered artifact, as before. A .NET service names its NuGet release feed itself.',
+        fields: [
+          check(
+            'releaseEnabled',
+            'Release the safe artifact of the Maven, Gradle, npm and pip services in stage 12',
+            'delivery.release.enabled',
+            12,
+            {
+              help: 'Unticked, stage 12 releases nothing for a service that does not switch the release on itself, and the snapshot of stage 6 stays the delivered artifact.',
+            },
+          ),
+          mono(
+            'releaseRepositoryUrl',
+            'Release repository URL',
+            'delivery.release.repositoryUrl',
+            6,
+            {
+              placeholder: 'https://tools.bbh.com/nexus/repository/releases/',
+              help: 'The Nexus release repository of every service that names none of its own. It is never the snapshot repository of the upload. Empty: that of the library defaults, which set none, so no release is published.',
+              error: DELIVERY_URL_ERROR,
+            },
+          ),
+          mono('releaseRepositoryId', 'Maven server ID', 'delivery.release.repositoryId', 3, {
+            placeholder: 'bbh-releases',
+            help: 'The server ID of the release repository in the Maven settings of the agents, which supplies the login of a Maven, npm or pip upload. Empty: the -DrepositoryId of the snapshot upload of the service.',
+            error: 'Letters, digits and . _ - only',
+          }),
+          mono(
+            'releaseCredentialsId',
+            'Gradle credentials ID',
+            'delivery.release.credentialsId',
+            3,
+            {
+              placeholder: 'nexus-release',
+              help: 'The ID of a Jenkins Username with password credential that the Gradle upload logs in to the release repository with. Empty: the Gradle upload sends no login.',
+            },
+          ),
         ],
       },
     ],

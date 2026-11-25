@@ -34,7 +34,9 @@ class GlobalSettingsValuesSpec extends Specification {
         BBH.scans() == new ScanSettings(60, 120, 50, 30, 60, 60, 30, 30, true, 5, true, true)
         BBH.releaseGate() == new ReleaseGateSettings([SAST, SCA, NEXUS_IQ, DAST], true, 'release-gate.json')
         BBH.serviceDefaults() == new ServiceDefaults(GRADLE, VM, '.', 20, null, null, null, true,
-                'https://tools.bbh.com/nexus/repository/gradle-plugins/', 'https://tools.bbh.com/nexus/repository/maven-public/')
+                'https://tools.bbh.com/nexus/repository/gradle-plugins/', 'https://tools.bbh.com/nexus/repository/maven-public/',
+                true, null, null, null)
+        !BBH.defaultsConfig().containsKey('delivery')
         BBH.defaultsConfig().pluginRepositories == [enabled: true,
                                                     gradle : 'https://tools.bbh.com/nexus/repository/gradle-plugins/',
                                                     maven  : 'https://tools.bbh.com/nexus/repository/maven-public/']
@@ -164,6 +166,22 @@ class GlobalSettingsValuesSpec extends Specification {
         (defaults.keySet() as List).take(4) == ['buildTool', 'deployTarget', 'sourceDir', 'build']
         defaults.build == [node: [installationName: 'NodeJS-20', registry: 'https://nexus.bbh.com/repository/npm-group/']]
         !BBH.defaultsConfig().containsKey('build')
+    }
+
+    def "the release repository of the safe artifact comes before the release gate and is left out while none is set"() {
+        when:
+        def defaults = copy(BBH, serviceDefaults: copy(BBH.serviceDefaults(),
+                releaseRepositoryUrl: 'https://tools.bbh.com/nexus/repository/releases/',
+                releaseRepositoryId: 'bbh-releases')).defaultsConfig()
+
+        then:
+        (defaults.keySet() as List).dropWhile { it != 'pluginRepositories' }.take(3) ==
+                ['pluginRepositories', 'delivery', 'releaseGate']
+        defaults.delivery == [release: [repositoryUrl: 'https://tools.bbh.com/nexus/repository/releases/',
+                                        repositoryId : 'bbh-releases']]
+        copy(BBH, serviceDefaults: copy(BBH.serviceDefaults(), releaseEnabled: false)).defaultsConfig().delivery ==
+                [release: [enabled: false]]
+        !BBH.defaultsConfig().containsKey('delivery')
     }
 
     def "the global GoldenFix policy runs GoldenFix unless it says otherwise and each scanner's limits get their section"() {

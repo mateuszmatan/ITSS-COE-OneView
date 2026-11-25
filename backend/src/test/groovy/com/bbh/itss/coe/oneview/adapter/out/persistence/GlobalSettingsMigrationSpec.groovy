@@ -28,8 +28,12 @@ class GlobalSettingsMigrationSpec extends MigrationSpecification {
     static final String PLUGIN_REPOS = 'CK_DSO_GLOBAL_PLUGIN_REPOS'
     static final List<String> PLUGIN_COLUMNS = ['PLUGIN_REPOSITORIES_ENABLED', 'GRADLE_PLUGIN_REPOSITORY',
                                                 'MAVEN_PLUGIN_REPOSITORY']
+    static final String RELEASE = 'CK_DSO_GLOBAL_RELEASE'
+    static final List<String> RELEASE_COLUMNS = ['DELIVERY_RELEASE_ENABLED', 'DELIVERY_RELEASE_REPOSITORY_URL',
+                                                 'DELIVERY_RELEASE_REPOSITORY_ID', 'DELIVERY_RELEASE_CREDENTIALS_ID']
     static final List<String> CHECKS = ['CK_DSO_GLOBAL_BUILD_TOOL', 'CK_DSO_GLOBAL_DEPLOY_TARGET', 'CK_DSO_GLOBAL_FLAGS',
-                                        PARALLEL_SCANS, PARALLEL_TESTS, PLUGIN_REPOS, 'CK_DSO_GLOBAL_SETTINGS_ROW']
+                                        PARALLEL_SCANS, PARALLEL_TESTS, PLUGIN_REPOS, RELEASE,
+                                        'CK_DSO_GLOBAL_SETTINGS_ROW']
 
     @Autowired
     GlobalSettingsPersistenceAdapter settings
@@ -87,7 +91,7 @@ class GlobalSettingsMigrationSpec extends MigrationSpecification {
         then:
         jdbc.queryForMap('SELECT SCA_ENABLED, SCA_POLL_TIMEOUT_MIN, SCA_POLL_INTERVAL_SEC FROM DSO_GLOBAL_SETTINGS') ==
                 [SCA_ENABLED: 1, SCA_POLL_TIMEOUT_MIN: 40, SCA_POLL_INTERVAL_SEC: 30]
-        checks() == CHECKS - PARALLEL_SCANS - PARALLEL_TESTS - PLUGIN_REPOS
+        checks() == CHECKS - PARALLEL_SCANS - PARALLEL_TESTS - PLUGIN_REPOS - RELEASE
 
         when:
         jdbc.update('UPDATE DSO_GLOBAL_SETTINGS SET SCA_ENABLED = 2')
@@ -114,7 +118,7 @@ class GlobalSettingsMigrationSpec extends MigrationSpecification {
 
         then:
         !('PARALLEL_STATIC_ANALYSIS' in columns('DSO_GLOBAL_SETTINGS'))
-        checks() == CHECKS - PARALLEL_SCANS - PARALLEL_TESTS - PLUGIN_REPOS
+        checks() == CHECKS - PARALLEL_SCANS - PARALLEL_TESTS - PLUGIN_REPOS - RELEASE
 
         when:
         liquibase.update('')
@@ -142,7 +146,7 @@ class GlobalSettingsMigrationSpec extends MigrationSpecification {
 
         then:
         !('PARALLEL_DYNAMIC_ANALYSIS' in columns('DSO_GLOBAL_SETTINGS'))
-        checks() == CHECKS - PARALLEL_TESTS - PLUGIN_REPOS
+        checks() == CHECKS - PARALLEL_TESTS - PLUGIN_REPOS - RELEASE
 
         when:
         liquibase.update('')
@@ -170,7 +174,7 @@ class GlobalSettingsMigrationSpec extends MigrationSpecification {
 
         then:
         PLUGIN_COLUMNS.every { !(it in columns('DSO_GLOBAL_SETTINGS')) }
-        checks() == CHECKS - PLUGIN_REPOS
+        checks() == CHECKS - PLUGIN_REPOS - RELEASE
 
         when:
         liquibase.update('')
@@ -192,6 +196,41 @@ class GlobalSettingsMigrationSpec extends MigrationSpecification {
         thrown(DataIntegrityViolationException)
     }
 
+    def "049 releases the safe artifact for saved settings without a release repository, refuses other values, and its rollback removes the columns"() {
+        given:
+        jdbc.execute('DROP ALL OBJECTS')
+        liquibase.update('')
+        settings.save(GlobalSettings.bbhDefaults())
+
+        when:
+        rollBackSince('049-')
+
+        then:
+        RELEASE_COLUMNS.every { !(it in columns('DSO_GLOBAL_SETTINGS')) }
+        serviceReleaseColumns() == []
+        checks() == CHECKS - RELEASE
+
+        when:
+        liquibase.update('')
+        def defaults = settings.load().get().values().serviceDefaults()
+
+        then:
+        defaults.releaseEnabled()
+        [defaults.releaseRepositoryUrl(), defaults.releaseRepositoryId(), defaults.releaseCredentialsId()] ==
+                [null, null, null]
+        !nullable('DSO_GLOBAL_SETTINGS', 'DELIVERY_RELEASE_ENABLED')
+        RELEASE_COLUMNS.drop(1).every { nullable('DSO_GLOBAL_SETTINGS', it) }
+        serviceReleaseColumns().size() == 9
+        serviceReleaseColumns().every { nullable('DSO_SERVICE', it) }
+        checks() == CHECKS
+
+        when:
+        jdbc.update('UPDATE DSO_GLOBAL_SETTINGS SET DELIVERY_RELEASE_ENABLED = 2')
+
+        then:
+        thrown(DataIntegrityViolationException)
+    }
+
     def "037 adds the Library defaults (Liquibase database changes), empty for saved settings, and its rollback removes the columns"() {
         given:
         jdbc.execute('DROP ALL OBJECTS')
@@ -203,7 +242,7 @@ class GlobalSettingsMigrationSpec extends MigrationSpecification {
 
         then:
         columns('DSO_GLOBAL_SETTINGS').findAll { it.startsWith('DB_') } == []
-        checks() == CHECKS - PARALLEL_TESTS - PLUGIN_REPOS
+        checks() == CHECKS - PARALLEL_TESTS - PLUGIN_REPOS - RELEASE
 
         when:
         liquibase.update('')
@@ -218,6 +257,10 @@ class GlobalSettingsMigrationSpec extends MigrationSpecification {
 
         then:
         jdbc.queryForObject('SELECT DEFAULT_BUILD_TOOL FROM DSO_GLOBAL_SETTINGS', String) == 'LIQUIBASE'
+    }
+
+    private List<String> serviceReleaseColumns() {
+        columns('DSO_SERVICE').findAll { it.startsWith('NEXUS_DELIVERY_RELEASE_') || it.startsWith('NEXUS_DELIVERY_NUGET_') }
     }
 
     private List<String> checks() {

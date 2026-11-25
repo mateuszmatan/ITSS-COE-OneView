@@ -336,7 +336,7 @@ The portal writes `build.node` to `devsecops_config.yaml` only while the checkbo
 - The stage is named "Node.js build". It runs right after "Monitor source changes" in the Full, Security, SAST scanning and Nexus IQ GoldenFix pipelines when at least one service of the run needs it. When no service needs it, the stage is left out and nothing is logged. The report numbers it 0, or 0.1, 0.2 and so on for several services, and Grafana shows it as Node.js.
 - In SAST scanning a service needs the stage only while "Compile before preparing the IRX" is on and the agent is not Windows.
 - In a run in which some service builds, each other service logs why it does not: `[NODE] <service>: build.node.enabled is not set - no Node.js build`, or in SAST scanning, for a service whose "Compile before preparing the IRX" is off, `[NODE] <service>: the SAST scan does not compile this service - no Node.js build`.
-- The Extended pipeline builds the frontend again right before the release delivery, which rebuilds the artifact.
+- The Extended pipeline has no Node.js build stage and builds nothing: its release delivery publishes the files that the Security pipeline uploaded, which already hold the frontend.
 - Do not put the frontend unit tests, such as `ng test --code-coverage`, into the Commands. The commands run in every pipeline above, and a failing test would stop each of them at stage 0, the release included. Run the frontend tests from the unit test command of the Gradle or Maven build instead: they then run only in the Unit tests stage, a failure turns that stage orange, and the stage reads their LCOV report next to the JaCoCo report. On Windows agents, name both reports in Coverage reports (see Unit tests and coverage).
 - The log names where Node.js comes from, for example `[NODE] gateway: Node.js from installation NodeJS-20 in console: npm ci && npm run build`.
 - After a Node.js build, the AppScan static scan leaves out `node_modules`. This applies on Linux agents while no included folder is set. The minified bundles of the built frontend are still scanned.
@@ -1189,7 +1189,7 @@ Admin, Service template holds the values a new service starts with. A saved serv
 | Block | Fields |
 |-------|--------|
 | Pipelines | Jenkins agents of a new pipeline; Jenkins job, for example `DevSecOps/{CODE}/{service}-{type}` |
-| Build | Gradle tasks and Gradle artifact; Maven goals and Maven artifact; Nexus delivery goals (Maven services on virtual machines) |
+| Build | Gradle tasks and Gradle artifact; Maven goals and Maven artifact; Nexus delivery goals (Maven services on virtual machines, and npm and pip services there once they list the package files to upload) |
 | Nexus IQ and Bitbucket | Nexus IQ application, for example `{code}-{service}`; Bitbucket repository; Bitbucket credentials ID; the Gradle, Maven and Flutter scan patterns |
 | OpenShift | OpenShift project (the projects end in -build, -rd and -qc); Image registry; Health check path |
 
@@ -1217,7 +1217,7 @@ Admin, Library defaults holds the values every pipeline shares. A service that l
 | Security limits | The most critical, high and medium findings each scan (SAST, SCA, Nexus IQ, DAST) may report |
 | Scans and coverage | The minimum line coverage, how long the pipelines wait for each scan, and the order of the static scans |
 | Release gate | Which scans the release gate checks, whether it requires the coverage, and its result file |
-| Service defaults | The build tool (Gradle, Maven, Flutter, C# / .NET, npm, pip, Android or iOS), deployment target and source folder a new service starts with; the test jobs at the same time; the Node.js build defaults; the Gradle and Maven plugin repositories of the BBH Nexus |
+| Service defaults | The build tool (Gradle, Maven, Flutter, C# / .NET, npm, pip, Android or iOS), deployment target and source folder a new service starts with; the test jobs at the same time; the Node.js build defaults; the Gradle and Maven plugin repositories of the BBH Nexus; the release of the safe artifact (the release repository, its Maven server ID and its Gradle credentials) |
 | Liquibase database changes | Liquibase, the Oracle JDBC driver and utPLSQL-cli, the allowed databases and the Nexus repositories of the database packages |
 | GoldenFix defaults | Whether GoldenFix runs by default and the GoldenFix policy |
 
@@ -1236,6 +1236,17 @@ The agents reach only the BBH network, so a Gradle plugin from the Gradle Plugin
 
 The BBH seed sets `https://tools.bbh.com/nexus/repository/gradle-plugins/` and `https://tools.bbh.com/nexus/repository/maven-public/`, the repositories of the library defaults. The portal writes the values under `defaults.pluginRepositories`. A Jenkinsfile without a key takes them from the copy kept in the library.
 
+### Release of the safe artifact
+
+The block "Release of the safe artifact" in Service defaults sets the release of stage 12, *Nexus delivery - Safe Artifact - 0 known Security Vulnerabilities*, for every Maven, Gradle, npm and pip service on virtual machines that leaves it empty. After the release gate the stage publishes the files that the snapshot delivery stage uploaded once more, as the release of the build tag of the run, without building again; it checks their SHA-256 first and never replaces a release. A .NET service names its NuGet release feed itself (see [NuGet packages](#nuget-packages)).
+
+- "Release the safe artifact of the Maven, Gradle, npm and pip services in stage 12" (`delivery.release.enabled`, ticked by default). Unticked, stage 12 releases nothing for a service that does not switch the release on itself.
+- "Release repository URL" (`delivery.release.repositoryUrl`): the Nexus release repository, an http or https address without spaces, quotes, backslashes, `$` or backticks. It is never the snapshot repository of an upload. Empty, the library takes the one of its own defaults, which set none: stage 12 is then not required and the snapshot stays the delivered artifact, as before.
+- "Maven server ID" (`delivery.release.repositoryId`): the server ID of the release repository in the Maven settings of the agents, which supplies the login of a Maven, npm or pip upload. Empty, the `-DrepositoryId` of the snapshot upload of the service.
+- "Gradle credentials ID" (`delivery.release.credentialsId`): a Username with password credential that the Gradle upload logs in to the release repository with. Empty, no login is sent, as for the snapshot.
+
+The BBH seed sets no release repository, so stage 12 stays not required until the DevSecOps team enters the release repository of the BBH Nexus. The portal writes only what differs from the library defaults under `defaults.delivery.release`: the switch only while it is off, and the repository, the server ID and the credentials only while they are set. A service may set each value of its own under Deployment (see [Release of the safe artifact of a service](#release-of-the-safe-artifact-of-a-service)). A wrong value falls back to the library defaults with a `[WARN]` line in the console.
+
 ### Liquibase database change defaults
 
 The section "Liquibase database changes" gives every Liquibase service with database changes the locations of Liquibase, the Oracle JDBC driver and utPLSQL-cli, the databases its pipelines may deploy to and the Nexus repositories of its package. The portal writes these values under `defaults.tools.liquibase`, `defaults.tools.oracleJdbc`, `defaults.tools.utplsql` and `defaults.database`, and only while they are set, so the settings of every other service stay as they were. The allowed databases apply to every service; a service cannot set its own. A service may name its own Nexus repositories. The BBH seed leaves the section empty, so set the allowed databases and the repositories before the first service with database changes is saved. [Chapter 7](#library-defaults-for-database-changes) describes each field, the licences, the checksums and the allowed databases.
@@ -1251,7 +1262,7 @@ The block "Speed" in Scans and coverage provides two checkboxes, both ticked by 
 
 ### Which values follow later changes
 
-- Saved services follow later changes of: the tools and servers, the deployment defaults, the security limits, the scan waiting times, the stages at the same time, the release gate, the test jobs at the same time, the Node.js build defaults, the Gradle and Maven plugin repositories, the Liquibase database change defaults and the GoldenFix policy of services that inherit it.
+- Saved services follow later changes of: the tools and servers, the deployment defaults, the security limits, the scan waiting times, the stages at the same time, the release gate, the test jobs at the same time, the Node.js build defaults, the Gradle and Maven plugin repositories, the release of the safe artifact, the Liquibase database change defaults and the GoldenFix policy of services that inherit it.
 - The build tool, the deployment target and the source folder only prefill a new service.
 
 ### Portal monitoring
@@ -1840,11 +1851,11 @@ Each job is an entry of its stage list:
 | Application name | `appName` | required on OpenShift |
 | Artifact name | `artifactName` | required on OpenShift |
 | Built file name (Advanced) | `baseArtifactName` | |
-| Delivery (Maven or Gradle on virtual machines) | the command fields of the upload and the download, see [Command fields](#command-fields) | |
+| Delivery (Maven, Gradle, npm or pip on virtual machines) | the command fields of the upload and the download, see [Command fields](#command-fields) | an npm or pip service uploads its package with Maven goals, so it has the Maven fields of `delivery.push.maven` and no download |
 
 #### Nexus delivery
 
-A service on virtual machines that builds with Maven or Gradle sets the files of the snapshot delivery stage and the download of the Extended pipeline under Deployment. Each artifact is a line: a glob of the workspace for the upload, a file name for the download, optionally followed by a space and its classifier. The portal writes each line as an entry with its `path` and, when the line names one, its `classifier`. Without a classifier the library takes the file name without its extension. The upload and the download share one group, artifact and repository, so the import keeps the first one it reads and leaves out a different one with a note.
+A service on virtual machines that builds with Maven or Gradle sets the files of the snapshot delivery stage and the download of the Extended pipeline under Deployment. An npm or pip service uploads its package, such as the `.tgz` of `npm pack` or a Python wheel, with the Maven goals of `delivery.push.maven`, for example `deploy:deploy-file`: the goals are required once the package files are listed, and without the files the package is not published. Each artifact is a line: a glob of the workspace for the upload, a file name for the download, optionally followed by a space and its classifier. The portal writes each line as an entry with its `path` and, when the line names one, its `classifier`. Without a classifier the library takes the file name without its extension. The upload and the download share one group, artifact and repository, so the import keeps the first one it reads and leaves out a different one with a note.
 
 | Field | Key | Notes |
 |-------|-----|-------|
@@ -1857,6 +1868,29 @@ A service on virtual machines that builds with Maven or Gradle sets the files of
 | Download folder | `delivery.pull.outputDirectory` | left empty: `downloaded-artifacts` |
 
 The Gradle steps of the delivery run only `publishNexusDeliveryPublicationToNexusRepository` and `pullNexusArtifacts`, so the portal refuses other tasks and the flags the library sets itself: `-p`, `-b`, `-x`, `-m`, `--dry-run`, `--project-dir`, `--build-file`, `--exclude-task` and `-PnexusManifest`.
+
+#### Release of the safe artifact of a service
+
+After the release gate, stage 12, *Nexus delivery - Safe Artifact - 0 known Security Vulnerabilities*, publishes the files that the snapshot delivery stage uploaded once more, as the release of the build tag of the run (`build.tag`), without building again. The library checks their SHA-256 first, looks the release up before it uploads and never replaces one. The block shows for a Maven, Gradle, npm or pip service on virtual machines while the Nexus delivery is on. A value left empty comes from the Library defaults (page **Library defaults**, section **Service defaults**, block **Release of the safe artifact**), and without a release repository there either the stage is not required and the snapshot stays the delivered artifact, as before. An OpenShift service delivers its image and releases no artifact, so the import leaves its `delivery.release` out with a note.
+
+| Field | Key | Notes |
+|-------|-----|-------|
+| Release in stage 12 | `delivery.release.enabled` | Library default, On or Off; written only when it is set |
+| Release repository URL | `delivery.release.repositoryUrl` | an http or https address without spaces, quotes, backslashes, `$` or backticks; never the snapshot repository of the upload (the repository URL of a Gradle upload, the `-Durl` flag of a Maven upload) |
+| Release server ID | `delivery.release.repositoryId` | Maven, npm and pip: the server ID of the release repository in the Maven settings of the agents; left empty, the `-DrepositoryId` of the upload |
+| Release credentials ID | `delivery.release.credentialsId` | Gradle: a Username with password credential for the release repository; left empty, no login is sent, as for the snapshot |
+
+#### NuGet packages
+
+A .NET service names its NuGet feeds under Deployment, on virtual machines and on OpenShift alike. On virtual machines the snapshot delivery stage pushes the package to the NuGet feed, and stage 12 of the Full pipeline pushes it to the release feed after the release gate, with `--skip-duplicate` (`-SkipDuplicate` for `nuget.exe`). With the Nexus delivery off, and on OpenShift, where the snapshot delivery stage builds the image, stage 12 of the Full pipeline pushes the package to the release feed, else to the NuGet feed, as before. The Extended pipeline builds no NuGet package, pushes none and does not use the release feed: on virtual machines with the Nexus delivery on, the package that the Security pipeline pushed to the NuGet feed stays the delivered package; with the Nexus delivery off, and on OpenShift, only stage 12 of the Full pipeline pushes the package. A feed is what `dotnet nuget push --source` takes: a feed address, a folder or the name of a source in `NuGet.Config`. The import reads `delivery.nuget` or, without it, `delivery.dotnet` with its older names `repositoryUrl` and `apiKeyCredentialsId`.
+
+| Field | Key | Notes |
+|-------|-----|-------|
+| NuGet feed | `delivery.nuget.source` | a feed address, a folder or a `NuGet.Config` source name, without quotes |
+| API key credentials ID | `delivery.nuget.credentialsId` | a Secret text credential with the API key; left empty, the push sends no key |
+| Release feed | `delivery.nuget.releaseSource` | a feed address, a folder or a `NuGet.Config` source name, without quotes; used by stage 12 of the Full pipeline only; left empty: on virtual machines with the Nexus delivery on, the package of the snapshot delivery stage is the delivered package and is not pushed twice; with the Nexus delivery off, and on OpenShift, stage 12 pushes it to the NuGet feed |
+| Release API key credentials ID | `delivery.nuget.releaseCredentialsId` | left empty: the API key of the NuGet feed |
+| Packages | `delivery.nuget.packagePattern` | a glob without quotes; left empty: `build.buildPath`, else `**/*.nupkg` |
 
 ### UrbanCode Deploy
 
@@ -2125,6 +2159,10 @@ The values of Tools and servers are written to `platform`, and the per-service v
 | Retry a Gradle or Maven step with these repositories when a plugin is missing | `pluginRepositories.enabled` | `defaults.pluginRepositories.enabled`; ticked by default |
 | Gradle plugin repository | `pluginRepositories.gradle` | `defaults.pluginRepositories.gradle`, only while it is set |
 | Maven plugin repository | `pluginRepositories.maven` | `defaults.pluginRepositories.maven`, only while it is set |
+| Release the safe artifact of the Maven, Gradle, npm and pip services in stage 12 | `delivery.release.enabled` | `defaults.delivery.release.enabled`, written only as `false`; ticked by default |
+| Release repository URL | `delivery.release.repositoryUrl` | `defaults.delivery.release.repositoryUrl`, only while it is set |
+| Maven server ID | `delivery.release.repositoryId` | `defaults.delivery.release.repositoryId`, only while it is set |
+| Gradle credentials ID | `delivery.release.credentialsId` | `defaults.delivery.release.credentialsId`, only while it is set |
 | Liquibase folder on the agent | `tools.liquibase.home` | `defaults.tools.liquibase.home` |
 | Java version (Liquibase) | `tools.liquibase.javaVersion` | `defaults.tools.liquibase.javaVersion` |
 | Liquibase download | `tools.liquibase.url` | `defaults.tools.liquibase.url` |

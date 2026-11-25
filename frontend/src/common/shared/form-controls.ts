@@ -13,6 +13,9 @@ import { FieldProblem } from '../core/models';
 export const HTTP_URL = /^https?:\/\/[^\s$`"\\]+$/;
 export const HTTP_URL_ERROR =
   'An http or https URL without spaces, double quotes, backslashes, $ or backticks';
+export const DELIVERY_URL = /^https?:\/\/[^\s'"`$\\]+$/;
+export const DELIVERY_URL_ERROR =
+  'An http or https URL without spaces, quotes, backslashes, $ or backticks';
 export const HOST_NAME = /^[A-Za-z0-9.-]*$/;
 export const SHELL_SAFE = /^[A-Za-z0-9._/*+@:=,~-]*$/;
 export const SHELL_SAFE_ERROR = 'Letters, digits and . _ / * + @ : = , ~ - only';

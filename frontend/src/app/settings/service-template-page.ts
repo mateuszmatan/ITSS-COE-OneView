@@ -151,7 +151,7 @@ const SECTIONS: TemplateSection[] = [
       mono('deliveryTasks', 'Nexus delivery goals', '', 6, {
         placeholder: 'deploy:deploy-file',
         hint: 'How a Maven build is delivered to Nexus',
-        help: 'The goals a new service gets for the snapshot delivery to Nexus. Only Maven services on virtual machines use them.',
+        help: 'The goals a new service gets for the snapshot delivery to Nexus. Maven services on virtual machines use them, and npm and pip services there once they list the package files to upload.',
       }),
     ],
   },

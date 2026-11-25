@@ -235,7 +235,9 @@ public class ServiceEntity extends AuditedEntity {
     public record NexusDeliverySettingsEmbeddable(List<String> artifacts, String group, String artifact,
             String repositoryUrl, Boolean allowInsecureProtocol,
             @EmbeddedColumnNaming("PULL_%s") ToolCommandEmbeddable pull, List<String> pullArtifacts,
-            String pullOutputDirectory) {
+            String pullOutputDirectory, Boolean releaseEnabled, String releaseRepositoryUrl, String releaseRepositoryId,
+            String releaseCredentialsId, String nugetSource, String nugetCredentialsId, String nugetReleaseSource,
+            String nugetReleaseCredentialsId, String nugetPackagePattern) {
     }
 
     @Embeddable

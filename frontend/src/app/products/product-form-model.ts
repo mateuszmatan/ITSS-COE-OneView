@@ -46,12 +46,15 @@ import {
   commandParts,
   changesDatabase,
   databaseTool,
+  mavenUpload,
   needsJdk,
+  releases,
   scripted,
   pipelineTypeLabel,
 } from '../core/models';
 import { FieldProblem, PRODUCT_CODE } from '@common/core/models';
 import {
+  DELIVERY_URL,
   IMAGE_TAG,
   INT_MAX,
   INT_MIN,
@@ -251,6 +254,14 @@ const artifactLines = (values: string[] | null | undefined, pattern: RegExp, mes
     fitsColumn(tokenLines, '\n', 4000),
   );
 
+/** A Nexus address that the library passes to Maven or Gradle in quotes. */
+const deliveryUrl = (value: string | null | undefined) =>
+  text(value, Validators.pattern(DELIVERY_URL), max(1000));
+
+/** What dotnet nuget push --source takes, in quotes: a feed address, a folder or a source of NuGet.Config. */
+const nugetSource = (value: string | null | undefined) =>
+  text(value, Validators.pattern(NO_QUOTES), max(1000));
+
 export function createNexusDeliveryForm(d?: Partial<NexusDeliverySettings> | null) {
   return new FormGroup({
     artifacts: artifactLines(
@@ -269,10 +280,58 @@ export function createNexusDeliveryForm(d?: Partial<NexusDeliverySettings> | nul
       'Write a file name with its extension, optionally followed by a classifier',
     ),
     pullOutputDirectory: text(d?.pullOutputDirectory, Validators.pattern(NO_QUOTES), max(500)),
+    releaseEnabled: new FormControl<boolean | null>(d?.releaseEnabled ?? null),
+    releaseRepositoryUrl: deliveryUrl(d?.releaseRepositoryUrl),
+    releaseRepositoryId: text(
+      d?.releaseRepositoryId,
+      Validators.pattern(NEXUS_COORDINATE),
+      max(200),
+    ),
+    releaseCredentialsId: text(d?.releaseCredentialsId, max(200)),
+    nugetSource: nugetSource(d?.nugetSource),
+    nugetCredentialsId: text(d?.nugetCredentialsId, max(200)),
+    nugetReleaseSource: nugetSource(d?.nugetReleaseSource),
+    nugetReleaseCredentialsId: text(d?.nugetReleaseCredentialsId, max(200)),
+    nugetPackagePattern: text(d?.nugetPackagePattern, Validators.pattern(NO_QUOTES), max(500)),
   });
 }
 
 export type NexusDeliveryForm = ReturnType<typeof createNexusDeliveryForm>;
+
+/** The controls of the release of stage 12 (delivery.release) and of the NuGet feeds of a .NET service. */
+const RELEASE_KEYS = [
+  'releaseEnabled',
+  'releaseRepositoryUrl',
+  'releaseRepositoryId',
+  'releaseCredentialsId',
+] as const;
+const NUGET_KEYS = [
+  'nugetSource',
+  'nugetCredentialsId',
+  'nugetReleaseSource',
+  'nugetReleaseCredentialsId',
+  'nugetPackagePattern',
+] as const;
+
+export const SNAPSHOT_AS_RELEASE =
+  'Is the snapshot repository of the upload: give the release repository, or leave it empty for that of the Library defaults';
+
+const withoutSlash = (address: string) => address.replace(/\/+$/, '').toLowerCase();
+
+/** The snapshot repository of the upload: that of a Gradle upload, the -Durl flag of a Maven upload. */
+function snapshotRepository(
+  tool: BuildTool,
+  repositoryUrl: string,
+  uploadFlags: string,
+): string | null {
+  if (tool === 'GRADLE') {
+    return optional(repositoryUrl);
+  }
+  const flag = mavenUpload(tool)
+    ? lines(uploadFlags, false).find((line) => line.startsWith('-Durl='))
+    : undefined;
+  return flag ? optional(flag.slice('-Durl='.length)) : null;
+}
 
 /** The Nexus delivery of a service that does not deliver to Nexus from virtual machines. */
 export const NO_NEXUS_DELIVERY: NexusDeliverySettings = {
@@ -284,6 +343,15 @@ export const NO_NEXUS_DELIVERY: NexusDeliverySettings = {
   pull: NO_COMMAND,
   pullArtifacts: [],
   pullOutputDirectory: null,
+  releaseEnabled: null,
+  releaseRepositoryUrl: null,
+  releaseRepositoryId: null,
+  releaseCredentialsId: null,
+  nugetSource: null,
+  nugetCredentialsId: null,
+  nugetReleaseSource: null,
+  nugetReleaseCredentialsId: null,
+  nugetPackagePattern: null,
 };
 
 /** The flags and environment variables of a command, the only parts a Gradle step of the Nexus delivery takes. */
@@ -292,18 +360,42 @@ export function toFlagsOnly(form: ToolCommandForm): ToolCommand {
   return { ...NO_COMMAND, flags: lines(v.flags, false), environment: lines(v.environment, false) };
 }
 
-export function toNexusDelivery(form: NexusDeliveryForm, tool: BuildTool): NexusDeliverySettings {
+/**
+ * The Nexus delivery of the service as the request sends it: the upload, the download and the release on virtual
+ * machines, for the build tools that have them, and the NuGet feeds of a .NET service on every deploy target.
+ */
+export function toNexusDelivery(
+  form: NexusDeliveryForm,
+  tool: BuildTool,
+  vm: boolean,
+): NexusDeliverySettings {
   const v = form.getRawValue();
   const gradle = tool === 'GRADLE';
+  const pulls = vm && (gradle || tool === 'MAVEN');
+  const release = vm && releases(tool);
+  const dotnet = tool === 'DOTNET';
   return {
-    artifacts: lines(v.artifacts, false),
-    group: optional(v.group),
-    artifact: optional(v.artifact),
-    repositoryUrl: gradle ? optional(v.repositoryUrl) : null,
-    allowInsecureProtocol: gradle && v.allowInsecureProtocol,
-    pull: gradle ? toFlagsOnly(form.controls.pull) : toToolCommand(form.controls.pull),
-    pullArtifacts: lines(v.pullArtifacts, false),
-    pullOutputDirectory: optional(v.pullOutputDirectory),
+    artifacts: vm && (gradle || mavenUpload(tool)) ? lines(v.artifacts, false) : [],
+    group: pulls ? optional(v.group) : null,
+    artifact: pulls ? optional(v.artifact) : null,
+    repositoryUrl: vm && gradle ? optional(v.repositoryUrl) : null,
+    allowInsecureProtocol: vm && gradle && v.allowInsecureProtocol,
+    pull: !pulls
+      ? { ...NO_COMMAND }
+      : gradle
+        ? toFlagsOnly(form.controls.pull)
+        : toToolCommand(form.controls.pull),
+    pullArtifacts: pulls ? lines(v.pullArtifacts, false) : [],
+    pullOutputDirectory: pulls ? optional(v.pullOutputDirectory) : null,
+    releaseEnabled: release ? v.releaseEnabled : null,
+    releaseRepositoryUrl: release ? optional(v.releaseRepositoryUrl) : null,
+    releaseRepositoryId: release && !gradle ? optional(v.releaseRepositoryId) : null,
+    releaseCredentialsId: release && gradle ? optional(v.releaseCredentialsId) : null,
+    nugetSource: dotnet ? optional(v.nugetSource) : null,
+    nugetCredentialsId: dotnet ? optional(v.nugetCredentialsId) : null,
+    nugetReleaseSource: dotnet ? optional(v.nugetReleaseSource) : null,
+    nugetReleaseCredentialsId: dotnet ? optional(v.nugetReleaseCredentialsId) : null,
+    nugetPackagePattern: dotnet ? optional(v.nugetPackagePattern) : null,
   };
 }
 
@@ -1259,7 +1351,6 @@ export function createServiceForm(s?: Partial<ServiceRequest>, defaults?: Servic
     () => !autoCommands(tool.value),
     tool,
   );
-  form.controls.delivery.controls.tasks.addValidators(filled);
   requireOnceUsed(form.controls.openShiftTargets.controls.QC);
   revalidateOnChange(sonar.controls.badgeToken, sonar.controls.badgeCredentialsId);
   revalidateOnChange(sonar.controls.badgeCredentialsId, sonar.controls.badgeToken);
@@ -1303,6 +1394,26 @@ export function createServiceForm(s?: Partial<ServiceRequest>, defaults?: Servic
     () => tool.value === 'MAVEN' && downloads(),
     tool,
     nexus.pullArtifacts,
+  );
+  requireWhile(
+    form.controls.delivery.controls.tasks,
+    () => tool.value === 'MAVEN' || (mavenUpload(tool.value) && uploads()),
+    tool,
+    nexus.artifacts,
+  );
+  nexus.releaseRepositoryUrl.addValidators((control) => {
+    const release = optional(control.value);
+    const snapshot = snapshotRepository(
+      tool.value,
+      nexus.repositoryUrl.value,
+      form.controls.delivery.controls.flags.value,
+    );
+    return release && snapshot && withoutSlash(release) === withoutSlash(snapshot)
+      ? { rule: SNAPSHOT_AS_RELEASE }
+      : null;
+  });
+  [tool, nexus.repositoryUrl, form.controls.delivery.controls.flags].forEach((source) =>
+    revalidateOnChange(source, nexus.releaseRepositoryUrl),
   );
   [
     flutter.controls.deliveryGroup,
@@ -1604,20 +1715,41 @@ function syncApplicability(form: ServiceForm): void {
     setEnabled(control, appScan.dastEnabled.value),
   );
   setEnabled(form.controls.deployment, !database);
-  const nexusDelivery = !database && vm && (tool === 'MAVEN' || tool === 'GRADLE') && delivers;
+  const gradle = tool === 'GRADLE';
+  const nexusDelivery = !database && vm && (gradle || mavenUpload(tool)) && delivers;
+  const pulls = nexusDelivery && (gradle || tool === 'MAVEN');
+  const nuget = !database && tool === 'DOTNET';
   setEnabled(form.controls.delivery, nexusDelivery);
   const nexus = form.controls.nexusDelivery;
-  setEnabled(nexus, nexusDelivery);
-  [nexus.controls.repositoryUrl, nexus.controls.allowInsecureProtocol].forEach((control) =>
-    setEnabled(control, nexusDelivery && tool === 'GRADLE'),
-  );
+  setEnabled(nexus, nexusDelivery || nuget);
+  Object.entries(nexus.controls).forEach(([key, control]) => {
+    const release = (RELEASE_KEYS as readonly string[]).includes(key);
+    const feed = (NUGET_KEYS as readonly string[]).includes(key);
+    setEnabled(
+      control,
+      release ? nexusDelivery : feed ? nuget : key === 'artifacts' ? nexusDelivery : pulls,
+    );
+  });
+  [
+    nexus.controls.repositoryUrl,
+    nexus.controls.allowInsecureProtocol,
+    nexus.controls.releaseCredentialsId,
+  ].forEach((control) => setEnabled(control, nexusDelivery && gradle));
+  setEnabled(nexus.controls.releaseRepositoryId, nexusDelivery && mavenUpload(tool));
   [form.controls.delivery, nexus.controls.pull].forEach((command) =>
-    [command.controls.tasks, command.controls.directory, command.controls.label, command.controls.returnStdout].forEach(
-      (control) => setEnabled(control, nexusDelivery && tool === 'MAVEN'),
-    ),
+    [
+      command.controls.tasks,
+      command.controls.directory,
+      command.controls.label,
+      command.controls.returnStdout,
+    ].forEach((control) => setEnabled(control, command.enabled && mavenUpload(tool))),
   );
   toolCommands(form).forEach((command) =>
-    setEnabled(command.controls.mavenHome, command.enabled && tool === 'MAVEN'),
+    setEnabled(
+      command.controls.mavenHome,
+      command.enabled &&
+        (tool === 'MAVEN' || (command === form.controls.delivery && mavenUpload(tool))),
+    ),
   );
   setEnabled(form.controls.urbanCode, !database && vm);
   setEnabled(form.controls.urbanCodeApplications, !database && vm);
@@ -1935,11 +2067,10 @@ export function toServiceRequest(form: ServiceForm): ServiceRequest {
     testJobs: c.testJobs.controls.map(toTestJob),
     deployment: sent(v.deployment),
     delivery:
-      vm && tool === 'GRADLE' ? toFlagsOnly(c.delivery) : command(c.delivery, vm && tool === 'MAVEN'),
-    nexusDelivery:
-      vm && (tool === 'MAVEN' || tool === 'GRADLE')
-        ? toNexusDelivery(c.nexusDelivery, tool)
-        : { ...NO_NEXUS_DELIVERY, pull: { ...NO_COMMAND } },
+      vm && tool === 'GRADLE'
+        ? toFlagsOnly(c.delivery)
+        : command(c.delivery, vm && mavenUpload(tool)),
+    nexusDelivery: toNexusDelivery(c.nexusDelivery, tool, vm),
     urbanCode: sent(v.urbanCode),
     urbanCodeApplications: vm ? c.urbanCodeApplications.controls.map(toUrbanCodeApplication) : [],
     sshTargets: vm ? keyedTargets(REGIONS, (region) => sent(v.sshTargets[region])) : {},

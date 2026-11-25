@@ -14,6 +14,7 @@ import com.bbh.itss.coe.oneview.domain.catalog.ScmSettings
 import com.bbh.itss.coe.oneview.domain.catalog.NexusDeliverySettings
 import com.bbh.itss.coe.oneview.domain.catalog.ServiceSettings
 import com.bbh.itss.coe.oneview.domain.catalog.SonarSettings
+import com.bbh.itss.coe.oneview.domain.catalog.NodeBuildSettings
 import com.bbh.itss.coe.oneview.domain.catalog.ToolCommand
 import com.bbh.itss.coe.oneview.domain.dsoconfig.DsoConfigBuilder
 import com.bbh.itss.coe.oneview.domain.settings.GlobalSettingsValues
@@ -92,10 +93,28 @@ class ServiceConfigReaderSpec extends Specification {
             nexusDelivery: NexusDeliverySettings.builder().artifacts(['build/libs/*.jar', 'build/docs.zip docs'])
                     .group('com.bbh.cert').artifact('cert-api').repositoryUrl('http://nexus.bbh.com/repository/snapshots')
                     .allowInsecureProtocol(true).pull(ToolCommand.builder().flags(['--offline']).build())
-                    .pullArtifacts(['cert-api.jar', 'docs.zip docs']).pullOutputDirectory('nexus').build(),
+                    .pullArtifacts(['cert-api.jar', 'docs.zip docs']).pullOutputDirectory('nexus').releaseEnabled(false)
+                    .releaseRepositoryUrl('http://nexus.bbh.com/repository/releases').releaseCredentialsId('nexus-release')
+                    .build(),
             tests: MAVEN_VM.tests(), testJobs: MAVEN_VM.testJobs(), urbanCode: MAVEN_VM.urbanCode(),
             urbanCodeApplications: MAVEN_VM.urbanCodeApplications(), sshTargets: MAVEN_VM.sshTargets(),
             appScan: MAVEN_VM.appScan(), sonar: MAVEN_VM.sonar(), scm: MAVEN_VM.scm(), metrics: MAVEN_VM.metrics())
+    static final ServiceSettings NPM_VM = settings(build: build(tool: BuildTool.NPM, javaPath: null, command: ToolCommand.NONE),
+            nodeBuild: NodeBuildSettings.builder().directory('web').commands(['npm ci', 'npm run build:prod']).build(),
+            delivery: ToolCommand.of(['deploy:deploy-file'], ['-DgroupId=com.bbh.cert', '-DartifactId=cert-web',
+                                                             '-DrepositoryId=bbh-snapshots',
+                                                             '-Durl=http://nexus.bbh.com/repository/snapshots']),
+            nexusDelivery: NexusDeliverySettings.builder().artifacts(['web/dist/cert-web.tgz'])
+                    .releaseRepositoryUrl('https://nexus.bbh.com/repository/releases').releaseRepositoryId('bbh-releases')
+                    .build(),
+            urbanCode: MAVEN_VM.urbanCode(), urbanCodeApplications: MAVEN_VM.urbanCodeApplications(),
+            sshTargets: MAVEN_VM.sshTargets(), scm: MAVEN_VM.scm(), metrics: MAVEN_VM.metrics())
+    static final ServiceSettings DOTNET_VM = settings(build: build(tool: BuildTool.DOTNET, javaPath: null, command: ToolCommand.NONE),
+            nexusDelivery: NexusDeliverySettings.builder().nugetSource('https://nexus.bbh.com/repository/nuget-snapshots/')
+                    .nugetCredentialsId('nuget-key').nugetReleaseSource('https://nexus.bbh.com/repository/nuget-releases/')
+                    .nugetReleaseCredentialsId('nuget-release-key').nugetPackagePattern('src/**/*.nupkg').build(),
+            urbanCode: MAVEN_VM.urbanCode(), urbanCodeApplications: MAVEN_VM.urbanCodeApplications(),
+            sshTargets: MAVEN_VM.sshTargets(), scm: MAVEN_VM.scm(), metrics: MAVEN_VM.metrics())
     static final ServiceSettings LIQUIBASE_VM = settings(
             build: build(tool: LIQUIBASE, sourceDir: 'db', javaPath: null),
             unitTests: MAVEN_VM.unitTests(), tests: MAVEN_VM.tests(), testJobs: MAVEN_VM.testJobs(),
@@ -129,6 +148,8 @@ class ServiceConfigReaderSpec extends Specification {
         settings                     || notes
         MAVEN_VM                     || []
         GRADLE_VM                    || []
+        NPM_VM                       || []
+        DOTNET_VM                    || []
         GRADLE_OPENSHIFT             || [problem('deploy.openshift.rd.buildTag', RUN_TIME),
                                          problem('deploy.openshift.rd.internalDockerUrl', RUN_TIME)]
         GRADLE_OPENSHIFT_NO_DELIVERY || []
@@ -582,6 +603,139 @@ class ServiceConfigReaderSpec extends Specification {
         delivery.artifact() == 'cert-gui'
         delivery.pull().tasks() == ['org.apache.maven.plugins:maven-dependency-plugin:3.6.1:get']
         delivery.pullArtifacts() == ['cert-gui.jar']
+    }
+
+    def "the release of stage 12 is read for the upload of a service on virtual machines, and a value of the Library defaults comes back unset"() {
+        when:
+        def maven = imported('''
+            buildTool: maven
+            deployTarget: vm
+            delivery:
+              maven: {goals: [deploy:deploy-file]}
+              release:
+                enabled: true
+                repositoryUrl: https://nexus.bbh.com/repository/releases
+                repositoryId: bbh-releases
+                credentialsId: nexus-release
+            '''.stripIndent()).services()[0]
+        def gradle = imported('''
+            buildTool: gradle
+            deployTarget: vm
+            delivery:
+              release: {enabled: false, repositoryId: bbh-releases, credentialsId: nexus-release}
+            '''.stripIndent()).services()[0]
+        def flutter = imported('''
+            buildTool: flutter
+            deployTarget: vm
+            delivery:
+              release: {enabled: false}
+            '''.stripIndent()).services()[0]
+        def openShift = imported('''
+            buildTool: maven
+            deployTarget: openshift
+            delivery:
+              release: {repositoryUrl: https://nexus.bbh.com/repository/releases}
+            '''.stripIndent()).services()[0]
+
+        then:
+        maven.notes() == [problem('delivery.release.credentialsId',
+                'not imported: a Maven upload logs in to the release repository with delivery.release.repositoryId')]
+        with(maven.service().nexusDelivery()) {
+            releaseEnabled() == null
+            releaseRepositoryUrl() == 'https://nexus.bbh.com/repository/releases'
+            releaseRepositoryId() == 'bbh-releases'
+            releaseCredentialsId() == null
+        }
+        gradle.notes() == [problem('delivery.release.repositoryId',
+                'not imported: a Gradle upload logs in to the release repository with delivery.release.credentialsId')]
+        with(gradle.service().nexusDelivery()) {
+            releaseEnabled() == false
+            releaseCredentialsId() == 'nexus-release'
+            releaseRepositoryId() == null
+        }
+        flutter.notes() == [problem('delivery.release',
+                'not imported: the library releases no artifact of a flutter service in stage 12')]
+        openShift.notes() == [problem('delivery.release',
+                'not imported: an OpenShift service delivers its image, and stage 12 releases no artifact of it')]
+        openShift.service().nexusDelivery().releaseRepositoryUrl() == null
+    }
+
+    def "an npm service reads the Maven upload of its package from delivery.push.maven"() {
+        when:
+        def service = imported('''
+            buildTool: npm
+            deployTarget: vm
+            build:
+              node: {dir: web, commands: [npm ci, npm run build]}
+            delivery:
+              maven: {goals: [deploy:deploy-file]}
+              push:
+                maven:
+                  goals: [deploy:deploy-file]
+                  flags: [-DgroupId=com.bbh.cert, -DartifactId=cert-web]
+                  artifacts: [web/dist/cert-web.tgz]
+            '''.stripIndent()).services()[0]
+
+        then:
+        service.notes() == [problem('delivery.maven', 'not imported: the service builds with npm')]
+        service.service().delivery().tasks() == ['deploy:deploy-file']
+        service.service().delivery().flags() == ['-DgroupId=com.bbh.cert', '-DartifactId=cert-web']
+        service.service().nexusDelivery().artifacts() == ['web/dist/cert-web.tgz']
+    }
+
+    def "a .NET service reads its NuGet feeds from delivery.nuget, else delivery.dotnet, with the other names the library reads"() {
+        when:
+        def nuget = imported('''
+            buildTool: dotnet
+            deployTarget: vm
+            delivery:
+              nuget:
+                source: https://nexus.bbh.com/nuget-snapshots/
+                repositoryUrl: https://nexus.bbh.com/other/
+                apiKeyCredentialsId: nuget-key
+                releaseSource: https://nexus.bbh.com/nuget-releases/
+                packagePattern: '**/*.nupkg'
+              dotnet:
+                source: https://nexus.bbh.com/legacy/
+              release:
+                repositoryUrl: https://nexus.bbh.com/releases
+            '''.stripIndent()).services()[0]
+        def dotnet = imported('''
+            buildTool: dotnet
+            deployTarget: vm
+            delivery:
+              dotnet:
+                repositoryUrl: https://nexus.bbh.com/legacy/
+                credentialsId: legacy-key
+                releaseCredentialsId: release-key
+            '''.stripIndent()).services()[0]
+        def maven = imported('''
+            buildTool: maven
+            deployTarget: vm
+            delivery:
+              maven: {goals: [deploy:deploy-file]}
+              nuget: {credentialsId: nuget-key}
+            '''.stripIndent()).services()[0]
+
+        then:
+        nuget.notes() as Set == [
+                problem('delivery.nuget.repositoryUrl', 'not imported: delivery.nuget.source wins over it'),
+                problem('delivery.dotnet', 'not imported: delivery.nuget replaces it'),
+                problem('delivery.release',
+                        'not imported: a .NET service releases its NuGet package to delivery.nuget.releaseSource')] as Set
+        with(nuget.service().nexusDelivery()) {
+            nugetSource() == 'https://nexus.bbh.com/nuget-snapshots/'
+            nugetCredentialsId() == 'nuget-key'
+            nugetReleaseSource() == 'https://nexus.bbh.com/nuget-releases/'
+            nugetPackagePattern() == '**/*.nupkg'
+        }
+        dotnet.notes() == []
+        with(dotnet.service().nexusDelivery()) {
+            nugetSource() == 'https://nexus.bbh.com/legacy/'
+            nugetCredentialsId() == 'legacy-key'
+            nugetReleaseCredentialsId() == 'release-key'
+        }
+        maven.notes() == [problem('delivery.nuget', 'not imported: the service builds with maven')]
     }
 
     def "a Gradle service keeps one group of its upload and download and leaves out another task or group with a note"() {

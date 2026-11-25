@@ -39,15 +39,17 @@ class SettingsSectionsSpec extends Specification {
         written { new SeverityLimits(1, 2, 3).writeTo(it, 'tools.nexusIq') } ==
                 [tools: [nexusIq: [maxCritical: 1, maxHigh: 2, maxMedium: 3]]]
         ZERO == new SeverityLimits(0, 0, 0)
-        written { new ServiceDefaults(MAVEN, OPENSHIFT, 'src', 4, null, null, null, false, null, ' ').writeTo(it) } ==
+        written { new ServiceDefaults(MAVEN, OPENSHIFT, 'src', 4, null, null, null, false, null, ' ', null, null, null,
+                null).writeTo(it) } ==
                 [buildTool: 'maven', deployTarget: 'openshift', sourceDir: 'src', tests: [maxParallel: 4],
                  pluginRepositories: [enabled: false]]
         written { new ServiceDefaults(MAVEN, OPENSHIFT, 'src', 4, null, null, null, null,
-                ' https://nexus.bbh.com/gradle-plugins/ ', 'https://nexus.bbh.com/maven-public/').writeTo(it) }
+                ' https://nexus.bbh.com/gradle-plugins/ ', 'https://nexus.bbh.com/maven-public/', true, null, null,
+                null).writeTo(it) }
                 .pluginRepositories == [enabled: true, gradle: 'https://nexus.bbh.com/gradle-plugins/',
                                         maven  : 'https://nexus.bbh.com/maven-public/']
         written { new ServiceDefaults(MAVEN, OPENSHIFT, 'src', 4, ' NodeJS-20 ', 'https://nexus.bbh.com/npm-group/',
-                'npmrc-file', true, null, null).writeTo(it) }.build ==
+                'npmrc-file', true, null, null, null, null, null, null).writeTo(it) }.build ==
                 [node: [installationName: 'NodeJS-20', registry: 'https://nexus.bbh.com/npm-group/',
                         npmrcCredentialsId: 'npmrc-file']]
         written { new ScanSettings(80, 10, 20, 15, 45, 55, 65, 75, false, 9, false, false).writeTo(it) } ==
@@ -62,9 +64,28 @@ class SettingsSectionsSpec extends Specification {
         new ScanSettings(80, 10, 20, 15, 45, 55, 65, 75, false, 9, true, null).parallelDynamicAnalysis()
     }
 
+    def "the release of the safe artifact writes only what differs from the library defaults"() {
+        given:
+        def release = { Boolean enabled, String url, String id, String credentials ->
+            new ServiceDefaults(MAVEN, OPENSHIFT, 'src', 4, null, null, null, true, null, null, enabled, url, id,
+                    credentials)
+        }
+
+        expect:
+        release(null, null, null, null).releaseEnabled()
+        written { release(null, ' ', null, null).writeTo(it) }.delivery == null
+        written { release(true, null, null, null).writeTo(it) }.delivery == null
+        written { release(false, null, null, null).writeTo(it) }.delivery == [release: [enabled: false]]
+        written { release(true, ' https://tools.bbh.com/nexus/repository/releases/ ', ' bbh-releases ',
+                ' nexus-release-user ').writeTo(it) }.delivery ==
+                [release: [repositoryUrl: 'https://tools.bbh.com/nexus/repository/releases/',
+                           repositoryId : 'bbh-releases', credentialsId: 'nexus-release-user']]
+    }
+
     def "service defaults use the source root #expected for #sourceDir"() {
         expect:
-        new ServiceDefaults(MAVEN, OPENSHIFT, sourceDir, 4, null, null, null, true, null, null).sourceDir() == expected
+        new ServiceDefaults(MAVEN, OPENSHIFT, sourceDir, 4, null, null, null, true, null, null, true, null, null, null)
+                .sourceDir() == expected
 
         where:
         sourceDir || expected

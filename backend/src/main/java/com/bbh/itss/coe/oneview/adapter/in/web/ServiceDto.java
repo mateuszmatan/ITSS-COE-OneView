@@ -55,6 +55,8 @@ import static com.bbh.itss.coe.oneview.adapter.in.web.InputFormats.ABSOLUTE_FOLD
 import static com.bbh.itss.coe.oneview.adapter.in.web.InputFormats.ABSOLUTE_FOLDER_MESSAGE;
 import static com.bbh.itss.coe.oneview.adapter.in.web.InputFormats.COMMAND;
 import static com.bbh.itss.coe.oneview.adapter.in.web.InputFormats.COMMAND_MESSAGE;
+import static com.bbh.itss.coe.oneview.adapter.in.web.InputFormats.DELIVERY_URL;
+import static com.bbh.itss.coe.oneview.adapter.in.web.InputFormats.DELIVERY_URL_MESSAGE;
 import static com.bbh.itss.coe.oneview.adapter.in.web.InputFormats.ENVIRONMENT;
 import static com.bbh.itss.coe.oneview.adapter.in.web.InputFormats.ENVIRONMENT_MESSAGE;
 import static com.bbh.itss.coe.oneview.adapter.in.web.InputFormats.FOLDER;
@@ -236,7 +238,17 @@ public record ServiceDto(
             Boolean allowInsecureProtocol,
             @Valid ToolCommandDto pull,
             @Size(max = 50) List<@NotBlank @Size(max = 300) String> pullArtifacts,
-            @Size(max = 500) @Pattern(regexp = NO_QUOTES, message = NO_QUOTES_MESSAGE) String pullOutputDirectory)
+            @Size(max = 500) @Pattern(regexp = NO_QUOTES, message = NO_QUOTES_MESSAGE) String pullOutputDirectory,
+            Boolean releaseEnabled,
+            @Size(max = 1000) @Pattern(regexp = DELIVERY_URL, message = DELIVERY_URL_MESSAGE)
+            String releaseRepositoryUrl,
+            @Size(max = 200) String releaseRepositoryId,
+            @Size(max = 200) String releaseCredentialsId,
+            @Size(max = 1000) @Pattern(regexp = NO_QUOTES, message = NO_QUOTES_MESSAGE) String nugetSource,
+            @Size(max = 200) String nugetCredentialsId,
+            @Size(max = 1000) @Pattern(regexp = NO_QUOTES, message = NO_QUOTES_MESSAGE) String nugetReleaseSource,
+            @Size(max = 200) String nugetReleaseCredentialsId,
+            @Size(max = 500) @Pattern(regexp = NO_QUOTES, message = NO_QUOTES_MESSAGE) String nugetPackagePattern)
             implements Mirrors<NexusDeliverySettings> {
     }
 

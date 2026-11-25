@@ -110,7 +110,16 @@
           "returnStdout": false
         },
         "pullArtifacts": [],
-        "pullOutputDirectory": null
+        "pullOutputDirectory": null,
+        "releaseEnabled": null,
+        "releaseRepositoryUrl": null,
+        "releaseRepositoryId": null,
+        "releaseCredentialsId": null,
+        "nugetSource": null,
+        "nugetCredentialsId": null,
+        "nugetReleaseSource": null,
+        "nugetReleaseCredentialsId": null,
+        "nugetPackagePattern": null
       },
       "urbanCode": {
         "siteName": null,
@@ -360,7 +369,16 @@
           "returnStdout": false
         },
         "pullArtifacts": [],
-        "pullOutputDirectory": null
+        "pullOutputDirectory": null,
+        "releaseEnabled": null,
+        "releaseRepositoryUrl": null,
+        "releaseRepositoryId": null,
+        "releaseCredentialsId": null,
+        "nugetSource": null,
+        "nugetCredentialsId": null,
+        "nugetReleaseSource": null,
+        "nugetReleaseCredentialsId": null,
+        "nugetPackagePattern": null
       },
       "urbanCode": {
         "siteName": null,

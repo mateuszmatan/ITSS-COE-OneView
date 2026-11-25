@@ -47,7 +47,9 @@ class GlobalSettingsRegressionSpec extends OneViewSpecification {
                                 nodeInstallationName: null, npmRegistry: null, npmrcCredentialsId: null,
                                 pluginRepositoriesEnabled: true,
                                 gradlePluginRepository: 'https://tools.bbh.com/nexus/repository/gradle-plugins/',
-                                mavenPluginRepository: 'https://tools.bbh.com/nexus/repository/maven-public/']
+                                mavenPluginRepository: 'https://tools.bbh.com/nexus/repository/maven-public/',
+                                releaseEnabled: true, releaseRepositoryUrl: null, releaseRepositoryId: null,
+                                releaseCredentialsId: null]
             deployment.urbanCodeSiteName == 'deploy.bbh.com'
             goldenFix.commitAuthorName == 'DevSecOps GoldenFix'
         }

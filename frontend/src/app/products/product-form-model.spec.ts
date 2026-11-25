@@ -32,6 +32,7 @@ import {
   OPENSHIFT_RD_REQUIRED,
   PRODUCT_WIDE_FIELD,
   SAME_NAME,
+  SNAPSHOT_AS_RELEASE,
   applyProductProblems,
   REMOTE_JENKINS_MESSAGE,
   SERVICE_SECTIONS,
@@ -85,6 +86,10 @@ const DEFAULTS: ServiceDefaults = {
   pluginRepositoriesEnabled: true,
   gradlePluginRepository: null,
   mavenPluginRepository: null,
+  releaseEnabled: true,
+  releaseRepositoryUrl: null,
+  releaseRepositoryId: null,
+  releaseCredentialsId: null,
 };
 
 describe('createServiceForm', () => {
@@ -1163,8 +1168,165 @@ describe('toServiceRequest', () => {
       pull: command({ flags: ['--offline'] }),
       pullArtifacts: ['cert-gui.jar'],
       pullOutputDirectory: 'nexus',
+      releaseEnabled: null,
+      releaseRepositoryUrl: null,
+      releaseRepositoryId: null,
+      releaseCredentialsId: null,
+      nugetSource: null,
+      nugetCredentialsId: null,
+      nugetReleaseSource: null,
+      nugetReleaseCredentialsId: null,
+      nugetPackagePattern: null,
     });
   });
+
+  it('sends the release of stage 12 with the login of the upload of the build tool', () => {
+    const release = {
+      releaseEnabled: false,
+      releaseRepositoryUrl: ' https://tools.bbh.com/nexus/repository/releases/ ',
+      releaseRepositoryId: 'bbh-releases',
+      releaseCredentialsId: 'nexus-release',
+    };
+    const gradle = createServiceForm(service());
+    gradle.controls.nexusDelivery.patchValue(release);
+    const maven = createServiceForm(service({ build: { ...service().build, tool: 'MAVEN' } }));
+    maven.controls.nexusDelivery.patchValue(release);
+
+    expect(gradle.controls.nexusDelivery.controls.releaseRepositoryId.enabled).toBe(false);
+    expect(maven.controls.nexusDelivery.controls.releaseCredentialsId.enabled).toBe(false);
+    expect(toServiceRequest(gradle).nexusDelivery).toMatchObject({
+      releaseEnabled: false,
+      releaseRepositoryUrl: 'https://tools.bbh.com/nexus/repository/releases/',
+      releaseRepositoryId: null,
+      releaseCredentialsId: 'nexus-release',
+    });
+    expect(toServiceRequest(maven).nexusDelivery).toMatchObject({
+      releaseEnabled: false,
+      releaseRepositoryUrl: 'https://tools.bbh.com/nexus/repository/releases/',
+      releaseRepositoryId: 'bbh-releases',
+      releaseCredentialsId: null,
+    });
+    expect(
+      createServiceForm(service()).controls.nexusDelivery.controls.releaseEnabled.value,
+    ).toBeNull();
+  });
+
+  it('refuses the snapshot repository of the upload as the release repository', () => {
+    const gradle = createServiceForm(service());
+    const nexus = gradle.controls.nexusDelivery.controls;
+    nexus.repositoryUrl.setValue('https://tools.bbh.com/nexus/repository/snapshots');
+    nexus.releaseRepositoryUrl.setValue('https://TOOLS.bbh.com/nexus/repository/snapshots/');
+    expect(nexus.releaseRepositoryUrl.errors).toEqual({ rule: SNAPSHOT_AS_RELEASE });
+    nexus.repositoryUrl.setValue('https://tools.bbh.com/nexus/repository/other');
+    expect(nexus.releaseRepositoryUrl.valid).toBe(true);
+
+    const maven = createServiceForm(service({ build: { ...service().build, tool: 'MAVEN' } }));
+    const release = maven.controls.nexusDelivery.controls.releaseRepositoryUrl;
+    release.setValue('https://tools.bbh.com/nexus/repository/snapshots');
+    expect(release.valid).toBe(true);
+    maven.controls.delivery.controls.flags.setValue(
+      '-DrepositoryId=bbh-snapshots\n-Durl=https://tools.bbh.com/nexus/repository/snapshots/',
+    );
+    expect(release.errors).toEqual({ rule: SNAPSHOT_AS_RELEASE });
+    release.setValue("https://tools.bbh.com/nexus/repository/releases'");
+    expect(release.hasError('pattern')).toBe(true);
+  });
+
+  it.each(['NPM', 'PIP'] as const)(
+    'uploads the package of a %s service with Maven goals and releases it in stage 12',
+    (tool) => {
+      const form = createServiceForm(service({ build: { ...service().build, tool } }));
+      const nexus = form.controls.nexusDelivery.controls;
+      const delivery = form.controls.delivery.controls;
+
+      expect([delivery.tasks.enabled, delivery.mavenHome.enabled, nexus.artifacts.enabled]).toEqual(
+        [true, true, true],
+      );
+      expect([nexus.pull.enabled, nexus.group.enabled, nexus.repositoryUrl.enabled]).toEqual([
+        false,
+        false,
+        false,
+      ]);
+      expect(delivery.tasks.valid).toBe(true);
+      nexus.artifacts.setValue('dist/*.tgz');
+      expect(delivery.tasks.hasError('required')).toBe(true);
+      form.patchValue({
+        delivery: {
+          tasks: 'deploy:deploy-file',
+          flags: '-DgroupId=com.bbh.rates\n-DartifactId=rates-web',
+        },
+        nexusDelivery: {
+          releaseRepositoryId: 'bbh-releases',
+          releaseCredentialsId: 'nexus-release',
+        },
+      });
+
+      const request = toServiceRequest(form);
+
+      expect(request.delivery).toEqual(
+        command({
+          tasks: ['deploy:deploy-file'],
+          flags: ['-DgroupId=com.bbh.rates', '-DartifactId=rates-web'],
+        }),
+      );
+      expect(request.nexusDelivery).toMatchObject({
+        artifacts: ['dist/*.tgz'],
+        group: null,
+        pullArtifacts: [],
+        releaseRepositoryId: 'bbh-releases',
+        releaseCredentialsId: null,
+      });
+    },
+  );
+
+  it.each(['VM', 'OPENSHIFT'] as const)(
+    'sends the NuGet feeds of a .NET service on %s, with the Nexus delivery on and off',
+    (target) => {
+      const form = createServiceForm(
+        service({
+          build: { ...service().build, tool: 'DOTNET' },
+          deployment: { ...service().deployment, target },
+        }),
+      );
+      const nexus = form.controls.nexusDelivery.controls;
+      form.controls.nexusDelivery.patchValue({
+        nugetSource: 'https://tools.bbh.com/nexus/repository/nuget-hosted/',
+        nugetCredentialsId: 'nuget-key',
+        nugetReleaseSource: 'https://tools.bbh.com/nexus/repository/nuget-releases/',
+        nugetPackagePattern: 'src/**/bin/Release/*.nupkg',
+        releaseRepositoryUrl: 'https://tools.bbh.com/nexus/repository/releases/',
+      });
+      const feeds = {
+        nugetSource: 'https://tools.bbh.com/nexus/repository/nuget-hosted/',
+        nugetCredentialsId: 'nuget-key',
+        nugetReleaseSource: 'https://tools.bbh.com/nexus/repository/nuget-releases/',
+        nugetReleaseCredentialsId: null,
+        nugetPackagePattern: 'src/**/bin/Release/*.nupkg',
+        releaseRepositoryUrl: null,
+        artifacts: [],
+      };
+
+      expect([nexus.nugetSource.enabled, nexus.releaseRepositoryUrl.enabled]).toEqual([
+        true,
+        false,
+      ]);
+      expect(toServiceRequest(form).nexusDelivery).toMatchObject(feeds);
+      form.controls.deployment.controls.nexusDeliveryDisabled.setValue(true);
+      expect(nexus.nugetSource.enabled).toBe(true);
+      expect(toServiceRequest(form).nexusDelivery).toMatchObject(feeds);
+      nexus.nugetSource.setValue('nexus-hosted');
+      nexus.nugetReleaseSource.setValue('\\\\buildshare\\nuget');
+      expect([nexus.nugetSource.valid, nexus.nugetReleaseSource.valid]).toEqual([true, true]);
+      nexus.nugetSource.setValue("nexus'hosted");
+      nexus.nugetReleaseSource.setValue('https://x/"y');
+      nexus.nugetPackagePattern.setValue("'*.nupkg'");
+      expect([
+        nexus.nugetSource.valid,
+        nexus.nugetReleaseSource.valid,
+        nexus.nugetPackagePattern.valid,
+      ]).toEqual([false, false, false]);
+    },
+  );
 
   it('requires the coordinates, the repository and the download goals the listed artifacts need', () => {
     const gradle = createServiceForm(service());

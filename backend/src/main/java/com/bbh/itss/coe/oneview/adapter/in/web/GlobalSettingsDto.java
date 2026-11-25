@@ -28,6 +28,8 @@ import java.time.Instant;
 import java.util.List;
 import java.util.Map;
 
+import static com.bbh.itss.coe.oneview.adapter.in.web.InputFormats.DELIVERY_URL;
+import static com.bbh.itss.coe.oneview.adapter.in.web.InputFormats.DELIVERY_URL_MESSAGE;
 import static com.bbh.itss.coe.oneview.adapter.in.web.InputFormats.HOST;
 import static com.bbh.itss.coe.oneview.adapter.in.web.InputFormats.HOST_MESSAGE;
 import static com.bbh.itss.coe.oneview.adapter.in.web.InputFormats.PLUGIN_REPOSITORY;
@@ -163,7 +165,12 @@ public record GlobalSettingsDto(
             @Size(max = 500) @Pattern(regexp = PLUGIN_REPOSITORY, message = PLUGIN_REPOSITORY_MESSAGE)
             String gradlePluginRepository,
             @Size(max = 500) @Pattern(regexp = PLUGIN_REPOSITORY, message = PLUGIN_REPOSITORY_MESSAGE)
-            String mavenPluginRepository) implements Mirrors<ServiceDefaults> {
+            String mavenPluginRepository,
+            Boolean releaseEnabled,
+            @Size(max = 1000) @Pattern(regexp = DELIVERY_URL, message = DELIVERY_URL_MESSAGE)
+            String releaseRepositoryUrl,
+            @Pattern(regexp = OPTIONAL + MAVEN, message = MAVEN_MESSAGE) String releaseRepositoryId,
+            @Size(max = 200) String releaseCredentialsId) implements Mirrors<ServiceDefaults> {
     }
 
     public record DatabaseDefaultsDto(

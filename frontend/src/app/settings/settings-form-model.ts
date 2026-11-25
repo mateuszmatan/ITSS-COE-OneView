@@ -12,6 +12,7 @@ import {
   SeverityLimits,
 } from '../core/models';
 import {
+  NEXUS_COORDINATE,
   createGlobalGoldenFixForm,
   inUse,
   packageRepositories,
@@ -35,6 +36,7 @@ import {
   matching,
 } from '../shared/database-rules';
 import {
+  DELIVERY_URL,
   HOST_NAME,
   INT_MAX,
   SHELL_SAFE_URL,
@@ -203,6 +205,18 @@ export function createSettingsForm(settings?: GlobalSettingsValues | null) {
         Validators.pattern(SHELL_SAFE_URL),
         max(500),
       ),
+      releaseEnabled: flag(settings?.serviceDefaults.releaseEnabled, true),
+      releaseRepositoryUrl: text(
+        settings?.serviceDefaults.releaseRepositoryUrl,
+        Validators.pattern(DELIVERY_URL),
+        max(1000),
+      ),
+      releaseRepositoryId: text(
+        settings?.serviceDefaults.releaseRepositoryId,
+        Validators.pattern(NEXUS_COORDINATE),
+        max(200),
+      ),
+      releaseCredentialsId: text(settings?.serviceDefaults.releaseCredentialsId, max(200)),
     }),
     database: createDatabaseDefaultsForm(settings?.database),
     goldenFix: createGlobalGoldenFixForm(settings?.goldenFix),

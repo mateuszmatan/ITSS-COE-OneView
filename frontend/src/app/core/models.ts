@@ -28,6 +28,14 @@ export const autoCommands = (tool: BuildTool | null | undefined): boolean =>
   tool === 'SQL' ||
   scripted(tool);
 
+/** Build tools whose files Maven goals upload to Nexus: Maven, and the package of an npm or pip service. */
+export const mavenUpload = (tool: BuildTool | null | undefined): boolean =>
+  tool === 'MAVEN' || tool === 'NPM' || tool === 'PIP';
+
+/** Build tools whose files stage 12 releases with delivery.release; a .NET service pushes to NuGet instead. */
+export const releases = (tool: BuildTool | null | undefined): boolean =>
+  mavenUpload(tool) || tool === 'GRADLE';
+
 /** Build tools that need a JDK on the agent. */
 export const needsJdk = (tool: BuildTool | null | undefined): boolean =>
   tool !== 'LIQUIBASE' && tool !== 'DOTNET' && tool !== 'SQL' && !scripted(tool);
@@ -235,10 +243,12 @@ export interface DeploymentSettings {
 }
 
 /**
- * The Nexus snapshot delivery of a service on virtual machines beyond its upload command: the files of the upload
- * (delivery.push), the Maven coordinates and repository of a Gradle upload, and the download of the Extended
- * pipeline (delivery.pull). Each artifact is a line of a glob, for the download a file name, optionally followed by
- * its classifier.
+ * The Nexus delivery of a service beyond its upload command: the files of the upload (delivery.push; Maven goals
+ * upload the package of an npm or pip service), the Maven coordinates and repository of a Gradle upload, the download
+ * of the Extended pipeline (delivery.pull), the release of stage 12 (delivery.release) and the NuGet feeds of a .NET
+ * service (delivery.nuget). Each artifact is a line of a glob, for the download a file name, optionally followed by
+ * its classifier. A release value left empty, and the release switch left unset (null), come from the Library
+ * defaults.
  */
 export interface NexusDeliverySettings {
   artifacts: string[];
@@ -249,6 +259,15 @@ export interface NexusDeliverySettings {
   pull: ToolCommand;
   pullArtifacts: string[];
   pullOutputDirectory: string | null;
+  releaseEnabled: boolean | null;
+  releaseRepositoryUrl: string | null;
+  releaseRepositoryId: string | null;
+  releaseCredentialsId: string | null;
+  nugetSource: string | null;
+  nugetCredentialsId: string | null;
+  nugetReleaseSource: string | null;
+  nugetReleaseCredentialsId: string | null;
+  nugetPackagePattern: string | null;
 }
 
 export interface UrbanCodeSettings {
@@ -702,6 +721,10 @@ export interface ServiceDefaults {
   pluginRepositoriesEnabled: boolean;
   gradlePluginRepository: string | null;
   mavenPluginRepository: string | null;
+  releaseEnabled: boolean;
+  releaseRepositoryUrl: string | null;
+  releaseRepositoryId: string | null;
+  releaseCredentialsId: string | null;
 }
 
 export interface ServiceTemplateValues {

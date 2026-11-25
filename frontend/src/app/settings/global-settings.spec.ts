@@ -247,7 +247,11 @@ describe('GlobalSettingsPage', () => {
     const headings = [...section.querySelectorAll('.form-block h3')].map((h) => text(h));
     const c = form().controls.serviceDefaults.controls;
 
-    expect(headings).toEqual(['Node.js build', 'Gradle and Maven plugins']);
+    expect(headings).toEqual([
+      'Node.js build',
+      'Gradle and Maven plugins',
+      'Release of the safe artifact',
+    ]);
     expect(text(section)).toContain(
       'Retry a Gradle or Maven step with these repositories when a plugin is missing',
     );
@@ -277,6 +281,46 @@ describe('GlobalSettingsPage', () => {
       pluginRepositoriesEnabled: false,
       gradlePluginRepository: null,
       mavenPluginRepository: 'https://tools.bbh.com/nexus/repository/maven-plugins/',
+    });
+    request.flush(globalSettings());
+    await fixture.whenStable();
+  });
+
+  it('sets the release of the safe artifact with the service defaults, refuses an address with a quote and sends only what is set', async () => {
+    await load();
+    const section = page().querySelector('#settings-serviceDefaults')!;
+    const hint = (label: string) => text(fieldOf(section, label)?.querySelector('ov-hint'));
+    const c = form().controls.serviceDefaults.controls;
+
+    expect(text(section)).toContain(
+      'Release the safe artifact of the Maven, Gradle, npm and pip services in stage 12',
+    );
+    expect(text(section)).toContain('delivery.release.enabled');
+    expect(hint('Release repository URL')).toBe('delivery.release.repositoryUrl');
+    expect(hint('Maven server ID')).toBe('delivery.release.repositoryId');
+    expect(hint('Gradle credentials ID')).toBe('delivery.release.credentialsId');
+    expect(c.releaseEnabled.value).toBe(true);
+    expect(c.releaseRepositoryUrl.value).toBe('');
+
+    c.releaseRepositoryUrl.setValue("https://tools.bbh.com/nexus/repository/releases/'");
+    expect(c.releaseRepositoryUrl.hasError('pattern')).toBe(true);
+    c.releaseRepositoryId.setValue('bbh releases');
+    expect(c.releaseRepositoryId.hasError('pattern')).toBe(true);
+
+    form().controls.serviceDefaults.patchValue({
+      releaseEnabled: false,
+      releaseRepositoryUrl: 'https://tools.bbh.com/nexus/repository/releases/',
+      releaseRepositoryId: 'bbh-releases',
+      releaseCredentialsId: ' ',
+    });
+    await submit();
+
+    const request = http.expectOne({ method: 'PUT', url: '/api/settings' });
+    expect(request.request.body.serviceDefaults).toMatchObject({
+      releaseEnabled: false,
+      releaseRepositoryUrl: 'https://tools.bbh.com/nexus/repository/releases/',
+      releaseRepositoryId: 'bbh-releases',
+      releaseCredentialsId: null,
     });
     request.flush(globalSettings());
     await fixture.whenStable();

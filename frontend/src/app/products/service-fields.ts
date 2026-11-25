@@ -24,6 +24,8 @@ import {
   Region,
   ResolvedParameter,
   databaseTool,
+  mavenUpload,
+  releases,
   scripted,
 } from '../core/models';
 import { ProductsApi } from '../core/api';
@@ -42,6 +44,7 @@ import {
   tristate,
 } from '@common/shared/fields';
 import {
+  DELIVERY_URL_ERROR,
   HTTP_URL_ERROR,
   POWERSHELL_PATH_ERROR,
   SHELL_SAFE_ERROR,
@@ -257,9 +260,12 @@ const NEXUS_IQ_APPLICATION: Field[] = [
 const NODE_BUILD =
   'Runs your npm commands in an extra stage 0, before the Gradle or Maven build, for example to build an Angular frontend that the Gradle or Maven build then packages into the jar. Write its output outside the build and target folders. Leave it off when the Gradle or Maven build already runs npm.';
 
+const NUGET_SOURCE_ERROR = 'A NuGet source without quotes';
+
 const NODE_BUILD_IN: Partial<Record<PipelineType, string>> = {
   SAST: 'In SAST scanning it runs only while Compile before preparing the IRX is on, and not on Windows agents.',
-  EXTENDED: 'In the Extended pipeline it runs before the release delivery rebuild.',
+  EXTENDED:
+    'In the Extended pipeline it does not run: the release delivery publishes the files of the Security pipeline, which already hold the frontend.',
 };
 
 const NPM_SCAN = check(
@@ -808,7 +814,15 @@ export class ServiceFields {
       [c.nodeBuild, [...this.nodeSwitch(), ...this.nodeFields(), ...this.nodeOptions()]],
       [c.unitTests, [...this.unitTestFields(), ...UNIT_TEST_OPTIONS]],
       [c.deployment, [...this.deploymentFields(), ...this.deploymentOptions()]],
-      [c.nexusDelivery, [...this.nexusUploadFields(), ...this.nexusDownloadFields()]],
+      [
+        c.nexusDelivery,
+        [
+          ...this.nexusUploadFields(),
+          ...this.nexusDownloadFields(),
+          ...this.releaseFields(),
+          ...this.nugetFields(),
+        ],
+      ],
       [c.appScan, [...APP_SCAN, ...APP_SCAN_OPTIONS, ...DAST_ENABLED, ...DAST]],
       [c.sonar, [...this.sonarFields(), ...this.sonarOptions()]],
       [c.nexusIq, this.nexusIqFields()],
@@ -827,7 +841,13 @@ export class ServiceFields {
             [...this.databaseTargetFields(target), ...this.databaseTargetOptions(target)],
           ] as const,
       ),
-      ...commands.map((command) => [command, commandFields(this.tool(), '')] as const),
+      ...commands.map(
+        (command) =>
+          [
+            command,
+            commandFields(command === c.delivery ? this.uploadTool() : this.tool(), ''),
+          ] as const,
+      ),
       ...REGIONS.flatMap((region) => [
         [c.sshTargets.controls[region], this.sshFields(region)] as const,
         [c.openShiftTargets.controls[region], openShiftFields(region)] as const,
@@ -867,6 +887,19 @@ export class ServiceFields {
 
   protected delivers(): boolean {
     return !this.form().controls.deployment.controls.nexusDeliveryDisabled.value;
+  }
+
+  /**
+   * Whether the service uploads a snapshot to Nexus from virtual machines, which stage 12 then releases: Maven,
+   * Gradle, npm and pip.
+   */
+  protected uploads(): boolean {
+    return releases(this.tool());
+  }
+
+  /** The build tool of the upload command: Maven goals upload the package of an npm or pip service too. */
+  protected uploadTool(): BuildTool {
+    return mavenUpload(this.tool()) ? 'MAVEN' : this.tool();
   }
 
   /** Whether the library runs whole command lines for the build tool: npm, pip and iOS. */
@@ -1198,8 +1231,8 @@ export class ServiceFields {
         12,
         {
           help: this.isVm()
-            ? `The snapshot delivery stage still reports the build and the unit tests but publishes nothing to Nexus, and the Extended pipeline downloads nothing. The deployments and the release delivery (Nexus delivery - Safe Artifact) still run. Rendered as delivery.nexusDeliveryEnabled: false, which the library reads before deploy.${target}.rd.nexusDeliveryEnabled of older configs.`
-            : 'The snapshot delivery stage still reports the build and the unit tests but builds and pushes no image. The OpenShift deployments then use the pinned build tags, QC falling back to the RD tag, and a region left without a tag is skipped. The release delivery (Nexus delivery - Safe Artifact) still runs.',
+            ? `The snapshot delivery stage still reports the build and the unit tests but publishes nothing to Nexus, the Extended pipeline downloads nothing, and the release delivery (Nexus delivery - Safe Artifact) releases nothing, except that in the Full pipeline a .NET service still pushes its NuGet package there, to the release feed, else to the NuGet feed. The deployments still run. Rendered as delivery.nexusDeliveryEnabled: false, which the library reads before deploy.${target}.rd.nexusDeliveryEnabled of older configs.`
+            : 'The snapshot delivery stage still reports the build and the unit tests but builds and pushes no image. The OpenShift deployments then use the pinned build tags, QC falling back to the RD tag, and a region left without a tag is skipped. The release delivery (Nexus delivery - Safe Artifact) of the Full pipeline still pushes the NuGet package of a .NET service.',
         },
       ),
       mono('appName', 'Application name', 'appName', 4, {
@@ -1221,25 +1254,32 @@ export class ServiceFields {
     ];
   }
 
-  /** The upload command of a Maven service: delivery.push.maven with the files to upload, else delivery.maven. */
+  /**
+   * The upload command of the service: delivery.push.maven with the files to upload, else, for a Maven service,
+   * delivery.maven. The package of an npm or pip service is uploaded with delivery.push.maven only.
+   */
   protected uploadPath(): string {
     const artifacts = this.form().controls.nexusDelivery.controls.artifacts.value;
-    return lines(artifacts).length > 0 ? 'delivery.push' : 'delivery';
+    return this.tool() !== 'MAVEN' || lines(artifacts).length > 0 ? 'delivery.push' : 'delivery';
   }
 
   protected nexusUploadFields(): Field[] {
-    const gradle = this.tool() === 'GRADLE';
+    const tool = this.tool();
+    const gradle = tool === 'GRADLE';
     const block = gradle ? 'delivery.push.gradle' : 'delivery.push.maven';
+    const packages: Partial<Record<BuildTool, string>> = { NPM: 'dist/*.tgz', PIP: 'dist/*.whl' };
     return [
       area('artifacts', 'Artifacts', `${block}.artifacts`, 12, {
         mono: true,
         placeholder: gradle
           ? 'build/libs/*.jar\nbuild/distributions/docs.zip docs'
-          : 'target/*.jar\ntarget/docs.zip docs',
+          : (packages[tool] ?? 'target/*.jar\ntarget/docs.zip docs'),
         hint: 'one glob per line, optionally followed by a space and a classifier',
         help: gradle
           ? 'The files uploaded under the one snapshot version of the run, <build number>-<UTC time>-SNAPSHOT. Each takes the classifier after it or, without one, its file name without the extension. Left empty, the Gradle service is not required in the snapshot delivery stage.'
-          : 'The files the one deploy-file upload sends under the snapshot version of the run, <build number>-<UTC time>-SNAPSHOT, rendered as delivery.push.maven. Each takes the classifier after it or, without one, its file name without the extension. Left empty, the one file of the artifact path is uploaded without a classifier with delivery.maven, as before.',
+          : tool === 'MAVEN'
+            ? 'The files the one deploy-file upload sends under the snapshot version of the run, <build number>-<UTC time>-SNAPSHOT, rendered as delivery.push.maven. Each takes the classifier after it or, without one, its file name without the extension. Left empty, the one file of the artifact path is uploaded without a classifier with delivery.maven, as before.'
+            : 'The package files, such as the .tgz of npm pack or the wheel and sdist of a Python build, that the one deploy-file upload sends under the snapshot version of the run, <build number>-<UTC time>-SNAPSHOT, rendered as delivery.push.maven. Each takes the classifier after it or, without one, its file name without the extension. Left empty, the package is not published and the service is not required in the snapshot delivery stage.',
       }),
       ...(gradle
         ? [
@@ -1272,6 +1312,97 @@ export class ServiceFields {
             ),
           ]
         : []),
+    ];
+  }
+
+  /** The release of stage 12: the switch, the repository and the login of the upload, over the Library defaults. */
+  protected releaseFields(): Field[] {
+    const gradle = this.tool() === 'GRADLE';
+    const defaults = this.defaults()?.serviceDefaults;
+    const c = this.form().controls.nexusDelivery.controls;
+    const enabled = defaults?.releaseEnabled;
+    return [
+      choice(
+        'releaseEnabled',
+        'Release in stage 12',
+        tristate('Library default', 'On', 'Off'),
+        'delivery.release.enabled',
+        4,
+        {
+          hint: enabled === undefined ? '' : `Library default: ${enabled ? 'on' : 'off'}`,
+          help: 'Off, stage 12 releases nothing for this service, and the snapshot of the snapshot delivery stage stays the delivered artifact.',
+        },
+      ),
+      mono('releaseRepositoryUrl', 'Release repository URL', 'delivery.release.repositoryUrl', 8, {
+        ...defaulted(
+          defaults?.releaseRepositoryUrl,
+          c.releaseRepositoryUrl.value,
+          'left empty: no release, the snapshot stays the delivered artifact',
+        ),
+        help: 'The Nexus release repository that stage 12 publishes the uploaded files to once more, as the release of the build tag of the run. It is never the snapshot repository of the upload, and a release that is already there is never replaced.',
+        error: DELIVERY_URL_ERROR,
+      }),
+      gradle
+        ? mono(
+            'releaseCredentialsId',
+            'Release credentials ID',
+            'delivery.release.credentialsId',
+            6,
+            {
+              ...defaulted(
+                defaults?.releaseCredentialsId,
+                c.releaseCredentialsId.value,
+                'left empty: no login, as for the snapshot',
+              ),
+              help: 'The ID of a Jenkins Username with password credential that the Gradle wrapper logs in to the release repository with.',
+            },
+          )
+        : mono('releaseRepositoryId', 'Release server ID', 'delivery.release.repositoryId', 6, {
+            ...defaulted(
+              defaults?.releaseRepositoryId,
+              c.releaseRepositoryId.value,
+              'left empty: the -DrepositoryId of the upload',
+            ),
+            help: 'The server ID of the release repository in the Maven settings of the agents, which supplies the login of the deploy-file upload.',
+            error: 'Letters, digits and . _ - only',
+          }),
+    ];
+  }
+
+  /** The NuGet feeds of a .NET service, delivery.nuget, on virtual machines and on OpenShift. */
+  protected nugetFields(): Field[] {
+    return [
+      mono('nugetSource', 'NuGet feed', 'delivery.nuget.source', 8, {
+        placeholder: 'https://tools.bbh.com/nexus/repository/nuget-hosted/',
+        help: 'The NuGet source that the snapshot delivery stage pushes the package to on virtual machines: a feed address, a folder or the name of a source in NuGet.Config. Stage 12 of the Full pipeline pushes to it too while no release feed is set and stage 6 pushed nothing: with the Nexus delivery off, and on OpenShift.',
+        error: NUGET_SOURCE_ERROR,
+      }),
+      mono('nugetCredentialsId', 'API key credentials ID', 'delivery.nuget.credentialsId', 4, {
+        placeholder: 'nuget-api-key',
+        hint: 'left empty: the push sends no API key',
+        help: 'The ID of a Jenkins Secret text credential with the NuGet API key of the feed.',
+      }),
+      mono('nugetReleaseSource', 'Release feed', 'delivery.nuget.releaseSource', 8, {
+        placeholder: 'https://tools.bbh.com/nexus/repository/nuget-releases/',
+        help: 'The NuGet source that stage 12 of the Full pipeline pushes the package to after the release gate, with --skip-duplicate (-SkipDuplicate for nuget.exe): a feed address, a folder or the name of a source in NuGet.Config. Left empty: on virtual machines with the Nexus delivery on, the package that the snapshot delivery stage pushed to the NuGet feed is the delivered package and is not pushed twice; with the Nexus delivery off, and on OpenShift, stage 12 of the Full pipeline pushes it to the NuGet feed. The Extended pipeline builds no NuGet package and does not use this feed.',
+        error: NUGET_SOURCE_ERROR,
+      }),
+      mono(
+        'nugetReleaseCredentialsId',
+        'Release API key credentials ID',
+        'delivery.nuget.releaseCredentialsId',
+        4,
+        {
+          hint: 'left empty: the API key of the NuGet feed',
+          help: 'The ID of a Jenkins Secret text credential with the NuGet API key of the release feed.',
+        },
+      ),
+      mono('nugetPackagePattern', 'Packages', 'delivery.nuget.packagePattern', 12, {
+        placeholder: 'src/**/bin/Release/*.nupkg',
+        hint: 'left empty: the artifact path, else **/*.nupkg',
+        help: 'A glob of the packages to push; the files it finds that do not end in .nupkg are left out, and the stage fails when none is left.',
+        error: 'A glob without quotes',
+      }),
     ];
   }
 

@@ -95,7 +95,11 @@
     "npmrcCredentialsId": null,
     "pluginRepositoriesEnabled": true,
     "gradlePluginRepository": "https://tools.bbh.com/nexus/repository/gradle-plugins/",
-    "mavenPluginRepository": "https://tools.bbh.com/nexus/repository/maven-public/"
+    "mavenPluginRepository": "https://tools.bbh.com/nexus/repository/maven-public/",
+    "releaseEnabled": true,
+    "releaseRepositoryUrl": null,
+    "releaseRepositoryId": null,
+    "releaseCredentialsId": null
   },
   "goldenFix": {
     "enabled": true,

@@ -207,22 +207,33 @@
             </ov-advanced-settings>
           }
         </div>
-        @if (isVm() && (tool() === 'MAVEN' || tool() === 'GRADLE') && delivers()) {
+        @if (isVm() && uploads() && delivers()) {
           <div class="form-fields block">
             <h4 class="sub-heading span-12">Delivery</h4>
             <p class="note span-12">
-              @if (tool() === 'MAVEN') {
-                The Maven goals that upload the snapshot the VM deployment installs, and the files
-                they upload; the goals are required for a Maven service deployed to virtual machines.
-              } @else {
-                The files the Gradle wrapper of the service uploads as the snapshot of the run with
-                maven-publish; without them the snapshot delivery stage is not required for the service.
+              @switch (tool()) {
+                @case ('MAVEN') {
+                  The Maven goals that upload the snapshot the VM deployment installs, and the files
+                  they upload; the goals are required for a Maven service deployed to virtual
+                  machines.
+                }
+                @case ('GRADLE') {
+                  The files the Gradle wrapper of the service uploads as the snapshot of the run
+                  with maven-publish; without them the snapshot delivery stage is not required for
+                  the service.
+                }
+                @default {
+                  The Maven goals that upload the package of the service as the snapshot of the run,
+                  such as deploy:deploy-file, and the package files they upload; without the files
+                  the package is not published and the snapshot delivery stage is not required for
+                  the service.
+                }
               }
             </p>
-            @if (tool() === 'MAVEN') {
+            @if (tool() !== 'GRADLE') {
               <ov-tool-command-fields
                 [group]="f.controls.delivery"
-                [tool]="tool()"
+                [tool]="uploadTool()"
                 [path]="uploadPath()"
                 mavenExample="deploy:deploy-file"
               />
@@ -238,20 +249,52 @@
             }
           </div>
           <div class="form-fields block">
-            <h4 class="sub-heading span-12">Download in the Extended pipeline</h4>
+            <h4 class="sub-heading span-12">Release of the safe artifact</h4>
             <p class="note span-12">
-              The files of the snapshot of its security run the Extended pipeline downloads in the
-              stage Download artifacts from Nexus Repo, by the version in build.tag; without them it
-              downloads nothing.
+              After the release gate, stage 12 (Nexus delivery - Safe Artifact - 0 known Security
+              Vulnerabilities) publishes the files of the snapshot delivery stage once more, as the
+              release of the build tag of the run, without building again. It checks their SHA-256
+              first and never replaces a release. Without a release repository, of the service or of
+              the Library defaults, the stage is not required and the snapshot stays the delivered
+              artifact.
             </p>
-            <ov-fields [group]="f.controls.nexusDelivery" [fields]="nexusDownloadFields()" />
-            <ov-tool-command-fields
-              [group]="f.controls.nexusDelivery.controls.pull"
-              [tool]="tool()"
-              path="delivery.pull"
-              [part]="tool() === 'GRADLE' ? 'flags' : 'all'"
-              mavenExample="org.apache.maven.plugins:maven-dependency-plugin:3.6.1:get"
-            />
+            <ov-fields [group]="f.controls.nexusDelivery" [fields]="releaseFields()" />
+          </div>
+          @if (tool() === 'MAVEN' || tool() === 'GRADLE') {
+            <div class="form-fields block">
+              <h4 class="sub-heading span-12">Download in the Extended pipeline</h4>
+              <p class="note span-12">
+                The files of the snapshot of its security run the Extended pipeline downloads in the
+                stage Download artifacts from Nexus Repo, by the version in build.tag; without them
+                it downloads nothing.
+              </p>
+              <ov-fields [group]="f.controls.nexusDelivery" [fields]="nexusDownloadFields()" />
+              <ov-tool-command-fields
+                [group]="f.controls.nexusDelivery.controls.pull"
+                [tool]="tool()"
+                path="delivery.pull"
+                [part]="tool() === 'GRADLE' ? 'flags' : 'all'"
+                mavenExample="org.apache.maven.plugins:maven-dependency-plugin:3.6.1:get"
+              />
+            </div>
+          }
+        }
+        @if (tool() === 'DOTNET') {
+          <div class="form-fields block">
+            <h4 class="sub-heading span-12">NuGet packages</h4>
+            <p class="note span-12">
+              The NuGet feeds of the package of the service. On virtual machines the snapshot
+              delivery stage pushes the package to the NuGet feed, and stage 12 (Nexus delivery -
+              Safe Artifact) of the Full pipeline pushes it to the release feed after the release
+              gate. With the Nexus delivery off, and on OpenShift, where the snapshot delivery stage
+              builds the image, stage 12 of the Full pipeline pushes the package to the release
+              feed, else to the NuGet feed, as before. The Extended pipeline builds no NuGet package
+              and pushes none: on virtual machines with the Nexus delivery on and a NuGet feed set,
+              the package that the Security pipeline pushed stays the delivered package; with the
+              Nexus delivery off, and on OpenShift, only the Full pipeline pushes the package, in
+              stage 12.
+            </p>
+            <ov-fields [group]="f.controls.nexusDelivery" [fields]="nugetFields()" />
           </div>
         }
       }

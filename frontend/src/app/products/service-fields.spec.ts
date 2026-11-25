@@ -1091,19 +1091,95 @@ describe('ServiceFields', () => {
       await render(service());
       await open('Deployment');
 
-      expect(headings()).toEqual(['Delivery', 'Download in the Extended pipeline']);
+      expect(headings()).toEqual([
+        'Delivery',
+        'Release of the safe artifact',
+        'Download in the Extended pipeline',
+      ]);
       [
         'delivery.push.gradle.artifacts',
         'delivery.push.gradle.group',
         'delivery.push.gradle.repositoryUrl',
         'delivery.push.gradle.allowInsecureProtocol',
         'delivery.push.gradle.flags',
+        'delivery.release.enabled',
+        'delivery.release.repositoryUrl',
+        'delivery.release.credentialsId',
         'delivery.pull.gradle.artifacts',
         'delivery.pull.gradle.flags',
         'delivery.pull.outputDirectory',
       ].forEach((key) => expect(text(pane())).toContain(key));
+      expect(text(pane())).not.toContain('delivery.release.repositoryId');
       expect(fieldOf(pane(), 'Gradle tasks')).toBeNull();
     });
+
+    it('shows the release of a Maven service with its server ID and the Library defaults it inherits', async () => {
+      const settings = globalSettings();
+      settings.serviceDefaults = {
+        ...settings.serviceDefaults,
+        releaseEnabled: false,
+        releaseRepositoryUrl: 'https://tools.bbh.com/nexus/repository/releases/',
+      };
+      await render(service({ build: { ...service().build, tool: 'MAVEN' } }), settings);
+      await open('Deployment');
+      const url = fieldOf(pane(), 'Release repository URL')!;
+
+      expect(text(pane())).toContain('delivery.release.repositoryId');
+      expect(text(pane())).not.toContain('delivery.release.credentialsId');
+      expect(hints()).toContain('Library default: off · delivery.release.enabled');
+      expect(url.querySelector('input')!.placeholder).toBe(
+        'https://tools.bbh.com/nexus/repository/releases/',
+      );
+      expect(hints()).toContain(
+        'Left empty: the -DrepositoryId of the upload · delivery.release.repositoryId',
+      );
+    });
+
+    it.each(['NPM', 'PIP'] as const)(
+      'uploads the package of a %s service with Maven goals and downloads nothing',
+      async (tool) => {
+        await render(service({ build: { ...service().build, tool } }));
+        await open('Deployment');
+
+        expect(headings()).toEqual(['Delivery', 'Release of the safe artifact']);
+        [
+          'delivery.push.maven.goals',
+          'delivery.push.maven.mvnPath',
+          'delivery.push.maven.artifacts',
+        ].forEach((key) => expect(text(pane())).toContain(key));
+        expect(fieldOf(pane(), 'Maven goals')).not.toBeNull();
+        expect(fieldOf(pane(), 'Build command')).toBeNull();
+        expect(text(pane())).not.toContain('delivery.pull');
+      },
+    );
+
+    it.each(['VM', 'OPENSHIFT'] as const)(
+      'shows the NuGet feeds of a .NET service on %s, also with the Nexus delivery off',
+      async (target) => {
+        await render(
+          service({
+            build: { ...service().build, tool: 'DOTNET' },
+            deployment: { ...service().deployment, target },
+          }),
+        );
+        await open('Deployment');
+
+        expect(headings()).toEqual(['NuGet packages']);
+        [
+          'delivery.nuget.source',
+          'delivery.nuget.credentialsId',
+          'delivery.nuget.releaseSource',
+          'delivery.nuget.releaseCredentialsId',
+          'delivery.nuget.packagePattern',
+        ].forEach((key) => expect(text(pane())).toContain(key));
+        expect(text(pane())).not.toContain('delivery.release');
+
+        form.controls.deployment.controls.nexusDeliveryDisabled.setValue(true);
+        await fixture.whenStable();
+
+        expect(headings()).toEqual(['NuGet packages']);
+      },
+    );
 
     it('moves the Maven upload goals to delivery.push.maven once the files to upload are listed', async () => {
       await render(service({ build: { ...service().build, tool: 'MAVEN' } }));

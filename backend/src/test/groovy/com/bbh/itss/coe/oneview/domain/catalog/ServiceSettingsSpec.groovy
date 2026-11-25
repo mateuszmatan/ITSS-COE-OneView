@@ -290,6 +290,103 @@ class ServiceSettingsSpec extends Specification {
                 .repositoryUrl('ftp://nexus').build()                                                                                                                                      || ['nexusDelivery.group', 'nexusDelivery.repositoryUrl']
     }
 
+    def "a #tool service releases the safe artifact with what it sets of delivery.release and leaves the rest to the Library defaults"() {
+        given:
+        def delivery = NexusDeliverySettings.builder().artifacts(['build/libs/*.jar']).group('com.bbh.cert')
+                .artifact('cert-api').repositoryUrl('http://nexus.bbh.com/repository/snapshots').releaseEnabled(false)
+                .releaseRepositoryUrl(' https://nexus.bbh.com/repository/releases ').releaseRepositoryId(' bbh-releases ')
+                .releaseCredentialsId(' nexus-release ').build()
+        def service = settings(build: build(tool: tool, buildPath: 'target/*.jar'), nexusDelivery: delivery,
+                delivery: tool == MAVEN ? command(['deploy:deploy-file'], ['-DrepositoryId=bbh-snapshots']) : NONE)
+
+        expect:
+        reported(service) == []
+        written(service).toMap().delivery.release == release
+        written(settings(build: build(tool: tool), delivery: tool == MAVEN ? command(['deploy:deploy-file'], []) : NONE))
+                .toMap().delivery?.release == null
+
+        where:
+        tool   || release
+        MAVEN  || [enabled: false, repositoryUrl: 'https://nexus.bbh.com/repository/releases', repositoryId: 'bbh-releases']
+        GRADLE || [enabled: false, repositoryUrl: 'https://nexus.bbh.com/repository/releases', credentialsId: 'nexus-release']
+    }
+
+    def "an #tool service uploads the package it lists with the Maven goals of delivery.push.maven"() {
+        given:
+        def upload = command(['deploy:deploy-file'], ['-DgroupId=com.bbh.rates', '-DartifactId=rates-web',
+                                                      '-DrepositoryId=bbh-snapshots', '-Durl=http://nexus.bbh.com/snapshots'])
+        def delivery = NexusDeliverySettings.builder().artifacts([file]).releaseEnabled(true)
+                .releaseRepositoryUrl('https://nexus.bbh.com/releases').build()
+        def service = { Map changes -> scripted(tool, [delivery: upload, nexusDelivery: delivery] + changes) }
+
+        expect:
+        reported(service([:])) == []
+        written(service([:])).toMap().delivery == [
+                push   : [maven: [goals    : ['deploy:deploy-file'], flags: upload.flags(),
+                                  artifacts: [[path: file]]]],
+                release: [enabled: true, repositoryUrl: 'https://nexus.bbh.com/releases']]
+        written(service(nexusDelivery: NexusDeliverySettings.NONE)).toMap().delivery == null
+        reported(service(delivery: NONE))*.field == ['delivery.tasks']
+        reported(service(nexusDelivery: NexusDeliverySettings.builder().artifacts([file])
+                .releaseRepositoryUrl('http://nexus.bbh.com/snapshots/').build()))*.field ==
+                ['nexusDelivery.releaseRepositoryUrl']
+
+        where:
+        tool          || file
+        BuildTool.NPM || 'dist/rates-web.tgz'
+        BuildTool.PIP || 'dist/rates-1.0.tar.gz'
+    }
+
+    def "a .NET service names the NuGet feeds of its snapshot and of its release under delivery.nuget: #place"() {
+        given:
+        def nuget = NexusDeliverySettings.builder().nugetSource(' https://nexus.bbh.com/repository/nuget-snapshots/ ')
+                .nugetCredentialsId('nuget-key').nugetReleaseSource('https://nexus.bbh.com/repository/nuget-releases/')
+                .nugetReleaseCredentialsId('nuget-release-key').nugetPackagePattern('src/**/bin/Release/*.nupkg')
+                .releaseRepositoryUrl('https://nexus.bbh.com/repository/releases').build()
+        def dotnet = build(tool: BuildTool.DOTNET, javaPath: null, command: NONE)
+        def service = settings(build: dotnet, deployment: deployed, nexusDelivery: nuget,
+                openShiftTargets: [(RD): fullSettings().openShiftTargets()[RD]])
+        def wrong = NexusDeliverySettings.builder().nugetSource("nexus'hosted").nugetReleaseSource('https://x/"y')
+                .nugetPackagePattern("'*.nupkg'").build()
+        def named = NexusDeliverySettings.builder().nugetSource('nexus-hosted').nugetReleaseSource('\\\\buildshare\\nuget')
+                .build()
+        def namedService = settings(build: dotnet, deployment: deployed, nexusDelivery: named,
+                openShiftTargets: [(RD): fullSettings().openShiftTargets()[RD]])
+
+        expect:
+        reported(service) == []
+        written(service).toMap().delivery.nuget == [source             : 'https://nexus.bbh.com/repository/nuget-snapshots/',
+                                                   credentialsId      : 'nuget-key',
+                                                   releaseSource      : 'https://nexus.bbh.com/repository/nuget-releases/',
+                                                   releaseCredentialsId: 'nuget-release-key',
+                                                   packagePattern     : 'src/**/bin/Release/*.nupkg']
+        written(service).toMap().delivery.release == null
+        reported(settings(build: dotnet, deployment: deployed, nexusDelivery: wrong,
+                openShiftTargets: [(RD): fullSettings().openShiftTargets()[RD]]))*.field ==
+                ['nexusDelivery.nugetSource', 'nexusDelivery.nugetReleaseSource', 'nexusDelivery.nugetPackagePattern']
+        reported(namedService) == []
+        written(namedService).toMap().delivery.nuget == [source: 'nexus-hosted', releaseSource: '\\\\buildshare\\nuget']
+
+        where:
+        place                                       || deployed
+        'virtual machines'                          || deployment()
+        'Nexus delivery off'                        || deployment(nexusDeliveryDisabled: true)
+        'OpenShift, where stage 6 builds the image' || deployment(target: OPENSHIFT, appName: 'cert', artifactName: 'cert.jar')
+    }
+
+    def "the release needs an address and a server ID the library accepts, and never the snapshot repository: #fields"() {
+        expect:
+        reported(settings(build: build(tool: tool, buildPath: 'target/*.jar'), delivery: upload, nexusDelivery: delivery))*.field == fields
+
+        where:
+        tool   | upload                                                        | delivery                                                                                                                       || fields
+        MAVEN  | command(['deploy:deploy-file'], [])                           | NexusDeliverySettings.builder().releaseRepositoryUrl('nexus/releases').releaseRepositoryId('bbh releases').build()           || ['nexusDelivery.releaseRepositoryUrl', 'nexusDelivery.releaseRepositoryId']
+        MAVEN  | command(['deploy:deploy-file'], ['-Durl=https://nexus/snap']) | NexusDeliverySettings.builder().releaseRepositoryUrl('https://NEXUS/snap/').build()                                          || ['nexusDelivery.releaseRepositoryUrl']
+        GRADLE | NONE                                                          | NexusDeliverySettings.builder().artifacts(['a.jar']).group('com.bbh').artifact('cert').repositoryUrl('https://nexus/snap')
+                .releaseRepositoryUrl('https://nexus/snap').build()                                                                                                                                                         || ['nexusDelivery.releaseRepositoryUrl']
+        GRADLE | NONE                                                          | NexusDeliverySettings.builder().releaseRepositoryUrl('https://nexus/rel ease').build()                                       || ['nexusDelivery.releaseRepositoryUrl']
+    }
+
     def "a service whose Nexus delivery is off is not checked for its delivery settings"() {
         expect:
         reported(settings(build: build(tool: GRADLE), deployment: deployment(nexusDeliveryDisabled: true),
@@ -639,6 +736,14 @@ class ServiceSettingsSpec extends Specification {
                 versionCatalogRepo: new VersionCatalogRepo('https://bitbucket.bbh.com/scm/ta/catalogs.git', 'bb', null,
                         null),
                 testJobs: [TestJob.builder().stage(SMOKE).job('billing/smoke').build()], database: database)
+    }
+
+    private static ServiceSettings scripted(BuildTool tool, Map changes) {
+        def common = tool == BuildTool.NPM
+                ? [build    : build(tool: tool, javaPath: null, command: NONE),
+                   nodeBuild: NodeBuildSettings.builder().directory('web').commands(['npm ci', 'npm run build']).build()]
+                : [build: build(tool: tool, javaPath: null, command: command(['pip', 'install', '-r', 'requirements.txt']))]
+        settings(common + changes)
     }
 
     private static ConfigTree written(ServiceSettings settings) {

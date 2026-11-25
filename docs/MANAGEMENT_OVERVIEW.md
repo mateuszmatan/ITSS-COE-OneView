@@ -1,6 +1,6 @@
 # DevSecOps at BBH: overview for senior management
 
-Status of 2026-11-20, names as of 2026-11-22, the three areas as of 2026-11-23. Prepared by the DevSecOps team, ITSS COE.
+Status of 2026-11-20, names as of 2026-11-22, the three areas, the release delivery and the continuous integration as of 2026-11-23. Prepared by the DevSecOps team, ITSS COE.
 
 ## 1. What it is, in one paragraph
 
@@ -21,7 +21,7 @@ It consists of two products that are developed together:
 | Open-source check | Third-party components are checked for known vulnerabilities and license problems. Safe upgrades are proposed as a pull request (*GoldenFix*), after the library has proved that the project still builds and its tests still pass with them. | Nexus IQ |
 | Static security scan (SAST) | The source code is scanned for security defects. | HCL AppScan on Cloud |
 | Code quality | The quality gate of the project is evaluated. | SonarQube |
-| Delivery | The build result is stored as a versioned artifact. | BBH Nexus |
+| Delivery | The build result is stored as a versioned snapshot. After the release gate the same files, checked by their SHA-256, become the release; the package of a .NET project goes to its release feed. | BBH Nexus |
 | Deployment to the lower test region | The same artifact is deployed. | OpenShift, IBM DevOps Deploy (UrbanCode) |
 | Regression, smoke and performance tests | The test jobs of the project are started and their results collected. | Jenkins test jobs |
 | Dynamic security scan (DAST) | The running application is attacked in a controlled way. | HCL AppScan on Cloud |
@@ -74,6 +74,8 @@ Delivered in the last iteration:
 
 Since then, on 2026-11-22: the portal is ITSS COE OneView (short: OneView), and both versions of the library name it so in their documents, logs and examples. Jenkins tells the library where OneView is with one variable, `ONEVIEW_URL`; the former variable `DSO_PORTAL_URL` and every existing `Jenkinsfile` and configuration file keep working without a change. A build whose `Jenkinsfile` holds a pipeline key now sends its report to OneView without a further setting, so OneView shows the report of the build on the page of each of its pipelines.
 
+On 2026-11-23: once a release repository is set, in the library defaults or in OneView, the release stage publishes the files that passed the release gate as the release, for Maven, Gradle, npm and pip projects, checked by their SHA-256 and never replaced, and the full pipeline pushes the package of a .NET project to its release feed once one is set; the counts of the open-source check reach the security dashboards; and each of the three sources has a continuous integration build that runs its tests on every change.
+
 How it was verified: the three sources were reviewed against each other on 2026-11-20. The library is covered by an automated suite of more than 1,800 checks in the version without portal and more than 1,900 in the version with portal, which run the real pipeline code against simulated Jenkins, Nexus, AppScan, SonarQube, OpenShift and UrbanCode, and the real Liquibase command line. The portal is covered by its backend unit and regression tests and more than 850 front-end tests. All pass.
 
 What that does not prove: nothing in this iteration was run against the real BBH systems. A pilot on real infrastructure is the next step and the first item of the to-do list.
@@ -89,8 +91,8 @@ What that does not prove: nothing in this iteration was run against the real BBH
 ## 7. Next steps
 
 1. **Now:** pilot on real BBH infrastructure and correction of what it finds.
-2. **Next:** portal sign-in with roles; continuous integration of the three sources.
-3. **Later:** release delivery of the approved artifact for every build tool; a management dashboard of the time recovered across all projects.
+2. **Next:** portal sign-in with roles.
+3. **Later:** a management dashboard of the time recovered across all projects.
 
 ## 8. Where to read more
 

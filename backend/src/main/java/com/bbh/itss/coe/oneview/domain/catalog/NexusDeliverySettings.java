@@ -14,6 +14,8 @@ import java.util.Set;
 
 import static com.bbh.itss.coe.oneview.domain.catalog.BuildTool.GRADLE;
 import static com.bbh.itss.coe.oneview.domain.catalog.BuildTool.MAVEN;
+import static com.bbh.itss.coe.oneview.domain.catalog.BuildTool.NPM;
+import static com.bbh.itss.coe.oneview.domain.catalog.BuildTool.PIP;
 import static com.bbh.itss.coe.oneview.domain.shared.StoredList.LINES_2000;
 import static com.bbh.itss.coe.oneview.domain.shared.Text.trimmed;
 import static org.apache.commons.lang3.BooleanUtils.isTrue;
@@ -21,15 +23,20 @@ import static org.apache.commons.lang3.ObjectUtils.getIfNull;
 import static org.apache.commons.lang3.StringUtils.trimToNull;
 
 /**
- * The Nexus snapshot delivery of a service on virtual machines beyond its upload command: the files of the upload
- * (delivery.push), the Maven coordinates and repository of a Gradle upload, and the download of the extended pipeline
- * (delivery.pull). Each artifact is a line of a glob, for the download a file name, optionally followed by its
- * classifier.
+ * The Nexus delivery of a service on virtual machines beyond its upload command: the files of the upload
+ * (delivery.push; Maven goals upload the package of an npm or pip service), the Maven coordinates and repository of a
+ * Gradle upload, the download of the extended pipeline (delivery.pull), the release of the files that passed the gate
+ * (delivery.release, stage 12) and the NuGet feeds of a .NET service (delivery.nuget). Each artifact is a line of a
+ * glob, for the download a file name, optionally followed by its classifier. A release value left empty, and the
+ * release switch left unset, come from the Library defaults.
  */
 @Builder
 public record NexusDeliverySettings(List<String> artifacts, String group, String artifact, String repositoryUrl,
                                     Boolean allowInsecureProtocol, ToolCommand pull, List<String> pullArtifacts,
-                                    String pullOutputDirectory) {
+                                    String pullOutputDirectory, Boolean releaseEnabled, String releaseRepositoryUrl,
+                                    String releaseRepositoryId, String releaseCredentialsId, String nugetSource,
+                                    String nugetCredentialsId, String nugetReleaseSource,
+                                    String nugetReleaseCredentialsId, String nugetPackagePattern) {
 
     public static final NexusDeliverySettings NONE = builder().build();
     public static final String GRADLE_PUSH_TASK = "publishNexusDeliveryPublicationToNexusRepository";
@@ -37,6 +44,7 @@ public record NexusDeliverySettings(List<String> artifacts, String group, String
     public static final String DEFAULT_OUTPUT_DIRECTORY = "downloaded-artifacts";
 
     private static final String COORDINATE = "[A-Za-z0-9_.-]+";
+    private static final String DELIVERY_URL = "https?://[^\\s'\"`$\\\\]+";
     private static final String EXTENSION = "[A-Za-z0-9_-]+";
     private static final List<String> RESERVED_GRADLE_FLAGS = List.of("-p", "-b", "-x", "-m", "--dry-run");
     private static final List<String> RESERVED_GRADLE_PREFIXES = List.of("-p=", "--project-dir", "--build-file",
@@ -51,6 +59,27 @@ public record NexusDeliverySettings(List<String> artifacts, String group, String
         pull = getIfNull(pull, ToolCommand.NONE);
         pullArtifacts = trimmed(pullArtifacts);
         pullOutputDirectory = trimToNull(pullOutputDirectory);
+        releaseRepositoryUrl = trimToNull(releaseRepositoryUrl);
+        releaseRepositoryId = trimToNull(releaseRepositoryId);
+        releaseCredentialsId = trimToNull(releaseCredentialsId);
+        nugetSource = trimToNull(nugetSource);
+        nugetCredentialsId = trimToNull(nugetCredentialsId);
+        nugetReleaseSource = trimToNull(nugetReleaseSource);
+        nugetReleaseCredentialsId = trimToNull(nugetReleaseCredentialsId);
+        nugetPackagePattern = trimToNull(nugetPackagePattern);
+    }
+
+    /**
+     * Whether Maven goals upload the files of the service: those of a Maven service, and the package of an npm or pip
+     * service, which the library publishes with Maven.
+     */
+    public static boolean mavenUpload(BuildTool tool) {
+        return tool == MAVEN || tool == NPM || tool == PIP;
+    }
+
+    /** Whether stage 12 releases the files of the service with delivery.release: a .NET service pushes to NuGet. */
+    public static boolean releases(BuildTool tool) {
+        return mavenUpload(tool) || tool == GRADLE;
     }
 
     /** Whether the extended pipeline downloads the snapshot: the files to download are listed. */
@@ -60,18 +89,26 @@ public record NexusDeliverySettings(List<String> artifacts, String group, String
 
     /**
      * Renders the delivery of a service on virtual machines. The upload command is delivery.push.maven with the
-     * artifacts of a Maven service, delivery.maven without them; a Gradle service passes its flags and environment
-     * variables to the upload and the download.
+     * artifacts of a Maven service, delivery.maven without them, and delivery.push.maven for the package of an npm or
+     * pip service that lists it; a Gradle service passes its flags and environment variables to the upload and the
+     * download. The release names the Maven server ID of a Maven upload and the credentials of a Gradle upload. The
+     * NuGet feeds of a .NET service are written by {@link #writeNugetTo}, as they apply on every deploy target.
      */
     public void writeTo(ConfigTree config, BuildTool tool, ToolCommand upload) {
         if (tool == MAVEN && artifacts.isEmpty()) {
             upload.writeTo(config, "delivery", MAVEN);
-        } else if (tool == MAVEN) {
+        } else if (tool == MAVEN || mavenUpload(tool) && !artifacts.isEmpty()) {
             upload.writeTo(config, "delivery.push", MAVEN);
             config.set("delivery.push.maven.artifacts", entries(artifacts));
         } else if (tool == GRADLE && !artifacts.isEmpty()) {
             config.set("delivery.push.gradle.group", group).set("delivery.push.gradle.artifact", artifact);
             writeGradle(config, "delivery.push.gradle", upload, artifacts);
+        }
+        if (releases(tool)) {
+            config.set("delivery.release.enabled", releaseEnabled)
+                    .set("delivery.release.repositoryUrl", releaseRepositoryUrl)
+                    .set("delivery.release.repositoryId", tool == GRADLE ? null : releaseRepositoryId)
+                    .set("delivery.release.credentialsId", tool == GRADLE ? releaseCredentialsId : null);
         }
         if (pulls() && (tool == MAVEN || tool == GRADLE)) {
             config.set("delivery.pull.outputDirectory", pullOutputDirectory)
@@ -84,6 +121,19 @@ public record NexusDeliverySettings(List<String> artifacts, String group, String
                 writeGradle(config, "delivery.pull.gradle", pull, pullArtifacts);
             }
         }
+    }
+
+    /**
+     * The NuGet feeds of a .NET service, on virtual machines and on OpenShift alike: stage 6 pushes the package to the
+     * source on virtual machines, and stage 12 pushes it to the release feed or, on OpenShift and with the Nexus
+     * delivery off, where stage 6 pushed none, to the source.
+     */
+    public void writeNugetTo(ConfigTree config) {
+        config.set("delivery.nuget.source", nugetSource)
+                .set("delivery.nuget.credentialsId", nugetCredentialsId)
+                .set("delivery.nuget.releaseSource", nugetReleaseSource)
+                .set("delivery.nuget.releaseCredentialsId", nugetReleaseCredentialsId)
+                .set("delivery.nuget.packagePattern", nugetPackagePattern);
     }
 
     private void writeGradle(ConfigTree config, String block, ToolCommand command, List<String> files) {
@@ -116,13 +166,68 @@ public record NexusDeliverySettings(List<String> artifacts, String group, String
         if (pullOutputDirectory != null && pullOutputDirectory.contains("'")) {
             problems.add("pullOutputDirectory", "must be a folder without quotes");
         }
+        validateRelease(problems, tool, upload);
         if (tool == GRADLE) {
             validateGradle(problems, command, upload);
         } else if (tool == MAVEN && pulls()) {
             requireCoordinates(problems, "to download the Maven artifacts");
             problems.at("pull").require("tasks", pull.tasks(), "add the Maven goals that download the snapshot, for"
                     + " example org.apache.maven.plugins:maven-dependency-plugin:3.6.1:get");
+        } else if ((tool == NPM || tool == PIP) && !artifacts.isEmpty()) {
+            command.require("tasks", upload.tasks(), "add the Maven goals that upload the package, for example"
+                    + " deploy:deploy-file");
         }
+    }
+
+    /**
+     * The release repository is an address the library passes to Maven and Gradle, and the release never goes to the
+     * snapshot repository of the upload: the repository of a Gradle upload, the -Durl flag of a Maven upload.
+     */
+    private void validateRelease(ValidationProblems problems, BuildTool tool, ToolCommand upload) {
+        checkAddress(problems, "releaseRepositoryUrl", releaseRepositoryUrl);
+        if (releaseRepositoryId != null && !releaseRepositoryId.matches(COORDINATE)) {
+            problems.add("releaseRepositoryId", "has letters, digits, '.', '_' and '-' only");
+        }
+        String snapshot = tool == GRADLE ? repositoryUrl : mavenUpload(tool) ? snapshotUrl(upload.flags()) : null;
+        if (releaseRepositoryUrl != null && snapshot != null && sameAddress(releaseRepositoryUrl, snapshot)) {
+            problems.add("releaseRepositoryUrl", "is the snapshot repository of the upload: give the release"
+                    + " repository, or leave it empty for that of the Library defaults");
+        }
+    }
+
+    /**
+     * The NuGet sources of a .NET service and its package pattern, which NuGet gets in quotes. A source is what
+     * {@code dotnet nuget push --source} takes: a feed address, a folder or the name of a source in NuGet.Config.
+     */
+    public void validateNuget(ValidationProblems problems) {
+        if (hasQuote(nugetSource)) {
+            problems.add("nugetSource", "must be a NuGet source without quotes");
+        }
+        if (hasQuote(nugetReleaseSource)) {
+            problems.add("nugetReleaseSource", "must be a NuGet source without quotes");
+        }
+        if (hasQuote(nugetPackagePattern)) {
+            problems.add("nugetPackagePattern", "must be a pattern without quotes");
+        }
+    }
+
+    private static boolean hasQuote(String value) {
+        return value != null && (value.contains("'") || value.contains("\""));
+    }
+
+    private static void checkAddress(ValidationProblems problems, String field, String address) {
+        if (address != null && !address.matches(DELIVERY_URL)) {
+            problems.add(field, "must be an http or https address without spaces, quotes, backslashes, $ or backticks");
+        }
+    }
+
+    private static String snapshotUrl(List<String> flags) {
+        return flags.stream().filter(flag -> flag.startsWith("-Durl=")).map(flag -> flag.substring(6)).findFirst()
+                .orElse(null);
+    }
+
+    private static boolean sameAddress(String one, String other) {
+        return one.replaceAll("/+$", "").equalsIgnoreCase(other.replaceAll("/+$", ""));
     }
 
     private void validateGradle(ValidationProblems problems, ValidationProblems command, ToolCommand upload) {

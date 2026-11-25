@@ -12,7 +12,8 @@ import static org.apache.commons.lang3.StringUtils.trimToNull;
 public record ServiceDefaults(BuildTool buildTool, DeployTarget deployTarget, String sourceDir, Integer testsMaxParallel,
                               String nodeInstallationName, String npmRegistry, String npmrcCredentialsId,
                               Boolean pluginRepositoriesEnabled, String gradlePluginRepository,
-                              String mavenPluginRepository) {
+                              String mavenPluginRepository, Boolean releaseEnabled, String releaseRepositoryUrl,
+                              String releaseRepositoryId, String releaseCredentialsId) {
 
     /** The Gradle plugin repository of the BBH Nexus, the one of the library defaults. */
     public static final String BBH_GRADLE_PLUGINS = "https://tools.bbh.com/nexus/repository/gradle-plugins/";
@@ -30,6 +31,12 @@ public record ServiceDefaults(BuildTool buildTool, DeployTarget deployTarget, St
         }
         gradlePluginRepository = trimToNull(gradlePluginRepository);
         mavenPluginRepository = trimToNull(mavenPluginRepository);
+        if (releaseEnabled == null) {
+            releaseEnabled = true;
+        }
+        releaseRepositoryUrl = trimToNull(releaseRepositoryUrl);
+        releaseRepositoryId = trimToNull(releaseRepositoryId);
+        releaseCredentialsId = trimToNull(releaseCredentialsId);
     }
 
     public void writeTo(ConfigTree defaults) {
@@ -41,6 +48,22 @@ public record ServiceDefaults(BuildTool buildTool, DeployTarget deployTarget, St
                 .set("pluginRepositories.gradle", gradlePluginRepository)
                 .set("pluginRepositories.maven", mavenPluginRepository);
         writeNodeTo(defaults);
+        writeReleaseTo(defaults);
+    }
+
+    /**
+     * The release of the safe artifact (stage 12) as the library reads it under delivery.release. Only what differs
+     * from the library defaults is written: the switch when it is off, and the repository, its server ID and its
+     * credentials when they are set. Without a repository the library releases nothing and the snapshot of stage 6
+     * stays the delivered artifact.
+     */
+    public void writeReleaseTo(ConfigTree defaults) {
+        if (!releaseEnabled) {
+            defaults.set("delivery.release.enabled", false);
+        }
+        defaults.set("delivery.release.repositoryUrl", releaseRepositoryUrl)
+                .set("delivery.release.repositoryId", releaseRepositoryId)
+                .set("delivery.release.credentialsId", releaseCredentialsId);
     }
 
     /** The Node.js build values a service leaves to the Library defaults, as the library reads them. */
