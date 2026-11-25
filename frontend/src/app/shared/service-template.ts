@@ -94,6 +94,7 @@ export function buildDefaults(
     case 'SQL':
       return { tasks: '', artifact: '', scanPattern: '' };
     case 'DOTNET':
+    case 'MSBUILD':
       return { tasks: '', artifact: '', scanPattern: '**/bin/Release/**/*.dll' };
     case 'NPM':
     case 'PIP':

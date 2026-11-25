@@ -337,13 +337,13 @@ class ServiceSettingsSpec extends Specification {
         BuildTool.PIP || 'dist/rates-1.0.tar.gz'
     }
 
-    def "a .NET service names the NuGet feeds of its snapshot and of its release under delivery.nuget: #place"() {
+    def "a .NET service (#tool) names the NuGet feeds of its snapshot and of its release under delivery.nuget: #place"() {
         given:
         def nuget = NexusDeliverySettings.builder().nugetSource(' https://nexus.bbh.com/repository/nuget-snapshots/ ')
                 .nugetCredentialsId('nuget-key').nugetReleaseSource('https://nexus.bbh.com/repository/nuget-releases/')
                 .nugetReleaseCredentialsId('nuget-release-key').nugetPackagePattern('src/**/bin/Release/*.nupkg')
                 .releaseRepositoryUrl('https://nexus.bbh.com/repository/releases').build()
-        def dotnet = build(tool: BuildTool.DOTNET, javaPath: null, command: NONE)
+        def dotnet = build(tool: tool, javaPath: null, command: NONE)
         def service = settings(build: dotnet, deployment: deployed, nexusDelivery: nuget,
                 openShiftTargets: [(RD): fullSettings().openShiftTargets()[RD]])
         def wrong = NexusDeliverySettings.builder().nugetSource("nexus'hosted").nugetReleaseSource('https://x/"y')
@@ -368,10 +368,33 @@ class ServiceSettingsSpec extends Specification {
         written(namedService).toMap().delivery.nuget == [source: 'nexus-hosted', releaseSource: '\\\\buildshare\\nuget']
 
         where:
-        place                                       || deployed
-        'virtual machines'                          || deployment()
-        'Nexus delivery off'                        || deployment(nexusDeliveryDisabled: true)
-        'OpenShift, where stage 6 builds the image' || deployment(target: OPENSHIFT, appName: 'cert', artifactName: 'cert.jar')
+        place                                       | tool              || deployed
+        'virtual machines'                          | BuildTool.DOTNET  || deployment()
+        'Nexus delivery off'                        | BuildTool.DOTNET  || deployment(nexusDeliveryDisabled: true)
+        'OpenShift, where stage 6 builds the image' | BuildTool.DOTNET  || deployment(target: OPENSHIFT, appName: 'cert', artifactName: 'cert.jar')
+        'virtual machines'                          | BuildTool.MSBUILD || deployment()
+        'OpenShift, where stage 6 builds the image' | BuildTool.MSBUILD || deployment(target: OPENSHIFT, appName: 'cert', artifactName: 'cert.jar')
+    }
+
+    def "an MSBuild service needs no JDK and writes buildTool msbuild with the .NET blocks, which the library reads for it"() {
+        given:
+        def msbuild = settings(build: build(tool: BuildTool.MSBUILD, javaPath: null,
+                command: command(['nuget restore Orders.sln', 'msbuild Orders.sln /t:Build'], ['/m'])),
+                unitTests: UnitTestSettings.builder().command(command(['vstest.console.exe Orders.Tests.dll'])).build(),
+                appScan: appScan(compileCommand: command(['msbuild Orders.sln /t:Build'])),
+                sonar: SonarSettings.of(null, 'com.bbh:orders', ToolCommand.of([], ['/d:sonar.verbose=true'])))
+
+        expect:
+        reported(msbuild) == []
+        reported(settings(build: build(tool: BuildTool.MSBUILD, javaPath: null, command: NONE))) == []
+        with(written(msbuild).toMap()) {
+            buildTool == 'msbuild'
+            build == [dotnet: [commands: ['nuget restore Orders.sln', 'msbuild Orders.sln /t:Build'], flags: ['/m']]]
+            tests.unitTests == [dotnet: [commands: ['vstest.console.exe Orders.Tests.dll']]]
+            asoc == [dotnet: [commands: ['msbuild Orders.sln /t:Build']]]
+            tools.sonar.dotnet == [flags: ['/d:sonar.verbose=true']]
+            !containsKey('javaPath')
+        }
     }
 
     def "the release needs an address and a server ID the library accepts, and never the snapshot repository: #fields"() {

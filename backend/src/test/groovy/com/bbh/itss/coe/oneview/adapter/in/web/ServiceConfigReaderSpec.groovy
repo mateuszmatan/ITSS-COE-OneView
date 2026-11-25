@@ -16,6 +16,7 @@ import com.bbh.itss.coe.oneview.domain.catalog.ServiceSettings
 import com.bbh.itss.coe.oneview.domain.catalog.SonarSettings
 import com.bbh.itss.coe.oneview.domain.catalog.NodeBuildSettings
 import com.bbh.itss.coe.oneview.domain.catalog.ToolCommand
+import com.bbh.itss.coe.oneview.domain.catalog.UnitTestSettings
 import com.bbh.itss.coe.oneview.domain.dsoconfig.DsoConfigBuilder
 import com.bbh.itss.coe.oneview.domain.settings.GlobalSettingsValues
 import com.bbh.itss.coe.oneview.domain.shared.InvalidRequestException
@@ -115,6 +116,19 @@ class ServiceConfigReaderSpec extends Specification {
                     .nugetReleaseCredentialsId('nuget-release-key').nugetPackagePattern('src/**/*.nupkg').build(),
             urbanCode: MAVEN_VM.urbanCode(), urbanCodeApplications: MAVEN_VM.urbanCodeApplications(),
             sshTargets: MAVEN_VM.sshTargets(), scm: MAVEN_VM.scm(), metrics: MAVEN_VM.metrics())
+    /** A .NET Framework service that the library builds with NuGet.exe and MSBuild.exe, with commands of its own. */
+    static final ServiceSettings MSBUILD_VM = settings(
+            build: build(tool: BuildTool.MSBUILD, sourceDir: 'src', javaPath: null, command: ToolCommand.builder()
+                    .tasks(['nuget restore Orders.sln', 'msbuild Orders.sln /t:Build /p:Configuration=Release'])
+                    .flags(['/m']).directory('src').environment(['MSBUILDDISABLENODEREUSE=1']).label('MSBuild')
+                    .build()),
+            unitTests: new UnitTestSettings(ToolCommand.of(['vstest.console.exe Orders.Tests.dll /Logger:trx'], []),
+                    '**/*.trx', null, null, null, null),
+            appScan: appScan(compileCommand: ToolCommand.of(['msbuild Orders.sln /t:Build'], [])),
+            sonar: SonarSettings.of('Orders', 'bbh-orders', ToolCommand.of([], ['/d:sonar.cs.vstest.reportsPaths=**/*.trx'])),
+            nexusDelivery: DOTNET_VM.nexusDelivery(), urbanCode: MAVEN_VM.urbanCode(),
+            urbanCodeApplications: MAVEN_VM.urbanCodeApplications(), sshTargets: MAVEN_VM.sshTargets(),
+            scm: MAVEN_VM.scm(), metrics: MAVEN_VM.metrics())
     static final ServiceSettings LIQUIBASE_VM = settings(
             build: build(tool: LIQUIBASE, sourceDir: 'db', javaPath: null),
             unitTests: MAVEN_VM.unitTests(), tests: MAVEN_VM.tests(), testJobs: MAVEN_VM.testJobs(),
@@ -150,6 +164,7 @@ class ServiceConfigReaderSpec extends Specification {
         GRADLE_VM                    || []
         NPM_VM                       || []
         DOTNET_VM                    || []
+        MSBUILD_VM                   || []
         GRADLE_OPENSHIFT             || [problem('deploy.openshift.rd.buildTag', RUN_TIME),
                                          problem('deploy.openshift.rd.internalDockerUrl', RUN_TIME)]
         GRADLE_OPENSHIFT_NO_DELIVERY || []
@@ -261,20 +276,35 @@ class ServiceConfigReaderSpec extends Specification {
                 .service().build().tool() == tool
 
         where:
-        name        || tool
-        'npm'       || BuildTool.NPM
-        'node'      || BuildTool.NPM
-        'Angular'   || BuildTool.NPM
-        'yarn'      || BuildTool.NPM
-        'pip'       || BuildTool.PIP
-        'python'    || BuildTool.PIP
-        'poetry'    || BuildTool.PIP
-        'android'   || BuildTool.ANDROID
-        'ios'       || BuildTool.IOS
-        'xcode'     || BuildTool.IOS
-        'cocoapods' || BuildTool.IOS
-        'mvn'       || BuildTool.MAVEN
-        'gradlew'   || BuildTool.GRADLE
+        name           || tool
+        'npm'          || BuildTool.NPM
+        'node'         || BuildTool.NPM
+        'Angular'      || BuildTool.NPM
+        'yarn'         || BuildTool.NPM
+        'pip'          || BuildTool.PIP
+        'python'       || BuildTool.PIP
+        'poetry'       || BuildTool.PIP
+        'android'      || BuildTool.ANDROID
+        'ios'          || BuildTool.IOS
+        'xcode'        || BuildTool.IOS
+        'cocoapods'    || BuildTool.IOS
+        'mvn'          || BuildTool.MAVEN
+        'gradlew'      || BuildTool.GRADLE
+        'dotnet'       || BuildTool.DOTNET
+        'csharp'       || BuildTool.DOTNET
+        'c#'           || BuildTool.DOTNET
+        '.net'         || BuildTool.DOTNET
+        'net'          || BuildTool.DOTNET
+        'dotnet-cli'   || BuildTool.DOTNET
+        'fsharp'       || BuildTool.DOTNET
+        'vbnet'        || BuildTool.DOTNET
+        'Cake'         || BuildTool.DOTNET
+        'nuke'         || BuildTool.DOTNET
+        'msbuild'      || BuildTool.MSBUILD
+        'MSBuild'      || BuildTool.MSBUILD
+        'vs'           || BuildTool.MSBUILD
+        'VisualStudio' || BuildTool.MSBUILD
+        'netfx'        || BuildTool.MSBUILD
     }
 
     def "a Python service is read with its command lines, the folder of its tests and its SonarScanner arguments"() {
@@ -334,6 +364,119 @@ class ServiceConfigReaderSpec extends Specification {
         ios.build().tool() == BuildTool.IOS
         ios.build().command().tasks().join(' ') == 'xcodebuild -scheme App build'
         ios.unitTests().command().tasks().join(' ') == 'xcodebuild -scheme App test'
+    }
+
+    def "an MSBuild service reads the msbuild blocks, which the library takes first, and renders them as the dotnet blocks"() {
+        when:
+        def service = imported(new Yaml().dump([buildTool: 'msbuild',
+                                               build: [msbuild: [commands: ['msbuild Orders.sln /t:Rebuild'], flags: ['/m']],
+                                                       dotnet: [commands: ['dotnet build']]],
+                                               tests: [unitTests: [msbuild: [commands: ['vstest.console.exe Orders.Tests.dll']]]],
+                                               tools: [sonar: [dotnet: [flags: ['/d:sonar.verbose=true']]]],
+                                               asoc: [msbuild: [:], dotnet: [commands: ['dotnet build']]]]), 'orders').services()[0]
+        def settings = service.service()
+        def project = rendered(service).projects['orders']
+
+        then:
+        settings.build().tool() == BuildTool.MSBUILD
+        settings.build().command().tasks() == ['msbuild Orders.sln /t:Rebuild']
+        settings.build().command().flags() == ['/m']
+        settings.unitTests().command().tasks() == ['vstest.console.exe Orders.Tests.dll']
+        settings.sonar().command().flags() == ['/d:sonar.verbose=true']
+        settings.appScan().compileCommand().tasks() == []
+        settings.appScan().compileCommand().flags() == []
+        service.notes() as Set == [problem('build.msbuild', dotnetBlock('build')),
+                                   problem('build.dotnet', 'not imported: build.msbuild wins over it'),
+                                   problem('tests.unitTests.msbuild', dotnetBlock('tests.unitTests')),
+                                   problem('asoc.dotnet', 'not imported: asoc.msbuild wins over it')] as Set
+        project.buildTool == 'msbuild'
+        project.build.dotnet == [commands: ['msbuild Orders.sln /t:Rebuild'], flags: ['/m']]
+        !project.build.containsKey('msbuild')
+        project.tests.unitTests == [dotnet: [commands: ['vstest.console.exe Orders.Tests.dll']]]
+        project.tools.sonar.dotnet == [flags: ['/d:sonar.verbose=true']]
+        !project.asoc.containsKey('dotnet')
+        !project.asoc.containsKey('msbuild')
+    }
+
+    def "a C# / .NET service reads the dotnet blocks, and an msbuild block only where it has no dotnet block, as the library does"() {
+        when:
+        def service = imported(new Yaml().dump([buildTool: 'csharp',
+                                               build: [dotnet: [commands: ['dotnet build -c Release']],
+                                                       msbuild: [commands: ['msbuild Orders.sln']]],
+                                               tests: [unitTests: [msbuild: [commands: ['dotnet test']]]],
+                                               tools: [sonar: [msbuild: '/d:sonar.verbose=true']]])).services()[0]
+        def settings = service.service()
+
+        then:
+        settings.build().tool() == BuildTool.DOTNET
+        settings.build().command().tasks() == ['dotnet build -c Release']
+        settings.unitTests().command().tasks() == ['dotnet test']
+        settings.sonar().command().tasks() == []
+        settings.sonar().command().flags() == []
+        service.notes() as Set == [problem('build.msbuild', 'not imported: build.dotnet wins over it'),
+                                   problem('tests.unitTests.msbuild', dotnetBlock('tests.unitTests')),
+                                   problem('tools.sonar.msbuild', 'not imported: expected a map')] as Set
+    }
+
+    def "for buildTool #tool the import takes the #winner of #block, which the library runs first, and notes #losers"() {
+        given:
+        String path = block.substring(0, block.lastIndexOf('.'))
+        String kept = "${path}.${tool == 'liquibase' ? 'liquibase' : 'dotnet'}.commands"
+
+        when:
+        def service = imported(new Yaml().dump([buildTool: tool] + at(block, keys)), 'orders').services()[0]
+
+        then:
+        commandAt(service.service(), path).tasks() == keys[winner]
+        service.notes() as Set == (losers.collect { problem("${block}.${it}".toString(),
+                "not imported: ${block}.${winner} wins over it".toString()) }
+                + (block.endsWith('.msbuild') ? [problem(block, dotnetBlock(path))] : [])) as Set
+        ConfigInput.valueAt(rendered(service).projects['orders'], kept) == keys[winner]
+
+        where:
+        tool        | block                       | keys                                                                                                    || winner     | losers
+        'msbuild'   | 'build.msbuild'             | [commands: ['nuget restore Orders.sln', 'msbuild Orders.sln /t:Build'], tasks: ['msbuild Legacy.sln']] || 'commands' | ['tasks']
+        'msbuild'   | 'tests.unitTests.msbuild'   | [commands: ['vstest.console.exe A.dll'], tasks: ['dotnet test']]                                       || 'commands' | ['tasks']
+        'msbuild'   | 'build.msbuild'             | [goals: ['msbuild A.sln']]                                                                              || 'goals'    | []
+        'msbuild'   | 'asoc.msbuild'              | [tasks: ['msbuild A.sln /t:Build'], goals: ['msbuild B.sln']]                                           || 'tasks'    | ['goals']
+        'dotnet'    | 'build.dotnet'              | [commands: ['dotnet build -c Release'], tasks: ['dotnet build'], goals: ['dotnet pack']]               || 'commands' | ['tasks', 'goals']
+        'dotnet'    | 'tools.sonar.dotnet'        | [tasks: ['dotnet build Orders.sln'], goals: ['dotnet build']]                                          || 'tasks'    | ['goals']
+        'liquibase' | 'build.liquibase'           | [commands: ['validate'], tasks: ['status']]                                                             || 'commands' | ['tasks']
+        'liquibase' | 'tests.unitTests.liquibase' | [tasks: ['validate'], commands: ['status']]                                                             || 'commands' | ['tasks']
+    }
+
+    def "for buildTool #tool a command block that is not a map is noted as not imported, since the library ignores it too: #build"() {
+        when:
+        def service = imported(new Yaml().dump([buildTool: tool, build: build])).services()[0]
+
+        then:
+        service.service().build().tool().name().equalsIgnoreCase(tool)
+        service.service().build().command().tasks() == []
+        service.notes() as Set == noted.collect { problem("build.${it}".toString(), 'not imported: expected a map') } as Set
+
+        where:
+        tool      | build                                   || noted
+        'msbuild' | [dotnet: 'msbuild Orders.sln /t:Build'] || ['dotnet']
+        'msbuild' | [dotnet: 'x', msbuild: 'y']             || ['dotnet', 'msbuild']
+        'msbuild' | [dotnet: ['msbuild Orders.sln']]        || ['dotnet']
+        'dotnet'  | [dotnet: 'dotnet build']                || ['dotnet']
+        'dotnet'  | [dotnet: 'x', msbuild: 'y']             || ['dotnet', 'msbuild']
+        'gradle'  | [gradle: 'build']                       || ['gradle']
+    }
+
+    def "the .NET blocks of a #tool service are left out with a note"() {
+        when:
+        def service = imported(new Yaml().dump([buildTool: tool, build: [msbuild: [commands: ['msbuild Orders.sln']],
+                                                                         dotnet : [commands: ['dotnet build']]]]))
+                .services()[0]
+
+        then:
+        service.notes().findAll { it.field().startsWith('build.') } as Set == [
+                problem('build.msbuild', "not imported: the service builds with ${tool}".toString()),
+                problem('build.dotnet', "not imported: the service builds with ${tool}".toString())] as Set
+
+        where:
+        tool << ['gradle', 'maven', 'liquibase']
     }
 
     def "buildTool sql with #key is imported as Liquibase, as the library runs it, with a note"() {
@@ -1041,7 +1184,7 @@ class ServiceConfigReaderSpec extends Specification {
         then:
         result.notes() == [problem('other', UNKNOWN)]
         result.services()[0].notes() as Set == [
-                problem('buildTool', 'not imported: expected one of gradle, maven, flutter, liquibase, dotnet, sql, npm, pip, android, ios'),
+                problem('buildTool', 'not imported: expected one of gradle, maven, flutter, liquibase, dotnet, sql, npm, pip, android, ios, msbuild'),
                 problem('tests.maxParallel', 'not imported: expected a whole number'),
                 problem('tests.smoke.required', 'not imported: expected true or false'),
                 problem('tools.sonar.projectKey', 'not imported: expected a single value'),
@@ -1208,6 +1351,26 @@ class ServiceConfigReaderSpec extends Specification {
 
     private Map rendered(ImportedService imported) {
         builder.productConfig(product(services: [[name: imported.name(), settings: imported.service().toDraft().settings()]]))
+    }
+
+    private static String dotnetBlock(String path) {
+        "imported as ${path}.dotnet: the library reads ${path}.dotnet for buildTool dotnet and msbuild alike"
+    }
+
+    /** The value at a dotted key, as nested maps: at('build.dotnet', [commands: ['x']]) is [build: [dotnet: [commands: ['x']]]]. */
+    private static Map at(String key, Object value) {
+        key.split('\\.').reverse().inject(value) { inner, name -> [(name): inner] } as Map
+    }
+
+    /** The command of the service that the import fills from the command block under a path, such as build. */
+    private static commandAt(ServiceDto service, String path) {
+        switch (path) {
+            case 'build': return service.build().command()
+            case 'tests.unitTests': return service.unitTests().command()
+            case 'tools.sonar': return service.sonar().command()
+            case 'asoc': return service.appScan().compileCommand()
+            default: throw new IllegalArgumentException(path)
+        }
     }
 
     private static InvalidRequestException.FieldProblem problem(String field, String message) {

@@ -4,12 +4,14 @@ import com.bbh.itss.coe.oneview.domain.catalog.DatabaseSettings
 import com.bbh.itss.coe.oneview.domain.catalog.DatabaseTarget
 import com.bbh.itss.coe.oneview.domain.catalog.DatabaseTargetSettings
 import com.bbh.itss.coe.oneview.domain.catalog.MetricsSettings
+import com.bbh.itss.coe.oneview.domain.catalog.NexusDeliverySettings
 import com.bbh.itss.coe.oneview.domain.catalog.NodeBuildSettings
 import com.bbh.itss.coe.oneview.domain.catalog.Product
 import com.bbh.itss.coe.oneview.domain.catalog.ProductDirectory.ProductIdentity
 import com.bbh.itss.coe.oneview.domain.catalog.ServiceDraft
 import com.bbh.itss.coe.oneview.domain.catalog.ServiceSettings
 import com.bbh.itss.coe.oneview.domain.catalog.SonarSettings
+import com.bbh.itss.coe.oneview.domain.catalog.ToolCommand
 import com.bbh.itss.coe.oneview.domain.catalog.UnitTestSettings
 import org.springframework.beans.factory.annotation.Autowired
 import org.springframework.boot.data.jpa.test.autoconfigure.DataJpaTest
@@ -20,6 +22,7 @@ import org.springframework.jdbc.core.JdbcTemplate
 import spock.lang.Specification
 
 import static com.bbh.itss.coe.oneview.domain.catalog.BuildTool.LIQUIBASE
+import static com.bbh.itss.coe.oneview.domain.catalog.BuildTool.MSBUILD
 import static com.bbh.itss.coe.oneview.domain.catalog.Region.QC
 import static com.bbh.itss.coe.oneview.domain.catalog.Region.RD
 import static com.bbh.itss.coe.oneview.domain.shared.Failures.STALE_VERSION
@@ -199,6 +202,26 @@ class ProductPersistenceAdapterSpec extends Specification {
         loaded == saved.services()
         ['build', 'unitTests', 'appScan', 'database'].every { loaded[0].settings()."$it"() == liquibase."$it"() }
         jdbc.queryForObject('SELECT BUILD_TOOL FROM DSO_SERVICE WHERE ID = ?', String, saved.services()[0].id()) == 'LIQUIBASE'
+    }
+
+    def "an MSBuild service is stored as MSBUILD with its .NET commands and NuGet feeds and read back unchanged"() {
+        given:
+        def msbuild = settings(build: build(tool: MSBUILD, javaPath: null, command: ToolCommand.builder()
+                .tasks(['nuget restore Orders.sln', 'msbuild Orders.sln /t:Build']).flags(['/m']).build()),
+                unitTests: UnitTestSettings.builder().command(command(['vstest.console.exe Orders.Tests.dll'])).build(),
+                sonar: SonarSettings.of('Orders', 'com.bbh:orders', ToolCommand.of([], ['/d:sonar.verbose=true'])),
+                nexusDelivery: NexusDeliverySettings.builder().nugetSource('https://nexus.bbh.com/repository/nuget-snapshots/')
+                        .nugetCredentialsId('nuget-key').nugetPackagePattern('src/**/*.nupkg').build())
+
+        when:
+        def saved = adapter.save(Product.create(details(), [new ServiceDraft(null, 'orders', null, msbuild)], adapter))
+        entities.clear()
+
+        then:
+        def loaded = adapter.load(saved.id()).get().services()
+        loaded == saved.services()
+        ['build', 'unitTests', 'sonar', 'nexusDelivery'].every { loaded[0].settings()."$it"() == msbuild."$it"() }
+        jdbc.queryForObject('SELECT BUILD_TOOL FROM DSO_SERVICE WHERE ID = ?', String, saved.services()[0].id()) == 'MSBUILD'
     }
 
     def "a database that is removed from a kept service loses its row"() {

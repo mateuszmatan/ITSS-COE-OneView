@@ -3,6 +3,7 @@ package com.bbh.itss.coe.oneview.domain.catalog
 import spock.lang.Specification
 
 import static com.bbh.itss.coe.oneview.domain.catalog.BuildTool.ANDROID
+import static com.bbh.itss.coe.oneview.domain.catalog.BuildTool.DOTNET
 import static com.bbh.itss.coe.oneview.domain.catalog.BuildTool.FLUTTER
 import static com.bbh.itss.coe.oneview.domain.catalog.BuildTool.IOS
 import static com.bbh.itss.coe.oneview.domain.catalog.BuildTool.NPM
@@ -11,6 +12,7 @@ import static com.bbh.itss.coe.oneview.domain.catalog.BuildTool.GRADLE
 import static com.bbh.itss.coe.oneview.domain.catalog.BuildTool.LIQUIBASE
 import static com.bbh.itss.coe.oneview.domain.catalog.BuildTool.SQL
 import static com.bbh.itss.coe.oneview.domain.catalog.BuildTool.MAVEN
+import static com.bbh.itss.coe.oneview.domain.catalog.BuildTool.MSBUILD
 import static com.bbh.itss.coe.oneview.domain.catalog.ToolCommand.NONE
 import static com.bbh.itss.coe.oneview.domain.shared.Sections.written
 
@@ -88,6 +90,7 @@ class ToolCommandSpec extends Specification {
         ToolCommand.of([], ['-Dsonar.sources=src'])                    | 'tools.sonar'     | IOS     || []
         FULL                                                           | 'build'           | ANDROID || []
         FULL                                                           | 'build'           | GRADLE  || []
+        FULL                                                           | 'build'           | MSBUILD || []
     }
 
     def "a #tool command is written as #config"() {
@@ -99,6 +102,11 @@ class ToolCommandSpec extends Specification {
         FULL                                                                                            | 'build'           | GRADLE    || [build: [gradle: [tasks: ['clean', 'build'], flags: ['--no-daemon', '-x', 'test'], dir: 'gui', env: [JAVA_OPTS: '-Xmx2g', CI: 'true']]]]
         FULL                                                                                            | 'tools.sonar'     | MAVEN     || [tools: [sonar: [maven: [goals: ['clean', 'build'], flags: ['--no-daemon', '-x', 'test'], dir: 'gui', mvnPath: '/opt/maven-3.9', env: [JAVA_OPTS: '-Xmx2g', CI: 'true']]]]]
         FULL                                                                                            | 'build'           | LIQUIBASE || [build: [liquibase: [commands: ['clean', 'build'], flags: ['--no-daemon', '-x', 'test'], dir: 'gui', env: [JAVA_OPTS: '-Xmx2g', CI: 'true']]]]
+        FULL                                                                                            | 'build'           | DOTNET    || [build: [dotnet: [commands: ['clean', 'build'], flags: ['--no-daemon', '-x', 'test'], dir: 'gui', env: [JAVA_OPTS: '-Xmx2g', CI: 'true']]]]
+        FULL                                                                                            | 'build'           | MSBUILD   || [build: [dotnet: [commands: ['clean', 'build'], flags: ['--no-daemon', '-x', 'test'], dir: 'gui', env: [JAVA_OPTS: '-Xmx2g', CI: 'true']]]]
+        FULL                                                                                            | 'tests.unitTests' | MSBUILD   || [tests: [unitTests: [dotnet: [commands: ['clean', 'build'], flags: ['--no-daemon', '-x', 'test'], dir: 'gui', env: [JAVA_OPTS: '-Xmx2g', CI: 'true']]]]]
+        ToolCommand.of([], ['/d:sonar.verbose=true'])                                                   | 'tools.sonar'     | MSBUILD   || [tools: [sonar: [dotnet: [flags: ['/d:sonar.verbose=true']]]]]
+        ToolCommand.builder().tasks(['msbuild Orders.sln /t:Build']).label('Compile').build()           | 'asoc'            | MSBUILD   || [asoc: [dotnet: [commands: ['msbuild Orders.sln /t:Build'], label: 'Compile']]]
         FULL                                                                                            | 'build'           | FLUTTER   || [:]
         FULL                                                                                            | 'build'           | SQL       || [:]
         FULL                                                                                            | 'tests.unitTests' | SQL       || [:]
@@ -106,6 +114,7 @@ class ToolCommandSpec extends Specification {
         NONE                                                                                            | 'build'           | GRADLE    || [:]
         NONE                                                                                            | 'build'           | MAVEN     || [:]
         NONE                                                                                            | 'build'           | LIQUIBASE || [:]
+        NONE                                                                                            | 'build'           | MSBUILD   || [:]
         ToolCommand.builder().tasks(['test']).mavenHome('/opt/maven').environment(['NO_VALUE']).build() | 'tests.unitTests' | MAVEN     || [tests: [unitTests: [maven: [goals: ['test'], mvnPath: '/opt/maven']]]]
         ToolCommand.builder().tasks(['build']).environment(['JUST_A_NAME']).build()                     | 'build'           | GRADLE    || [build: [gradle: [tasks: ['build']]]]
         ToolCommand.builder().tasks(['build']).label(' Build ').returnStdout(true).build()              | 'build'           | GRADLE    || [build: [gradle: [tasks: ['build'], label: 'Build', returnStdout: true]]]

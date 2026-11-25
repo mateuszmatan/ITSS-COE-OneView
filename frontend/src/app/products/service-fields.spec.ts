@@ -298,6 +298,101 @@ describe('ServiceFields', () => {
       },
     );
 
+    /** What a repository scan finds for .NET code: C# / .NET, which it cannot tell from MSBuild. */
+    const dotnetScan: Partial<DiscoveredStack> = {
+      buildTool: 'DOTNET',
+      deployTarget: 'VM',
+      nodeBuildEnabled: false,
+      summaryMessage: 'Discovered stack: DOTNET (CSHARP), Target: VM',
+      resolvedParameters: [
+        { field: 'buildTool', value: 'DOTNET', reason: 'Orders.sln found (C# / .NET)' },
+      ],
+    };
+    const autoResolved = () =>
+      [...pane().querySelectorAll('table.auto-resolved tbody tr')].map((row) =>
+        [...row.querySelectorAll('td')].map(text),
+      );
+
+    it('shows for MSBuild the .NET commands, its hint and what it renders, and keeps it when a scan finds C# / .NET', async () => {
+      await renderScanning(
+        dotnetScan,
+        service({
+          build: {
+            ...service().build,
+            tool: 'MSBUILD',
+            autoSetup: true,
+            javaPath: null,
+            command: command({ tasks: ['msbuild', 'Orders.sln', '/t:Build'] }),
+          },
+        }),
+      );
+      await open('Build');
+      const shown = [...pane().querySelectorAll('ov-form-field ov-label, ov-checkbox label, h4')]
+        .filter((label) => !label.closest('ov-advanced-settings'))
+        .map(text);
+
+      expect(shown.slice(0, 3)).toEqual(['Build tool', '.NET commands', 'Artifact path']);
+      expect(shown).not.toContain('JDK path');
+      expect(hints()[0]).toBe(
+        'Classic .NET Framework 4.x code (packages.config, projects without an Sdk attribute) built with NuGet.exe and MSBuild.exe on a Windows agent · buildTool',
+      );
+      expect(helpOf(field('Build tool'))).toContain('Written as buildTool: msbuild.');
+      expect(helpOf(field('.NET commands'))).toContain(
+        'restores with NuGet.exe and builds with MSBuild.exe /t:Build',
+      );
+      expect(helpOf(field('Flags'))).toContain(
+        'Options added to the automatic MSBuild.exe command',
+      );
+      expect(helpOf(field('Flags'))).toContain('not used when .NET commands are given');
+      expect(helpOf(field('Step label'))).toContain('Names the given .NET commands in Jenkins');
+      expect(helpOf(checkboxOf(pane(), 'Return the output').closest('ov-checkbox')!)).toContain(
+        'Not used for .NET: the library prints the output of every .NET step to the build log.',
+      );
+
+      await scanRepository();
+
+      expect(form.controls.build.controls.tool.value).toBe('MSBUILD');
+      expect(form.controls.build.controls.command.controls.tasks.value).toBe(
+        'msbuild Orders.sln /t:Build',
+      );
+      expect(text(pane())).toContain(
+        'Discovered stack: DOTNET (CSHARP), Target: VM The service keeps the build tool C# / .NET Framework (MSBuild): the scan found C# / .NET code',
+      );
+      expect(autoResolved()).toEqual([['buildTool', 'DOTNET', 'Orders.sln found (C# / .NET)']]);
+
+      await open('Unit tests and coverage');
+
+      expect(helpOf(field('.NET commands'))).toContain(
+        'runs the test assemblies with vstest.console.exe',
+      );
+      expect(helpOf(field('.NET commands'))).toContain('with none set, it skips the unit tests');
+
+      await open('SonarQube');
+
+      expect(helpOf(field('.NET commands'))).toContain('MSBuild.exe /t:Rebuild');
+      expect(inputOf(pane(), 'Flags').placeholder).toBe('/d:sonar.exclusions=**/Migrations/**');
+      expect(helpOf(field('Flags'))).toContain(
+        'Added to the begin step of the SonarScanner for .NET',
+      );
+    });
+
+    it('keeps a C# / .NET service on C# / .NET without a note when the scan finds C# / .NET', async () => {
+      await renderScanning(
+        dotnetScan,
+        service({ build: { ...service().build, tool: 'DOTNET', autoSetup: true, javaPath: null } }),
+      );
+      await scanRepository();
+
+      expect(form.controls.build.controls.tool.value).toBe('DOTNET');
+      expect(text(pane())).toContain('Discovered stack: DOTNET (CSHARP), Target: VM');
+      expect(text(pane())).not.toContain('The service keeps the build tool');
+      expect(autoResolved()).toEqual([['buildTool', 'DOTNET', 'Orders.sln found (C# / .NET)']]);
+
+      await open('Unit tests and coverage');
+
+      expect(helpOf(field('.NET commands'))).toContain('with none set, it skips the unit tests');
+    });
+
     it('tells a service in a subfolder of its repository where to give that folder', async () => {
       await render();
       await open('Build');
@@ -1153,12 +1248,17 @@ describe('ServiceFields', () => {
       },
     );
 
-    it.each(['VM', 'OPENSHIFT'] as const)(
-      'shows the NuGet feeds of a .NET service on %s, also with the Nexus delivery off',
-      async (target) => {
+    it.each([
+      ['DOTNET', 'VM'],
+      ['DOTNET', 'OPENSHIFT'],
+      ['MSBUILD', 'VM'],
+      ['MSBUILD', 'OPENSHIFT'],
+    ] as const)(
+      'shows the NuGet feeds of a .NET service (%s) on %s, also with the Nexus delivery off',
+      async (tool, target) => {
         await render(
           service({
-            build: { ...service().build, tool: 'DOTNET' },
+            build: { ...service().build, tool },
             deployment: { ...service().deployment, target },
           }),
         );

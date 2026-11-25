@@ -11,7 +11,8 @@ export type BuildTool =
   | 'NPM'
   | 'PIP'
   | 'ANDROID'
-  | 'IOS';
+  | 'IOS'
+  | 'MSBUILD';
 
 /**
  * Build tools for which the library runs whole command lines for the build and the unit tests, and the SonarScanner
@@ -20,11 +21,18 @@ export type BuildTool =
 export const scripted = (tool: BuildTool | null | undefined): boolean =>
   tool === 'NPM' || tool === 'PIP' || tool === 'IOS';
 
+/**
+ * Build tools the library builds as a .NET service, with the same .NET blocks (build.dotnet and the others): C# / .NET,
+ * whose mode it detects, and MSBuild, which it always builds with NuGet.exe and MSBuild.exe.
+ */
+export const dotnetTool = (tool: BuildTool | null | undefined): boolean =>
+  tool === 'DOTNET' || tool === 'MSBUILD';
+
 /** Build tools whose commands the library picks itself when the service gives none. */
 export const autoCommands = (tool: BuildTool | null | undefined): boolean =>
   tool === 'LIQUIBASE' ||
   tool === 'FLUTTER' ||
-  tool === 'DOTNET' ||
+  dotnetTool(tool) ||
   tool === 'SQL' ||
   scripted(tool);
 
@@ -38,7 +46,7 @@ export const releases = (tool: BuildTool | null | undefined): boolean =>
 
 /** Build tools that need a JDK on the agent. */
 export const needsJdk = (tool: BuildTool | null | undefined): boolean =>
-  tool !== 'LIQUIBASE' && tool !== 'DOTNET' && tool !== 'SQL' && !scripted(tool);
+  tool !== 'LIQUIBASE' && !dotnetTool(tool) && tool !== 'SQL' && !scripted(tool);
 
 /** The four places of a service that hold a command of its build tool, by the start of their keys. */
 export type CommandPath = 'build' | 'tests.unitTests' | 'tools.sonar' | 'asoc';

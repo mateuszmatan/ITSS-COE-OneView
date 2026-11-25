@@ -15,6 +15,7 @@ export const TOOL_LABELS: Record<BuildTool, string> = {
   FLUTTER: 'Flutter',
   LIQUIBASE: 'Liquibase (SQL / PL/SQL)',
   DOTNET: 'C# / .NET (dotnet or MSBuild)',
+  MSBUILD: 'C# / .NET Framework (MSBuild)',
   SQL: 'SQL / PL/SQL files (no changelog)',
   NPM: 'npm (Angular, Node.js)',
   PIP: 'pip (Python)',
@@ -29,6 +30,8 @@ export const TOOL_HINTS: Record<BuildTool, string> = {
   FLUTTER: 'The code has a pubspec.yaml file',
   LIQUIBASE: 'The code has changelog files (changelog.xml/yaml/sql) or liquibase.properties',
   DOTNET: 'The code has a .sln, .csproj, .fsproj or .vbproj file, global.json or packages.config',
+  MSBUILD:
+    'Classic .NET Framework 4.x code (packages.config, projects without an Sdk attribute) built with NuGet.exe and MSBuild.exe on a Windows agent',
   SQL: 'The code has only SQL and PL/SQL files (.sql, .pks, .pkb, ...) and no Liquibase changelog; the library writes the changelog',
   NPM: 'The code has a package.json or angular.json file at its root and no Gradle, Maven, .NET or Python build',
   PIP: 'The code has a requirements.txt, pyproject.toml, setup.py or Pipfile file',

@@ -87,6 +87,11 @@ final class ConfigInput {
         return entries;
     }
 
+    /** Whether the key holds a map, an empty one too, as a block the library reads in place of another. */
+    boolean holdsMap(String key) {
+        return valueAt(values, key) instanceof Map<?, ?>;
+    }
+
     /** Whether the key holds a value that nobody read and the portal would not write anyway. */
     boolean unread(String key) {
         Object value = valueAt(values, key);

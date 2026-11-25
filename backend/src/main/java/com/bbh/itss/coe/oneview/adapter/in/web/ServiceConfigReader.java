@@ -44,6 +44,7 @@ import static com.bbh.itss.coe.oneview.domain.catalog.BuildTool.GRADLE;
 import static com.bbh.itss.coe.oneview.domain.catalog.BuildTool.LIQUIBASE;
 import static com.bbh.itss.coe.oneview.domain.catalog.BuildTool.SQL;
 import static com.bbh.itss.coe.oneview.domain.catalog.BuildTool.MAVEN;
+import static com.bbh.itss.coe.oneview.domain.catalog.BuildTool.MSBUILD;
 import static com.bbh.itss.coe.oneview.domain.catalog.BuildTool.NPM;
 import static com.bbh.itss.coe.oneview.domain.catalog.BuildTool.PIP;
 import static com.bbh.itss.coe.oneview.domain.catalog.DeployTarget.VM;
@@ -169,8 +170,7 @@ final class ServiceConfigReader {
     /** The other names the library accepts for a build tool (BuildUtils.normalizeToolName). */
     private static final Map<String, String> TOOL_NAMES = toolNames();
     private static final Conversion BUILD_TOOL = value -> choice(BuildTool.values(), Enum::name)
-            .apply("msbuild".equalsIgnoreCase(text(value).trim()) ? "dotnet"
-                    : SQL_NAMES.contains(text(value).trim().toLowerCase(ROOT)) ? "sql"
+            .apply(SQL_NAMES.contains(text(value).trim().toLowerCase(ROOT)) ? "sql"
                     : TOOL_NAMES.getOrDefault(text(value).trim().toLowerCase(ROOT), text(value)));
     private static final Conversion COMMAND_LINES = value -> List.of(items(value, null).stream().map(String::trim)
             .filter(line -> !line.isEmpty()).collect(java.util.stream.Collectors.joining(" && ")).split("\\s+"));
@@ -193,6 +193,10 @@ final class ServiceConfigReader {
     private static final String MAVEN_HOME = "build.maven.mvnPath";
     private static final String DELIVERY = "delivery.nexusDeliveryEnabled";
     private static final String LEGACY_DELIVERY = "deploy.%s.rd.nexusDeliveryEnabled";
+    /** The tools of the command blocks, such as build.gradle, that the import reads or leaves out with a note. */
+    private static final List<BuildTool> BLOCK_TOOLS = List.of(GRADLE, MAVEN, LIQUIBASE, DOTNET, MSBUILD);
+    private static final String DOTNET_BLOCK = "imported as %s.dotnet: the library reads %s.dotnet for buildTool"
+            + " dotnet and msbuild alike";
     private static final List<Block> COMMAND_BLOCKS = List.of(new Block("build", "build.command"),
             new Block("tests.unitTests", "unitTests.command"), new Block("tools.sonar", "sonar.command"),
             new Block("asoc", "appScan.compileCommand"));
@@ -203,8 +207,10 @@ final class ServiceConfigReader {
     private static final Map<BuildTool, List<Rule>> COMMANDS = Map.of(
             GRADLE, concat(List.of(rule("tasks", "tasks", WORDS)), COMMAND),
             MAVEN, concat(List.of(rule("goals", "tasks", WORDS), rule("mvnPath", "mavenHome", TEXT)), COMMAND),
-            LIQUIBASE, concat(List.of(rule("commands", "tasks", WORDS), rule("tasks", "tasks", WORDS)), COMMAND),
-            DOTNET, concat(List.of(rule("commands", "tasks", WORDS), rule("tasks", "tasks", WORDS)), COMMAND));
+            LIQUIBASE, COMMAND, DOTNET, COMMAND);
+    /** The command keys of a Liquibase or .NET block in the order the library reads them; the first one set wins. */
+    private static final Map<BuildTool, List<String>> COMMAND_KEYS = Map.of(LIQUIBASE, List.of("commands", "tasks"),
+            DOTNET, List.of("commands", "tasks", "goals"));
     private static final List<Rule> TEST_JOB = concat(
             same(TEXT, "name", "remoteJenkins", "remoteJenkinsUrl", "credentialsId", "tokenCredentialsId"),
             same(FLAG, "abortTriggeredJob", "overrideTrustAllCertificates", "preventRemoteBuildQueue",
@@ -376,16 +382,33 @@ final class ServiceConfigReader {
 
     /**
      * Reads the command blocks of the service's build tool; a block of another tool is left out with a note, unless
-     * what it holds was read already.
+     * what it holds was read already, and so is a block that is not a map. Of the keys that hold the commands of a
+     * Liquibase or .NET block, the one the library reads first is imported and a later one is noted. A .NET service,
+     * C# / .NET or MSBuild, reads the block the library takes and writes it as the dotnet block, which the library
+     * reads for buildTool msbuild as well.
      */
     private static void readCommands(ConfigInput project, BuildTool tool, List<Block> blocks, ConfigTree request) {
         for (Block block : blocks) {
-            for (BuildTool blockTool : List.of(GRADLE, MAVEN, LIQUIBASE, DOTNET)) {
+            String taken = commandBlock(project, block.key(), tool);
+            for (BuildTool blockTool : BLOCK_TOOLS) {
                 String key = block.key() + "." + blockTool.name().toLowerCase(ROOT);
-                if (blockTool == BuildTool.commandsOf(tool)) {
-                    read(project, prefixed(key + ".", block.field() + ".", COMMANDS.get(blockTool)), request);
+                if (key.equals(taken)) {
+                    if (!project.holdsMap(key) && project.take(key) != null) {
+                        project.note(key, "not imported: expected a map");
+                        continue;
+                    }
+                    BuildTool rules = BuildTool.commandsOf(blockTool);
+                    readFirst(project, COMMAND_KEYS.getOrDefault(rules, List.of()).stream()
+                            .map(name -> key + "." + name).toList(), block.field() + ".tasks", WORDS, request);
+                    read(project, prefixed(key + ".", block.field() + ".", COMMANDS.get(rules)), request);
+                    if (blockTool == MSBUILD && request.get(block.field()) != null) {
+                        project.note(key, DOTNET_BLOCK.formatted(block.key(), block.key()));
+                    }
                 } else if (project.unread(key) && project.take(key) != null) {
-                    project.note(key, "not imported: the service builds with " + tool.name().toLowerCase(ROOT));
+                    project.note(key, !BuildTool.dotnet(tool) || !BuildTool.dotnet(blockTool)
+                            ? "not imported: the service builds with " + tool.name().toLowerCase(ROOT)
+                            : project.holdsMap(key) ? "not imported: " + taken + " wins over it"
+                            : "not imported: expected a map");
                 }
             }
         }
@@ -395,6 +418,21 @@ final class ServiceConfigReader {
         if (BuildTool.scripted(tool)) {
             readScripted(project, tool, request);
         }
+    }
+
+    /**
+     * The block whose commands the library runs for the build tool, such as build.gradle. For a .NET service it is the
+     * one DotnetProjectResolver.toolCfg takes: the msbuild block for buildTool msbuild when it is a map, else the
+     * dotnet block when it is one, else the msbuild block; for buildTool dotnet the dotnet block comes first.
+     */
+    private static String commandBlock(ConfigInput project, String path, BuildTool tool) {
+        String own = path + "." + BuildTool.commandsOf(tool).name().toLowerCase(ROOT);
+        if (!BuildTool.dotnet(tool)) {
+            return own;
+        }
+        String msbuild = path + "." + MSBUILD.name().toLowerCase(ROOT);
+        List<String> order = tool == MSBUILD ? List.of(msbuild, own) : List.of(own, msbuild);
+        return order.stream().filter(project::holdsMap).findFirst().orElse(own);
     }
 
     /**
@@ -449,6 +487,9 @@ final class ServiceConfigReader {
         List.of("python", "poetry", "pipenv").forEach(name -> names.put(name, "pip"));
         List.of("node", "nodejs", "yarn", "pnpm", "angular", "react", "vue").forEach(name -> names.put(name, "npm"));
         List.of("xcode", "swift", "cocoapods").forEach(name -> names.put(name, "ios"));
+        List.of("vs", "visualstudio", "netfx").forEach(name -> names.put(name, "msbuild"));
+        List.of("csharp", "c#", ".net", "net", "dotnet-cli", "fsharp", "vbnet", "cake", "nuke")
+                .forEach(name -> names.put(name, "dotnet"));
         names.put("mvn", "maven");
         names.put("gradlew", "gradle");
         names.put("dart", "flutter");
@@ -501,7 +542,8 @@ final class ServiceConfigReader {
         }
         for (BuildTool blockTool : List.of(GRADLE, MAVEN, LIQUIBASE, DOTNET)) {
             String key = "delivery." + blockTool.name().toLowerCase(ROOT);
-            if ((blockTool != tool || tool == GRADLE) && project.unread(key) && project.take(key) != null) {
+            boolean own = blockTool == tool || blockTool == DOTNET && tool == MSBUILD;
+            if ((!own || tool == GRADLE) && project.unread(key) && project.take(key) != null) {
                 project.note(key, tool == GRADLE && blockTool == GRADLE
                         ? "not imported: a Gradle service uploads with delivery.push.gradle"
                         : "not imported: the service builds with " + tool.name().toLowerCase(ROOT));
@@ -514,17 +556,17 @@ final class ServiceConfigReader {
         } else if (tool == NPM || tool == PIP) {
             read(project, concat(prefixed("delivery.push.maven.", "delivery.", COMMANDS.get(MAVEN)),
                     List.of(rule("delivery.push.maven.artifacts", "nexusDelivery.artifacts", ARTIFACTS))), request);
-        } else if (tool == DOTNET) {
+        } else if (BuildTool.dotnet(tool)) {
             readNugetDelivery(project, request);
         }
-        if (tool != DOTNET && project.unread("delivery.nuget") && project.take("delivery.nuget") != null) {
+        if (!BuildTool.dotnet(tool) && project.unread("delivery.nuget") && project.take("delivery.nuget") != null) {
             project.note("delivery.nuget", "not imported: the service builds with " + tool.name().toLowerCase(ROOT));
         }
         boolean releases = NexusDeliverySettings.releases(tool);
         if (releases && target == VM) {
             readRelease(project, tool, request);
         } else if (project.unread("delivery.release") && project.take("delivery.release") != null) {
-            project.note("delivery.release", tool == DOTNET
+            project.note("delivery.release", BuildTool.dotnet(tool)
                     ? "not imported: a .NET service releases its NuGet package to delivery.nuget.releaseSource"
                     : releases ? "not imported: an OpenShift service delivers its image, and stage 12 releases no"
                     + " artifact of it"

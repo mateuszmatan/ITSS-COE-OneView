@@ -46,6 +46,7 @@ import {
   commandParts,
   changesDatabase,
   databaseTool,
+  dotnetTool,
   mavenUpload,
   needsJdk,
   releases,
@@ -373,7 +374,7 @@ export function toNexusDelivery(
   const gradle = tool === 'GRADLE';
   const pulls = vm && (gradle || tool === 'MAVEN');
   const release = vm && releases(tool);
-  const dotnet = tool === 'DOTNET';
+  const dotnet = dotnetTool(tool);
   return {
     artifacts: vm && (gradle || mavenUpload(tool)) ? lines(v.artifacts, false) : [],
     group: pulls ? optional(v.group) : null,
@@ -1718,7 +1719,7 @@ function syncApplicability(form: ServiceForm): void {
   const gradle = tool === 'GRADLE';
   const nexusDelivery = !database && vm && (gradle || mavenUpload(tool)) && delivers;
   const pulls = nexusDelivery && (gradle || tool === 'MAVEN');
-  const nuget = !database && tool === 'DOTNET';
+  const nuget = !database && dotnetTool(tool);
   setEnabled(form.controls.delivery, nexusDelivery);
   const nexus = form.controls.nexusDelivery;
   setEnabled(nexus, nexusDelivery || nuget);

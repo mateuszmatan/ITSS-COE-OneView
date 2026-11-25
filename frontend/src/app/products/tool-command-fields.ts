@@ -1,5 +1,5 @@
 import { ChangeDetectionStrategy, Component, input } from '@angular/core';
-import { BuildTool, CommandPath, commandParts, scripted } from '../core/models';
+import { BuildTool, CommandPath, commandParts, dotnetTool, scripted } from '../core/models';
 import { Field, Fields, area, check, line, mono } from '@common/shared/fields';
 import { SHELL_SAFE_ERROR } from '@common/shared/form-controls';
 import { ToolCommandForm } from './product-form-model';
@@ -65,7 +65,13 @@ export function commandFields(
   }
   const maven = tool === 'MAVEN';
   const liquibase = tool === 'LIQUIBASE' || tool === 'SQL';
-  const dotnet = tool === 'DOTNET';
+  const dotnet = dotnetTool(tool);
+  const msbuild = tool === 'MSBUILD';
+  const unitTests = path === 'tests.unitTests';
+  const sonar = path === 'tools.sonar';
+  /** The library runs the automatic .NET unit tests only when the service writes a value under tests.unitTests. */
+  const dotnetSkip =
+    ' The Unit tests stage runs them only when the service sets a value under tests.unitTests, such as Test results, or a Directory or Flags under Advanced settings; with none set, it skips the unit tests.';
   const toolName = dotnet ? 'dotnet' : liquibase ? 'liquibase' : maven ? 'maven' : 'gradle';
   const key = `${path}.${toolName}`;
   const taskKey = liquibase || dotnet ? 'commands' : maven ? 'goals' : 'tasks';
@@ -76,15 +82,29 @@ export function commandFields(
       : maven
         ? 'Maven goals'
         : 'Gradle tasks';
-  const taskPlaceholder = dotnet
-    ? 'dotnet build MySolution.sln -c Release'
-    : liquibase
-      ? liquibaseExample
-      : maven
-        ? mavenExample
-        : gradleExample;
-  const taskHelp = dotnet
-    ? 'Optional full commands that replace the automatic .NET step. Left empty, the library detects the mode from the repository (dotnet SDK CLI, classic MSBuild + NuGet, hybrid, Cake or NUKE) and runs restore, build, test with coverage or the SonarScanner for .NET begin/build/end.'
+  const taskPlaceholder = msbuild
+    ? 'msbuild MySolution.sln /t:Build /p:Configuration=Release'
+    : dotnet
+      ? 'dotnet build MySolution.sln -c Release'
+      : liquibase
+        ? liquibaseExample
+        : maven
+          ? mavenExample
+          : gradleExample;
+  const taskHelp = msbuild
+    ? unitTests
+      ? 'Optional full commands that replace the automatic MSBuild unit tests. Left empty, the library runs the test assemblies with vstest.console.exe (dotnet test for SDK-style projects without them).' +
+        dotnetSkip
+      : sonar
+        ? 'Optional full commands that replace the build of the analysis. Left empty, the library wraps the .NET commands of the build in SonarScanner.MSBuild.exe begin and end, or, when those are empty too, its MSBuild build: NuGet.exe restore, then MSBuild.exe /t:Rebuild /p:Configuration=Release.'
+        : path === 'asoc'
+          ? 'Optional full commands that replace the automatic MSBuild build before the SAST scan. Left empty, the library runs the .NET commands of the build, or, when those are empty too, restores with NuGet.exe and builds with MSBuild.exe /t:Build /p:Configuration=Release.'
+          : 'Optional full commands that replace the automatic MSBuild build. Left empty, the library restores with NuGet.exe and builds with MSBuild.exe /t:Build /p:Configuration=Release.'
+    : dotnet
+      ? unitTests
+        ? 'Optional full commands that replace the automatic .NET unit tests. Left empty, the library runs the tests of the mode it detects from the repository (dotnet test, vstest.console.exe or both, Cake or NUKE) with coverage.' +
+          dotnetSkip
+        : 'Optional full commands that replace the automatic .NET step. Left empty, the library detects the mode from the repository (dotnet SDK CLI, classic MSBuild + NuGet, hybrid, Cake or NUKE) and runs restore and build, or the SonarScanner for .NET begin/build/end.'
     : liquibase
     ? path === 'tools.sonar'
       ? 'SonarScanner runs automatically for SQL and PL/SQL files; set Flags under Advanced settings when overriding -Dsonar.sources, -Dsonar.inclusions, or -Dsonar.plsql.file.suffixes.'
@@ -96,6 +116,14 @@ export function commandFields(
     : maven
       ? 'The goals the step passes to Maven: the mvn of the Maven home, otherwise ./mvnw when the repository has it, otherwise the mvn of the agent.'
       : 'The tasks the step passes to the Gradle wrapper (./gradlew) of the repository.';
+  /** The library adds the flags of a .NET step to its automatic commands only, never to given .NET commands. */
+  const dotnetFlagsHelp = sonar
+    ? `Added to the begin step of the SonarScanner for .NET, such as /d:sonar.exclusions=**/Migrations/**. While neither the SonarQube nor the build .NET commands are given, the library also adds them to the build of the analysis (${msbuild ? 'MSBuild.exe' : 'MSBuild.exe or dotnet build'}), in place of the Flags of the build; to pass /d: properties to the begin step only, write the build of the analysis in the .NET commands of SonarQube.`
+    : unitTests
+      ? `Options added to the automatic ${msbuild ? 'vstest.console.exe or dotnet test' : 'test runner'} command; not used when .NET commands are given, which run as they are written.`
+      : path === 'asoc'
+        ? `Options added to the automatic ${msbuild ? 'MSBuild.exe' : '.NET'} build before the SAST scan, such as /m; left empty, the Flags of the build apply. Not used when the AppScan or the build .NET commands are given.`
+        : `Options added to the automatic ${msbuild ? 'MSBuild.exe' : 'MSBuild.exe, dotnet build, Cake or NUKE'} command, such as /m; not used when .NET commands are given, which run as they are written.`;
   return [
     mono(
       'tasks',
@@ -134,7 +162,9 @@ export function commandFields(
         : maven
           ? '-B'
           : dotnet
-            ? '-p:TreatWarningsAsErrors=false'
+            ? sonar
+              ? '/d:sonar.exclusions=**/Migrations/**'
+              : '-p:TreatWarningsAsErrors=false'
             : '--refresh-dependencies',
       hint: 'one per line',
       help:
@@ -142,7 +172,9 @@ export function commandFields(
           ? 'SonarScanner properties passed to sonar-scanner, such as -Dsonar.sources=db, -Dsonar.inclusions=**/*.sql,**/*.pkb, or -Dsonar.plsql.file.suffixes=.sql,.pls,.pks,.pkb.'
           : liquibase
             ? 'Liquibase options added before the command, such as --changelog-file=..., --defaults-file=..., or --url=offline:oracle.'
-            : 'Command line options added after the goals or tasks, such as system properties or profiles.',
+            : dotnet
+              ? dotnetFlagsHelp
+              : 'Command line options added after the goals or tasks, such as system properties or profiles.',
     }),
     area('environment', 'Environment variables', `${key}.env`, 6, {
       mono: true,
@@ -151,11 +183,17 @@ export function commandFields(
       help: 'Environment variables set for this command only.',
     }),
     line('label', 'Step label', `${key}.label`, 6, {
-      hint: 'the name Jenkins shows for the step',
-      help: 'Left empty, the step is named after the tool and the command, for example Gradle: clean build.',
+      hint: dotnet
+        ? 'the name Jenkins shows for the .NET commands'
+        : 'the name Jenkins shows for the step',
+      help: dotnet
+        ? `Names the given .NET commands in Jenkins; left empty: .NET ${unitTests ? 'Test' : 'Build'}: and the commands. The automatic steps keep their own names, such as ${unitTests ? 'VSTest unit tests and dotnet test' : 'NuGet restore and MSBuild Build'}.`
+        : 'Left empty, the step is named after the tool and the command, for example Gradle: clean build.',
     }),
     check('returnStdout', 'Return the output to the pipeline', `${key}.returnStdout`, 6, {
-      help: 'Captures the console output of the command instead of printing it to the build log; the pipeline does not use the captured output.',
+      help: dotnet
+        ? 'Not used for .NET: the library prints the output of every .NET step to the build log.'
+        : 'Captures the console output of the command instead of printing it to the build log; the pipeline does not use the captured output.',
     }),
   ];
 }

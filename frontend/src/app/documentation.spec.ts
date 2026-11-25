@@ -131,6 +131,29 @@ describe('docs/documentation.md', () => {
     30_000,
   );
 
+  it.each<[BuildTool, DeployTarget]>([
+    ['DOTNET', 'VM'],
+    ['MSBUILD', 'VM'],
+    ['MSBUILD', 'OPENSHIFT'],
+  ])(
+    'names every devsecops_config.yaml key of a %s service on %s, the .NET keys included',
+    async (tool, target) => {
+      const codes = await serviceCodes(everyField(tool, target));
+
+      expect(codes).toEqual(
+        expect.arrayContaining([
+          'build.dotnet.commands',
+          'tests.unitTests.dotnet.commands',
+          'tools.sonar.dotnet.flags',
+          'asoc.dotnet.commands',
+          'delivery.nuget.source',
+        ]),
+      );
+      expect(undocumented(codes)).toEqual([]);
+    },
+    30_000,
+  );
+
   it('names every devsecops_config.yaml key of a LIQUIBASE service with database changes', async () => {
     const codes = await serviceCodes(everyField('LIQUIBASE', 'VM', true));
 

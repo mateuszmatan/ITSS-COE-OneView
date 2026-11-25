@@ -363,6 +363,41 @@ describe('the import into a service form', () => {
     });
   });
 
+  it('fills an MSBuild service with its .NET commands and NuGet feed, without a JDK', () => {
+    const stored = service();
+    const form = importedServiceForm(
+      {
+        ...file,
+        name: 'orders',
+        service: {
+          ...file.service,
+          build: {
+            ...stored.build,
+            tool: 'MSBUILD',
+            javaPath: null,
+            command: { ...stored.build.command, tasks: ['msbuild', 'Orders.sln', '/t:Build'] },
+          },
+          nexusDelivery: {
+            ...stored.nexusDelivery,
+            nugetSource: 'https://tools.bbh.com/nexus/repository/nuget-hosted/',
+          },
+        },
+      },
+      null,
+    );
+
+    expect(form.controls.build.controls.javaPath.valid).toBe(true);
+    expect(toServiceRequest(form)).toMatchObject({
+      name: 'orders',
+      build: {
+        tool: 'MSBUILD',
+        javaPath: null,
+        command: { tasks: ['msbuild', 'Orders.sln', '/t:Build'] },
+      },
+      nexusDelivery: { nugetSource: 'https://tools.bbh.com/nexus/repository/nuget-hosted/' },
+    });
+  });
+
   it('fills the Jenkins agents with those of the file until they are changed by hand', () => {
     const agents = new FormControl('linux-agent', { nonNullable: true });
 

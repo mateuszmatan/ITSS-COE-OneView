@@ -9,7 +9,6 @@ import java.util.List;
 import java.util.Map;
 
 import static com.bbh.itss.coe.oneview.domain.catalog.BuildTool.ANDROID;
-import static com.bbh.itss.coe.oneview.domain.catalog.BuildTool.DOTNET;
 import static com.bbh.itss.coe.oneview.domain.catalog.BuildTool.GRADLE;
 import static com.bbh.itss.coe.oneview.domain.catalog.BuildTool.LIQUIBASE;
 import static com.bbh.itss.coe.oneview.domain.catalog.BuildTool.SQL;
@@ -65,8 +64,8 @@ public record ToolCommand(List<String> tasks, List<String> flags, String directo
                     .set(block + "env", environmentMap())
                     .set(block + "label", label)
                     .flag(block + "returnStdout", returnStdout);
-        } else if (tool == LIQUIBASE || tool == DOTNET || tool == SQL && !RUN_BY_THE_LIBRARY.contains(path)) {
-            String block = path + (tool == DOTNET ? ".dotnet." : ".liquibase.");
+        } else if (tool == LIQUIBASE || BuildTool.dotnet(tool) || tool == SQL && !RUN_BY_THE_LIBRARY.contains(path)) {
+            String block = path + (BuildTool.dotnet(tool) ? ".dotnet." : ".liquibase.");
             config.set(block + "commands", tasks)
                     .set(block + "flags", flags)
                     .set(block + "dir", directory)

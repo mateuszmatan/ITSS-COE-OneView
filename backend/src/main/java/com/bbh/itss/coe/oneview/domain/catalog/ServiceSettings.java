@@ -10,7 +10,6 @@ import java.util.List;
 import java.util.Map;
 import java.util.function.Predicate;
 
-import static com.bbh.itss.coe.oneview.domain.catalog.BuildTool.DOTNET;
 import static com.bbh.itss.coe.oneview.domain.catalog.BuildTool.FLUTTER;
 import static com.bbh.itss.coe.oneview.domain.catalog.BuildTool.LIQUIBASE;
 import static com.bbh.itss.coe.oneview.domain.catalog.BuildTool.SQL;
@@ -129,7 +128,7 @@ public record ServiceSettings(BuildSettings build, NodeBuildSettings nodeBuild, 
         if (deploys && deployment.nexusDeliveryDisabled()) {
             config.set("delivery.nexusDeliveryEnabled", false);
         }
-        if (deploys && tool == DOTNET) {
+        if (deploys && BuildTool.dotnet(tool)) {
             nexusDelivery.writeNugetTo(config);
         }
         if (tool == FLUTTER) {
@@ -178,7 +177,7 @@ public record ServiceSettings(BuildSettings build, NodeBuildSettings nodeBuild, 
         if (deploys && deployment.deliversToNexus(VM)) {
             nexusDelivery.validate(problems.at("nexusDelivery"), problems.at("delivery"), tool, delivery);
         }
-        if (deploys && tool == DOTNET) {
+        if (deploys && BuildTool.dotnet(tool)) {
             nexusDelivery.validateNuget(problems.at("nexusDelivery"));
         }
         if (deploys) {

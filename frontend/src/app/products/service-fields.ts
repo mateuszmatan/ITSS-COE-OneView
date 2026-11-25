@@ -24,6 +24,7 @@ import {
   Region,
   ResolvedParameter,
   databaseTool,
+  dotnetTool,
   mavenUpload,
   releases,
   scripted,
@@ -89,7 +90,12 @@ const KNOWN_TOOLS: readonly BuildTool[] = [
   'PIP',
   'ANDROID',
   'IOS',
+  'MSBUILD',
 ];
+
+/** What the build tool MSBuild renders and how it differs from C# / .NET. */
+const MSBUILD_HELP =
+  'Written as buildTool: msbuild. The library always builds with NuGet.exe and MSBuild.exe; choose C# / .NET to let it pick dotnet, MSBuild or both from the projects and the agent.';
 
 const REGION_NAMES: Record<Region, string> = {
   RD: 'RD, the lower test region',
@@ -902,6 +908,11 @@ export class ServiceFields {
     return mavenUpload(this.tool()) ? 'MAVEN' : this.tool();
   }
 
+  /** Whether the library builds the service as a .NET service: C# / .NET or MSBuild, with the same .NET blocks. */
+  protected dotnet(): boolean {
+    return dotnetTool(this.tool());
+  }
+
   /** Whether the library runs whole command lines for the build tool: npm, pip and iOS. */
   protected scripted(): boolean {
     return scripted(this.tool());
@@ -935,7 +946,9 @@ export class ServiceFields {
     return [
       choice('tool', 'Build tool', BUILD_TOOLS, 'buildTool', 6, {
         hint: TOOL_HINTS[this.tool()],
-        help: 'The tool that builds the service. It decides which commands, test reports and artifacts the pipeline expects.',
+        help:
+          'The tool that builds the service. It decides which commands, test reports and artifacts the pipeline expects.' +
+          (this.tool() === 'MSBUILD' ? ` ${MSBUILD_HELP}` : ''),
       }),
     ];
   }
@@ -1695,14 +1708,17 @@ export class ServiceFields {
 
   /**
    * Fills the form from the scanned repository. A service with database changes keeps its build tool, its commands
-   * and its hidden deployment settings, since the scan takes the build tool from the repository root. Returns the
-   * note for the success message when such a service keeps Liquibase although the scan found another build tool,
-   * otherwise null.
+   * and its hidden deployment settings, since the scan takes the build tool from the repository root. A service that
+   * builds with MSBuild keeps it when the scan finds C# / .NET, which the scan cannot tell from it. Returns the note
+   * for the success message when such a service keeps Liquibase although the scan found another build tool, or an
+   * MSBuild service keeps MSBuild although the scan found C# / .NET, otherwise null.
    */
   private applyDiscoveredStack(stack: DiscoveredStack): string | null {
     const database = formChangesDatabase(this.form());
     const c = this.form().controls;
-    const tool = KNOWN_TOOLS.find((known) => known === stack.buildTool);
+    const scanned = KNOWN_TOOLS.find((known) => known === stack.buildTool);
+    const keepsMsbuild = scanned === 'DOTNET' && c.build.controls.tool.value === 'MSBUILD';
+    const tool = keepsMsbuild ? 'MSBUILD' : scanned;
     if (!database) {
       if (tool) {
         const previous = c.build.controls.tool.value;
@@ -1734,6 +1750,9 @@ export class ServiceFields {
     }
     if (stack.sonarProjectKey && !c.sonar.controls.projectKey.value) {
       c.sonar.controls.projectKey.setValue(stack.sonarProjectKey);
+    }
+    if (keepsMsbuild) {
+      return `The service keeps the build tool ${TOOL_LABELS.MSBUILD}: the scan found C# / .NET code, and it cannot tell classic .NET Framework code from SDK-style code.`;
     }
     if (!database || !stack.buildTool || stack.buildTool === 'LIQUIBASE' || stack.buildTool === 'SQL') {
       return null;

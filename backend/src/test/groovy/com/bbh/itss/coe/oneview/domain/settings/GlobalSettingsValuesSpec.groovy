@@ -228,6 +228,9 @@ class GlobalSettingsValuesSpec extends Specification {
         problems(copy(BBH, database: databaseDefaults())) == []
         problems(copy(BBH, serviceDefaults: copy(BBH.serviceDefaults(), buildTool: BuildTool.SQL)))*.field() ==
                 ['serviceDefaults.buildTool']
+        def msbuild = copy(BBH, serviceDefaults: copy(BBH.serviceDefaults(), buildTool: BuildTool.MSBUILD))
+        problems(msbuild) == []
+        msbuild.defaultsConfig().buildTool == 'msbuild'
     }
 
     private static List<FieldProblem> problems(GlobalSettingsValues values) {

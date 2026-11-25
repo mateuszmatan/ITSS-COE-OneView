@@ -353,6 +353,7 @@ describe('GlobalSettingsPage', () => {
       'Maven',
       'Flutter',
       'C# / .NET (dotnet or MSBuild)',
+      'C# / .NET Framework (MSBuild)',
       'npm (Angular, Node.js)',
       'pip (Python)',
       'Android (Gradle)',

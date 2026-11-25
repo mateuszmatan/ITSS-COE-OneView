@@ -185,6 +185,11 @@ only while they are set. Chapter 7 of the guide describes both kinds of Liquibas
 PL/SQL files without a changelog (`buildTool: sql`) always changes a database: it renders the same `database` block
 without `changelogFile` and no `build.liquibase` or `tests.unitTests.liquibase` commands, because the library writes
 the changelog `dso-changelog.xml` and runs Liquibase itself.
+A C# / .NET service (`buildTool: dotnet`) and an MSBuild service (`buildTool: msbuild`) render their commands under
+`build.dotnet`, `tests.unitTests.dotnet`, `tools.sonar.dotnet` and `asoc.dotnet`, which the library reads for
+`msbuild` as well when no `.msbuild` block is given. The library builds an MSBuild service with NuGet.exe and
+MSBuild.exe, and chooses for a C# / .NET service between the dotnet command line, MSBuild and both from its projects
+and the agent.
 
 ## Importing a service from a config file
 
@@ -199,7 +204,12 @@ switched off with its values. `nexusDeliveryEnabled` is read only from the secti
 The file may hold at most 262,144 characters and 50 projects. A malformed file is refused with the line and column of
 the problem, never with its text; so is a file that names no project setting (a `docker-compose.yml`, for example) or
 holds an alias inside the value it refers to. A `liquibase` project imports its `database` block; database passwords,
-users inside JDBC URLs and production targets are never imported. The call stores nothing, so the action history does
+users inside JDBC URLs and production targets are never imported. `buildTool` takes every name the library accepts:
+`msbuild`, `vs`, `visualstudio` and `netfx` become MSBuild, the other .NET names, such as `csharp` or `cake`, become
+C# / .NET. A .NET service reads the `.msbuild` or `.dotnet` block of `build`, `tests.unitTests`, `tools.sonar` and
+`asoc` that the library takes, and a note says when an `.msbuild` block is rendered as the `.dotnet` block. Of the
+`commands`, `tasks` and `goals` of such a block, and of the `commands` and `tasks` of a Liquibase block, the first one
+set is imported, as the library runs it, and the others are noted. The call stores nothing, so the action history does
 not record it.
 
 ## Repo Auto-Discovery and Bitbucket PR Decoration
@@ -307,13 +317,17 @@ with who, what, when and the result, and shown under Action history.
 - Changeset 048 adds `DEPARTMENT_ID` and `PRODUCT_ID` to `DSO_ACTION_LOG`, so the Action history follows the business
   service and the application chosen. Earlier entries keep both empty and are matched by the name of their business
   service; a rollback drops the columns and their indexes.
+- Changeset 050 adds the build tool `MSBUILD` (C# / .NET Framework (MSBuild), `buildTool: msbuild`) to
+  `CK_DSO_SERVICE_BUILD_TOOL` and `CK_DSO_GLOBAL_BUILD_TOOL`. Every service and the Library defaults keep their build
+  tool and render as before; a service imported from `buildTool: msbuild` before stays C# / .NET until MSBuild is
+  chosen for it. A rollback stops at the build tool checks while a service or the Library defaults have the build tool
+  `MSBUILD`: change those, then run the same rollback again.
 
 ## Known gaps
 
 The prioritised list of open work for the portal and the library is [TODO.md](TODO.md); the overview for senior
 management is [docs/MANAGEMENT_OVERVIEW.md](docs/MANAGEMENT_OVERVIEW.md).
 
-- An import of `msbuild` becomes `dotnet`: the portal has no build tool MSBuild of its own.
 - The portal has no sign-in yet, so every action is recorded as the default administrator. BBH single sign-on and
   roles come later; until then the portal must stay inside the test network.
 - A new Liquibase service gets the build command `updateSQL` without flags, which fails unless flags or a
@@ -322,3 +336,11 @@ management is [docs/MANAGEMENT_OVERVIEW.md](docs/MANAGEMENT_OVERVIEW.md).
 - The extra Liquibase step of a Gradle or Maven service (`build.liquibase`, `tests.unitTests.liquibase`), which the
   library runs, has no field; an import notes it as not imported. `delivery.liquibase` and
   `tools.sonar.sonarScannerVersion` of a Liquibase project are read by the import but not rendered.
+- The .NET settings that choose the mode, the solution, the configuration and platform, the paths of the tools, the
+  test runner and the coverage tool (`build.dotnet.mode`, `useDotnetCli`, `solution`, `configuration`, `platform`,
+  `msbuildPath`, `nugetPath`, `msbuildTarget`, `useMsbuildRestore`, `tests.unitTests.dotnet.runner`, `coverageTool`,
+  `tools.sonar.useGenericScanner`, `sonarScannerMsbuildPath` and others), which the library reads, have no field; an
+  import notes them as not imported. A service that needs one of the build, unit test or AppScan settings writes its
+  whole commands instead; the SonarQube .NET commands replace only the build between the begin and end steps of the
+  SonarScanner for .NET, so `tools.sonar.useGenericScanner` and `sonarScannerMsbuildPath` have no workaround in the
+  portal yet (TODO 3.8).

@@ -6,10 +6,12 @@ import static com.bbh.itss.coe.oneview.domain.catalog.BitbucketAuthType.BASIC
 import static com.bbh.itss.coe.oneview.domain.catalog.BitbucketAuthType.BEARER
 import static com.bbh.itss.coe.oneview.domain.catalog.BitbucketType.CLOUD
 import static com.bbh.itss.coe.oneview.domain.catalog.BitbucketType.SERVER
+import static com.bbh.itss.coe.oneview.domain.catalog.BuildTool.DOTNET
 import static com.bbh.itss.coe.oneview.domain.catalog.BuildTool.FLUTTER
 import static com.bbh.itss.coe.oneview.domain.catalog.BuildTool.GRADLE
 import static com.bbh.itss.coe.oneview.domain.catalog.BuildTool.LIQUIBASE
 import static com.bbh.itss.coe.oneview.domain.catalog.BuildTool.MAVEN
+import static com.bbh.itss.coe.oneview.domain.catalog.BuildTool.MSBUILD
 import static com.bbh.itss.coe.oneview.domain.catalog.DeployTarget.OPENSHIFT
 import static com.bbh.itss.coe.oneview.domain.catalog.DeployTarget.VM
 import static com.bbh.itss.coe.oneview.domain.catalog.MetricsSettings.DEFAULTS
@@ -58,6 +60,17 @@ class ConfigSectionsSpec extends Specification {
                  build    : [liquibase: [commands: ['updateSQL'], flags: ['--changelog-file=changelog.xml']]]]
     }
 
+    def "a #tool build is written as buildTool #name with its commands under build.dotnet, which the library reads for both"() {
+        expect:
+        written(new BuildSettings(tool, 'src', null, false, null, ToolCommand.of(['msbuild Orders.sln /t:Build'], ['/m']))) ==
+                [buildTool: name, sourceDir: 'src', build: [dotnet: [commands: ['msbuild Orders.sln /t:Build'], flags: ['/m']]]]
+
+        where:
+        tool    || name
+        DOTNET  || 'dotnet'
+        MSBUILD || 'msbuild'
+    }
+
     def "a #tool build with java path #javaPath, auto setup #autoSetup and tasks #tasks reports #fields"() {
         expect:
         problems(new BuildSettings(tool, null, javaPath, autoSetup, null, ToolCommand.of(tasks, []))) == fields
@@ -77,6 +90,9 @@ class ConfigSectionsSpec extends Specification {
         FLUTTER   | '/jdk'   | true      | []            || ['autoSetup']
         FLUTTER   | null     | true      | []            || ['javaPath', 'autoSetup']
         FLUTTER   | '/jdk'   | false     | []            || []
+        DOTNET    | null     | false     | []            || []
+        MSBUILD   | null     | false     | []            || []
+        MSBUILD   | null     | false     | ['msbuild']   || []
     }
 
     def "OpenShift deployment needs the application name, and the artifact name while it delivers to Nexus"() {
@@ -151,6 +167,8 @@ class ConfigSectionsSpec extends Specification {
         GRADLE    || 'gradle'    | [gradle: [tasks: ['compile']]]
         MAVEN     || 'maven'     | [maven: [goals: ['compile'], mvnPath: '/opt/maven']]
         LIQUIBASE || 'liquibase' | [liquibase: [commands: ['compile']]]
+        DOTNET    || 'dotnet'    | [dotnet: [commands: ['compile']]]
+        MSBUILD   || 'dotnet'    | [dotnet: [commands: ['compile']]]
         FLUTTER   || 'none'      | null
     }
 
@@ -208,6 +226,7 @@ class ConfigSectionsSpec extends Specification {
                                  maven           : [goals: ['sonar:sonar'], flags: ['-Dsonar.branch.name=main']]]]]
         written { sonar.writeTo(it, GRADLE) }.tools.sonar.gradle == [tasks: ['sonar:sonar'], flags: ['-Dsonar.branch.name=main']]
         written { sonar.writeTo(it, LIQUIBASE) }.tools.sonar.liquibase == [commands: ['sonar:sonar'], flags: ['-Dsonar.branch.name=main']]
+        written { sonar.writeTo(it, MSBUILD) }.tools.sonar.dotnet == [commands: ['sonar:sonar'], flags: ['-Dsonar.branch.name=main']]
         written { sonar.writeTo(it, FLUTTER) }.tools.sonar.keySet() as List ==
                 ['projectName', 'projectKey', 'installationName', 'credentialsId', 'authToken', 'badgeToken', 'addBadges',
                  'fullBadges']
@@ -244,6 +263,8 @@ class ConfigSectionsSpec extends Specification {
         MAVEN     | 'cert' | ['sonar:sonar'] || []
         GRADLE    | 'cert' | ['sonarqube']   || []
         LIQUIBASE | 'cert' | ['sonar']       || []
+        DOTNET    | 'cert' | []              || []
+        MSBUILD   | 'cert' | []              || []
     }
 
     def "a SonarQube command that sets only a step label or the output switch needs its tasks without a project key too"() {

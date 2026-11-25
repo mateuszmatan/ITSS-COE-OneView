@@ -1279,12 +1279,17 @@ describe('toServiceRequest', () => {
     },
   );
 
-  it.each(['VM', 'OPENSHIFT'] as const)(
-    'sends the NuGet feeds of a .NET service on %s, with the Nexus delivery on and off',
-    (target) => {
+  it.each([
+    ['DOTNET', 'VM'],
+    ['DOTNET', 'OPENSHIFT'],
+    ['MSBUILD', 'VM'],
+    ['MSBUILD', 'OPENSHIFT'],
+  ] as const)(
+    'sends the NuGet feeds of a .NET service (%s) on %s, with the Nexus delivery on and off',
+    (tool, target) => {
       const form = createServiceForm(
         service({
-          build: { ...service().build, tool: 'DOTNET' },
+          build: { ...service().build, tool },
           deployment: { ...service().deployment, target },
         }),
       );
@@ -1785,6 +1790,29 @@ describe('followToolDefaults', () => {
     build.buildPath.setValue('');
     build.tool.setValue('GRADLE');
     expect(values()).toEqual(['clean package', 'build/libs/*.jar']);
+  });
+
+  it('leaves the template Gradle build out for MSBuild and keeps the .NET commands between C# / .NET and MSBuild', () => {
+    const form = createServiceForm();
+    const build = form.controls.build.controls;
+    build.tool.setValue('GRADLE');
+    build.buildPath.setValue('build/libs/*.jar');
+    build.command.controls.tasks.setValue('clean build');
+    TestBed.runInInjectionContext(() => followToolDefaults(form, serviceTemplate()));
+    const values = () => [build.command.controls.tasks.value, build.buildPath.value];
+
+    build.tool.setValue('MSBUILD');
+    expect(values()).toEqual(['', '']);
+
+    build.command.controls.tasks.setValue('msbuild Orders.sln /t:Build');
+    build.tool.setValue('DOTNET');
+    expect(values()).toEqual(['msbuild Orders.sln /t:Build', '']);
+    build.tool.setValue('MSBUILD');
+    expect(values()).toEqual(['msbuild Orders.sln /t:Build', '']);
+    expect(toServiceRequest(form).build).toMatchObject({
+      tool: 'MSBUILD',
+      command: { tasks: ['msbuild', 'Orders.sln', '/t:Build'] },
+    });
   });
 
   it.each([
