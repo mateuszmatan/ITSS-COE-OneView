@@ -5,6 +5,7 @@ plugins {
 
 apply plugin: 'base'
 apply from: 'gradle/documentation.gradle'
+apply from: 'gradle/ci.gradle'
 
 allprojects {
     group = 'com.bbh.itss.coe'

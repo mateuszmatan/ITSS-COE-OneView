@@ -1,0 +1,51 @@
+/**
+ * The check of the CI build of OneView (ci/): ci/Jenkinsfile must compile as Groovy and, on Linux and
+ * macOS, ci/test/ci-scenarios.sh runs the scripts of ci/ against fakes, with its output in
+ * build/ci-check/ci-scenarios.log and at most 10 minutes. The CI build runs on Linux agents, so a Windows
+ * workstation only compiles the Jenkinsfile.
+ */
+def checkCi = tasks.register('checkCi') {
+    group = 'verification'
+    description = 'Compiles ci/Jenkinsfile and, on Linux and macOS, runs the scripts of ci/ against fakes (ci/test/ci-scenarios.sh).'
+    def root = layout.projectDirectory.asFile
+    inputs.dir('ci').withPathSensitivity(PathSensitivity.RELATIVE)
+    inputs.files(files('TODO.md', 'docs/MANAGEMENT_OVERVIEW.md', 'frontend/package.json',
+            fileTree('docs') { include 'USER_GUIDE_*' }, fileTree('tools'),
+            fileTree('backend/src/regressionTest/resources/regression') { include 'database-*.yaml' }))
+            .withPathSensitivity(PathSensitivity.RELATIVE)
+    def marker = layout.buildDirectory.file('ci-check/passed.txt')
+    def scenarioLog = layout.buildDirectory.file('ci-check/ci-scenarios.log')
+    outputs.file(marker)
+    doLast {
+        try {
+            new GroovyShell().parse(new File(root, 'ci/Jenkinsfile').getText('UTF-8'), 'Jenkinsfile')
+        } catch (org.codehaus.groovy.control.CompilationFailedException e) {
+            throw new GradleException("ci/Jenkinsfile does not compile: ${e.message}")
+        }
+        if (System.getProperty('os.name').toLowerCase().contains('windows')) {
+            logger.lifecycle('checkCi: ci/Jenkinsfile compiles; the scripts of ci/ run on the Linux agents of the CI build and not on Windows')
+        } else {
+            def logFile = scenarioLog.get().asFile
+            logFile.parentFile.mkdirs()
+            def process = new ProcessBuilder('bash', 'ci/test/ci-scenarios.sh').directory(root)
+                    .redirectErrorStream(true).redirectOutput(logFile)
+                    .redirectInput(ProcessBuilder.Redirect.from(new File('/dev/null'))).start()
+            if (!process.waitFor(10, java.util.concurrent.TimeUnit.MINUTES)) {
+                process.destroyForcibly()
+                throw new GradleException("ci/test/ci-scenarios.sh did not end within 10 minutes and was stopped; its output is in ${logFile}")
+            }
+            def output = logFile.getText('UTF-8')
+            if (process.exitValue() != 0) {
+                throw new GradleException("ci/test/ci-scenarios.sh failed (${logFile}):\n${output}")
+            }
+            logger.info(output)
+        }
+        def file = marker.get().asFile
+        file.parentFile.mkdirs()
+        file.text = 'passed\n'
+    }
+}
+
+tasks.named('check') {
+    dependsOn checkCi
+}

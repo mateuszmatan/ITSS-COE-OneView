@@ -25,6 +25,8 @@ This README is for developers. The people who use the portal read the
 | `deploy/openshift/` | Kustomize manifests with `rd`, `qc` and `prod` overlays, and [how to run the image](deploy/openshift/README.md) |
 | `examples/` | Jenkinsfiles, REST calls and a rendered configuration, see [examples/README.md](examples/README.md) |
 | `docs/` | the user and administrator guide in Markdown and the HTML page the build renders from it; the two user guides `USER_GUIDE_PORTAL` and `USER_GUIDE_WITHOUT_PORTAL`, which are the same files in the portal and in both branches of the library (`tools/render-user-guides.sh` renders their pages) |
+| `ci/` | the CI build of OneView, see [Continuous integration](#continuous-integration-ci) |
+| `tools/` | the scripts the three sources share: the rendering of the user guides and `check-shared-files.sh`, which compares the shared files with both branches of the library |
 
 ## Build and tests
 
@@ -42,7 +44,7 @@ It needs Java 21, and Node.js 20.19 or a later 20.x with npm 10.8 or a later 10.
 | `./gradlew regressionTest` | the API end to end on H2, and the GUI journeys in Chromium against a stub API | 1 min 20 s |
 | `./gradlew smokeTest performanceTest` | start-up, health and every page; p95 latencies of the key calls | 55 s |
 | `./gradlew documentation` | renders `docs/documentation.md` to `docs/documentation.html` | seconds |
-| `./gradlew build` | the jar and every suite above, and `checkDocumentation` | 3 min 40 s from clean |
+| `./gradlew build` | the jar and every suite above, `checkDocumentation` and `checkCi` | 3 min 50 s from clean |
 
 Tests are Groovy and Spock; the Angular unit tests stay in Vitest. Smoke and performance tests cover the key functions
 only, regression the most important journeys. The GUI suites run in Chromium, which Playwright downloads once through
@@ -57,6 +59,34 @@ offline on Windows too. `checkDocumentation`, part of `check`, fails when `docs/
 the Markdown renders to, or when a link names a heading or a file that does not exist: run `./gradlew documentation`
 and commit both files. The Vitest spec `frontend/src/app/documentation.spec.ts` fails when a field shows a
 `devsecops_config.yaml` key chip that the guide does not name, so a new field needs a line in chapter 22 of the guide.
+
+### Continuous integration (`ci/`)
+
+`ci/Jenkinsfile` is the CI build of OneView. A multibranch job of the BBH Jenkins (Bitbucket Server branch source,
+Script Path `ci/Jenkinsfile`) runs it on every push and every pull request, and every night on `main`. Both branches
+of the library have a CI build of their own, also `ci/Jenkinsfile`.
+
+| Stage | What it does | When it fails |
+|-------|--------------|---------------|
+| Workspace | `git clean -ffdx` | never |
+| Tools | `ci/prepare.sh`: finds a JDK 21 (a folder with `bin/java` and `bin/javac`) and the Node.js and npm versions of `engines` in `frontend/package.json`, creates `build/ci/venv` with the newest Python 3.11 or later of the agent and the `markdown` version of `tools/requirements-docs.txt`, and writes `build/ci/env.sh` | a missing JDK 21, Node.js or npm stops the build; without a Python 3.11 or later or that `markdown` version the pages of the shared user guides are not rendered again |
+| Build and tests | `ci/build.sh`: `./gradlew --no-daemon --continue build`, with its log in `build/ci/build.log`, then `ci/changed-files.sh` | FAILURE when a test or check fails or the build changed a committed file |
+| Shared files | checks out `DSOEnhancedWithoutPortal` and `main` of the library and runs `tools/check-shared-files.sh` | UNSTABLE by default (`CI_SHARED_FILES=warn`), FAILURE with `fail`, not run with `skip` |
+
+The build publishes the JUnit files of the backend, the GUI suites and the shared files and archives the logs, the
+diff of changed files, the reports and the front-end coverage. Its parameters only apply to a run started with *Build
+with Parameters*; a value left empty is not passed on: `CI_AGENT` (empty: the global variable `ONEVIEW_CI_AGENT`, then
+`linux-agent`), `CI_JAVA_HOME` and `CI_NODE_HOME` (tried before `JAVA_HOME` and the `PATH` of the agent),
+`CI_BROWSER` (`-Dfrontend.browser`), `CI_PERFORMANCE_FACTOR` (`-Dperformance.factor`), `CI_PIP_INDEX_URL`,
+`CI_SHARED_FILES` and `CI_LIBRARY_REPOSITORY` (empty: `dsoenhanced.git` next to this repository). For `CI_JAVA_HOME`,
+`CI_NODE_HOME`, `CI_BROWSER` and `CI_PERFORMANCE_FACTOR`, a value that does not fit, such as a folder without a JDK 21,
+gets a `[CI] [WARN]` line and the next place is tried; a `CI_JAVA_HOME` or `CI_NODE_HOME` equal to that of the agent,
+or a `CI_PERFORMANCE_FACTOR` of 2, gets a `[CI] [INFO]` line. A `CI_AGENT` label that no agent has leaves the build
+waiting for one, and a wrong `CI_LIBRARY_REPOSITORY` makes the Shared files stage UNSTABLE (FAILURE with `fail`).
+`checkCi`, part of `check`, compiles `ci/Jenkinsfile` and, on Linux and macOS, runs the scripts of `ci/` against fakes
+(`ci/test/ci-scenarios.sh`, with its output in `build/ci-check/ci-scenarios.log`). Not verified on the BBH systems:
+the plugins (Bitbucket Branch Source, Pipeline, JUnit, Timestamper), the agent label and its tools, and whether
+`scm.userRemoteConfigs` needs a script approval.
 
 ## Running locally
 
