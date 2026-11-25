@@ -413,11 +413,13 @@ export const SETTINGS_PAGE: SettingsSection[] = [
               'Ticked, the full and security pipelines run the unit tests, Nexus IQ, SAST and SonarQube at ' +
               'the same time, as parallel branches of the Jenkins stage Static analysis. SAST compiles and ' +
               'queues its scans in a copy of the workspace, and SonarQube starts a service once its unit ' +
-              'tests have written the coverage. The findings, the release gate and the metrics stay the ' +
-              'same; the report shows how long the stages took one after another and in parallel. Unticked, ' +
-              'the four stages run one after another, as before. A Windows agent always runs them one after ' +
-              'another. The Jenkins environment variable DSO_STATIC_ANALYSIS_PARALLEL, when set to true or ' +
-              'false, overrides this box. A Jenkinsfile without a key does not follow this box: it runs the ' +
+              'tests have written the coverage. On a Windows agent the unit tests, Nexus IQ and SonarQube ' +
+              'also take turns on the workspace, as a .NET build there locks the files Nexus IQ scans. The ' +
+              'findings, the release gate and the metrics stay the same; the report shows how long the ' +
+              'stages took one after another and in parallel. Unticked, the four stages run one after ' +
+              'another, as before. The Jenkins environment variable DSO_STATIC_ANALYSIS_PARALLEL, when set ' +
+              'to true or false, overrides this box; false in the node properties of an agent keeps that ' +
+              'agent one after another. A Jenkinsfile without a key does not follow this box: it runs the ' +
               'stages at the same time unless DSO_STATIC_ANALYSIS_PARALLEL is false or a service of the run ' +
               'sets staticAnalysis.parallel: false in devsecops_config.yaml.',
           },
