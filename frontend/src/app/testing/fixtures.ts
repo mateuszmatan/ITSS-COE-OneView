@@ -70,6 +70,7 @@ export function service(overrides: Partial<Service> = {}): Service {
       autoSetup: false,
       buildPath: 'build/libs/*.jar',
       command: command({ tasks: ['clean', 'build'], flags: ['--refresh-dependencies'] }),
+      liquibase: command(),
     },
     nodeBuild: nodeBuild(),
     unitTests: {
@@ -82,6 +83,7 @@ export function service(overrides: Partial<Service> = {}): Service {
       cypressEnabled: false,
       cypressCommand: null,
       cypressReportsDir: null,
+      liquibase: command(),
     },
     tests: {
       maxParallel: null,
@@ -209,6 +211,7 @@ export function service(overrides: Partial<Service> = {}): Service {
       insecureTls: false,
       clientPath: null,
       compileCommand: command(),
+      liquibaseCompileCommand: command(),
       dastEnabled: false,
       dastTargetUrl: null,
       dastPresenceId: null,
@@ -225,6 +228,7 @@ export function service(overrides: Partial<Service> = {}): Service {
       fullBadges: false,
       command: command({ tasks: ['sonarqube'] }),
       serverUrl: null,
+      sonarScannerVersion: null,
     },
     nexusIq: { serverUrl: null, credentialsId: null },
     nexusIqApplications: [
@@ -291,7 +295,6 @@ export function service(overrides: Partial<Service> = {}): Service {
       sonarTests: null,
       sonarFlutterPlugin: false,
       dartAnalyzeCommand: null,
-      sonarScannerVersion: null,
     },
     ...overrides,
   };

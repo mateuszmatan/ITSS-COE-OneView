@@ -33,6 +33,24 @@ public enum BuildTool {
     }
 
     /**
+     * Whether the library runs a Liquibase step of the service after its build and after its unit tests
+     * (build.liquibase, tests.unitTests.liquibase): after a Gradle, Android or Maven build and after a .NET build,
+     * C# / .NET or MSBuild (BuildService.buildArtifact and unitTests).
+     */
+    public static boolean liquibaseStep(BuildTool tool) {
+        return tool == GRADLE || tool == MAVEN || tool == ANDROID || dotnet(tool);
+    }
+
+    /**
+     * Whether the AppScan compile runs a Liquibase step after the compile (asoc.liquibase, else build.liquibase): only
+     * after the Gradle or Maven compile on a Linux or macOS agent (AppScanService.generateIrx). The compile of an Android
+     * service stops before it, and the .NET compile runs none.
+     */
+    public static boolean liquibaseCompileStep(BuildTool tool) {
+        return tool == GRADLE || tool == MAVEN;
+    }
+
+    /**
      * The tool whose command blocks the service writes: an Android service builds with the Gradle wrapper, SQL and
      * PL/SQL files with Liquibase, and an MSBuild service writes the .NET blocks (build.dotnet and the others), which
      * the library reads for buildTool msbuild when the service has no msbuild block.

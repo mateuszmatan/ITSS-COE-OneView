@@ -178,6 +178,51 @@ class ServiceSettingsSpec extends Specification {
         written(settings(flutter: flutter)).get('flutter') == null
     }
 
+    def "a Flutter service writes its SonarScanner version among its Flutter SonarQube keys, as before, and any other service after its analysis command"() {
+        given:
+        def flutter = FlutterSettings.builder().platform(APK).modules(['app']).signingPasswordCredentialsId('sign')
+                .prodLicenseCredentialsId('prod-license').testLicenseCredentialsId('test-license').sonarSources('lib')
+                .dartAnalyzeCommand('flutter analyze').sonarFlutterPlugin(true).build()
+        def sonar = { ToolCommand command ->
+            SonarSettings.builder().projectKey('cert-app').command(command).sonarScannerVersion('5.0.1.3006').build()
+        }
+
+        when:
+        Map flutterSonar = written(settings(build: build(tool: FLUTTER, javaPath: null), flutter: flutter,
+                sonar: sonar(NONE))).get('tools.sonar')
+        Map gradleSonar = written(settings(sonar: sonar(command(['sonar'])))).get('tools.sonar')
+        Map dotnetSonar = written(settings(build: build(tool: BuildTool.DOTNET, javaPath: null, command: NONE),
+                sonar: sonar(NONE))).get('tools.sonar')
+
+        then:
+        flutterSonar.keySet() as List == ['projectKey', 'sources', 'dartAnalyzeCommand', 'sonarScannerVersion', 'flutterPlugin']
+        flutterSonar.sonarScannerVersion == '5.0.1.3006'
+        gradleSonar == [projectKey: 'cert-app', gradle: [tasks: ['sonar']], sonarScannerVersion: '5.0.1.3006']
+        dotnetSonar == [projectKey: 'cert-app']
+        reported(settings(build: build(tool: BuildTool.DOTNET, javaPath: null, command: NONE), sonar: sonar(NONE)))
+                *.field.findAll { it.startsWith('sonar.') } == ['sonar.sonarScannerVersion']
+    }
+
+    def "the Liquibase steps of a #tool service are checked under their sections"() {
+        given:
+        def step = ToolCommand.builder().label('Changelog').build()
+
+        when:
+        def problems = reported(settings(build: build(tool: tool, javaPath: '/jdk', command: command(['build']), liquibase: step),
+                unitTests: UnitTestSettings.builder().command(command(['test'])).liquibase(step).build(),
+                appScan: appScan(liquibaseCompileCommand: step))).findAll { it.field.toLowerCase().contains('liquibase') }
+
+        then:
+        problems*.field == ['build.liquibase.tasks', 'unitTests.liquibase.tasks', 'appScan.liquibaseCompileCommand.tasks']
+        problems*.message[0..1].unique() == ['add Liquibase commands or flags: without them the library skips the step']
+        problems*.message[2] == message
+
+        where:
+        tool             || message
+        GRADLE           || 'add Liquibase commands or flags: without them the library skips the step'
+        BuildTool.ANDROID || 'must be empty for Android: the library runs a Liquibase step of the scan only after the Gradle or Maven compile'
+    }
+
     def "each section reports its problems under its own name"() {
         given:
         def problems = new ValidationProblems()

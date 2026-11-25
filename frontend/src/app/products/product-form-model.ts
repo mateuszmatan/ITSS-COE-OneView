@@ -47,9 +47,12 @@ import {
   changesDatabase,
   databaseTool,
   dotnetTool,
+  liquibaseCompileStep,
+  liquibaseStep,
   mavenUpload,
   needsJdk,
   releases,
+  scannerVersion,
   scripted,
   pipelineTypeLabel,
 } from '../core/models';
@@ -228,6 +231,10 @@ export function createToolCommandForm(command?: Partial<ToolCommand> | null) {
 }
 
 export type ToolCommandForm = ReturnType<typeof createToolCommandForm>;
+
+/** Why a Liquibase step with values but neither commands nor flags is refused: the library would skip it. */
+export const LIQUIBASE_STEP_SKIPPED =
+  'Add Liquibase commands or flags: without them the library skips the step';
 
 export function toToolCommand(form: ToolCommandForm): ToolCommand {
   const v = form.getRawValue();
@@ -1110,6 +1117,7 @@ export function createServiceForm(s?: Partial<ServiceRequest>, defaults?: Servic
       autoSetup: flag(s?.build?.autoSetup),
       buildPath: shellSafe(s?.build?.buildPath, 500),
       command: createToolCommandForm(s?.build?.command),
+      liquibase: createToolCommandForm(s?.build?.liquibase),
     }),
     nodeBuild: new FormGroup({
       enabled: flag(node?.enabled),
@@ -1152,6 +1160,7 @@ export function createServiceForm(s?: Partial<ServiceRequest>, defaults?: Servic
       cypressEnabled: flag(s?.unitTests?.cypressEnabled),
       cypressCommand: text(s?.unitTests?.cypressCommand, max(500)),
       cypressReportsDir: text(s?.unitTests?.cypressReportsDir, max(500)),
+      liquibase: createToolCommandForm(s?.unitTests?.liquibase),
     }),
     tests: new FormGroup({
       maxParallel: parallel(s?.tests?.maxParallel),
@@ -1219,6 +1228,7 @@ export function createServiceForm(s?: Partial<ServiceRequest>, defaults?: Servic
       insecureTls: flag(s?.appScan?.insecureTls),
       clientPath: text(s?.appScan?.clientPath, Validators.pattern(POWERSHELL_PATH), max(500)),
       compileCommand: createToolCommandForm(s?.appScan?.compileCommand),
+      liquibaseCompileCommand: createToolCommandForm(s?.appScan?.liquibaseCompileCommand),
       dastEnabled: flag(s?.appScan?.dastEnabled),
       dastTargetUrl: url(s?.appScan?.dastTargetUrl),
       dastPresenceId: text(s?.appScan?.dastPresenceId, max(100)),
@@ -1252,6 +1262,11 @@ export function createServiceForm(s?: Partial<ServiceRequest>, defaults?: Servic
       fullBadges: flag(s?.sonar?.fullBadges),
       command: createToolCommandForm(s?.sonar?.command),
       serverUrl: url(s?.sonar?.serverUrl),
+      sonarScannerVersion: text(
+        s?.sonar?.sonarScannerVersion,
+        Validators.pattern(SCANNER_VERSION),
+        max(50),
+      ),
     }),
     nexusIq: new FormGroup({
       serverUrl: url(s?.nexusIq?.serverUrl),
@@ -1327,11 +1342,6 @@ export function createServiceForm(s?: Partial<ServiceRequest>, defaults?: Servic
       sonarTests: text(s?.flutter?.sonarTests, max(500)),
       sonarFlutterPlugin: flag(s?.flutter?.sonarFlutterPlugin),
       dartAnalyzeCommand: text(s?.flutter?.dartAnalyzeCommand, max(500)),
-      sonarScannerVersion: text(
-        s?.flutter?.sonarScannerVersion,
-        Validators.pattern(SCANNER_VERSION),
-        max(50),
-      ),
     }),
     database: createDatabaseForm(s?.database),
     databaseTargets: new FormGroup({
@@ -1457,6 +1467,7 @@ export function createServiceForm(s?: Partial<ServiceRequest>, defaults?: Servic
     () => !!optional(scm.controls.repositoryUrl.value),
     scm.controls.repositoryUrl,
   );
+  liquibaseSteps(form).forEach(requireLiquibaseStep);
   [
     build.controls.command.controls.tasks,
     form.controls.delivery.controls.tasks,
@@ -1660,6 +1671,7 @@ export function unitTestsConfigured(form: ServiceForm): boolean {
   const v = form.controls.unitTests.getRawValue();
   return (
     commandEntered(form.controls.unitTests.controls.command) ||
+    commandEntered(form.controls.unitTests.controls.liquibase) ||
     [v.resultPattern, v.rootDir, v.reportOutDir, v.cypressCommand, v.cypressReportsDir].some(
       (value) => !!optional(value),
     ) ||
@@ -1672,6 +1684,36 @@ function commandEntered(command: ToolCommandForm): boolean {
   return Object.values(command.getRawValue()).some((value) =>
     typeof value === 'string' ? !!optional(value) : value,
   );
+}
+
+/**
+ * The Liquibase steps of the service: after its build (build.liquibase), after its unit tests
+ * (tests.unitTests.liquibase) and after the compile of its AppScan scan (asoc.liquibase).
+ */
+function liquibaseSteps(form: ServiceForm): ToolCommandForm[] {
+  const c = form.controls;
+  return [
+    c.build.controls.liquibase,
+    c.unitTests.controls.liquibase,
+    c.appScan.controls.liquibaseCompileCommand,
+  ];
+}
+
+/**
+ * Refuses a Liquibase step that holds a value but neither commands nor flags: the library runs a step only when it
+ * has one of them (LiquibaseBuildRunner.hasLiquibaseStep), so the rest would be dropped without a word.
+ */
+function requireLiquibaseStep(step: ToolCommandForm): void {
+  const c = step.controls;
+  c.tasks.addValidators(() =>
+    commandEntered(step) && !optional(c.tasks.value) && !optional(c.flags.value)
+      ? { rule: LIQUIBASE_STEP_SKIPPED }
+      : null,
+  );
+  [c.flags, c.directory, c.environment, c.label, c.returnStdout].forEach((source) =>
+    revalidateOnChange(source, c.tasks),
+  );
+  c.tasks.updateValueAndValidity({ emitEvent: false });
 }
 
 /**
@@ -1704,6 +1746,16 @@ function syncApplicability(form: ServiceForm): void {
   setEnabled(form.controls.sonar.controls.command, !flutter);
   const appScan = form.controls.appScan.controls;
   setEnabled(appScan.compileCommand, !flutter && !scripted(tool) && appScan.compile.value);
+  const steps: [ToolCommandForm, boolean][] = [
+    [form.controls.build.controls.liquibase, liquibaseStep(tool)],
+    [form.controls.unitTests.controls.liquibase, liquibaseStep(tool)],
+    [appScan.liquibaseCompileCommand, liquibaseCompileStep(tool) && appScan.compile.value],
+  ];
+  steps.forEach(([step, runs]) => {
+    setEnabled(step, runs);
+    setEnabled(step.controls.mavenHome, false);
+  });
+  setEnabled(form.controls.sonar.controls.sonarScannerVersion, scannerVersion(tool));
   commandsByPath(form).forEach(([path, command]) => {
     const parts = commandParts(tool, path);
     if (command.enabled) {
@@ -1835,6 +1887,14 @@ function toToolCommandOf(form: ToolCommandForm, tool: BuildTool, path: CommandPa
         ...Object.fromEntries(Object.entries(command).filter(([key]) => parts.includes(key))),
       }
     : command;
+}
+
+/**
+ * A Liquibase step as the request sends it: empty for a build tool after which the library runs none, and without a
+ * Maven home, which the liquibase command does not read.
+ */
+function liquibaseStepOf(step: ToolCommandForm, runs: boolean): ToolCommand {
+  return runs ? { ...toToolCommand(step), mavenHome: null } : { ...NO_COMMAND };
 }
 
 function toolCommands(form: ServiceForm): ToolCommandForm[] {
@@ -2058,11 +2118,13 @@ export function toServiceRequest(form: ServiceForm): ServiceRequest {
       ...sent(v.build),
       sourceDir: optional(v.build.sourceDir) ?? '.',
       command: command(c.build.controls.command, !flutter, 'build'),
+      liquibase: liquibaseStepOf(c.build.controls.liquibase, liquibaseStep(tool)),
     },
     nodeBuild: toNodeBuild(c.nodeBuild, v.nodeBuild),
     unitTests: {
       ...sent(v.unitTests),
       command: command(c.unitTests.controls.command, !flutter, 'tests.unitTests'),
+      liquibase: liquibaseStepOf(c.unitTests.controls.liquibase, liquibaseStep(tool)),
     },
     tests: { ...v.tests },
     testJobs: c.testJobs.controls.map(toTestJob),
@@ -2085,12 +2147,17 @@ export function toServiceRequest(form: ServiceForm): ServiceRequest {
         !flutter && passesValidators(c.appScan.controls.compileCommand),
         'asoc',
       ),
+      liquibaseCompileCommand: liquibaseStepOf(
+        c.appScan.controls.liquibaseCompileCommand,
+        liquibaseCompileStep(tool) && passesValidators(c.appScan.controls.liquibaseCompileCommand),
+      ),
       dastTargetUrl: kept(c.appScan.controls.dastTargetUrl),
       dastPresenceId: kept(c.appScan.controls.dastPresenceId),
     },
     sonar: {
       ...sent(v.sonar),
       command: command(c.sonar.controls.command, !flutter, 'tools.sonar'),
+      sonarScannerVersion: scannerVersion(tool) ? kept(c.sonar.controls.sonarScannerVersion) : null,
     },
     nexusIq: sent(v.nexusIq),
     nexusIqApplications: v.nexusIqApplications.map((application) => ({

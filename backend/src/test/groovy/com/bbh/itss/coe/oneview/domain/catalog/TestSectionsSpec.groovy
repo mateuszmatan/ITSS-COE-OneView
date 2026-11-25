@@ -2,10 +2,17 @@ package com.bbh.itss.coe.oneview.domain.catalog
 
 import spock.lang.Specification
 
+import static com.bbh.itss.coe.oneview.domain.catalog.BuildTool.ANDROID
+import static com.bbh.itss.coe.oneview.domain.catalog.BuildTool.DOTNET
 import static com.bbh.itss.coe.oneview.domain.catalog.BuildTool.FLUTTER
 import static com.bbh.itss.coe.oneview.domain.catalog.BuildTool.GRADLE
+import static com.bbh.itss.coe.oneview.domain.catalog.BuildTool.IOS
 import static com.bbh.itss.coe.oneview.domain.catalog.BuildTool.LIQUIBASE
 import static com.bbh.itss.coe.oneview.domain.catalog.BuildTool.MAVEN
+import static com.bbh.itss.coe.oneview.domain.catalog.BuildTool.MSBUILD
+import static com.bbh.itss.coe.oneview.domain.catalog.BuildTool.NPM
+import static com.bbh.itss.coe.oneview.domain.catalog.BuildTool.PIP
+import static com.bbh.itss.coe.oneview.domain.catalog.BuildTool.SQL
 import static com.bbh.itss.coe.oneview.domain.catalog.TestJobType.LOCAL
 import static com.bbh.itss.coe.oneview.domain.catalog.TestJobType.REMOTE
 import static com.bbh.itss.coe.oneview.domain.catalog.TestSettings.DEFAULTS
@@ -15,11 +22,15 @@ import static com.bbh.itss.coe.oneview.domain.catalog.TestStage.SMOKE
 import static com.bbh.itss.coe.oneview.domain.catalog.UnitTestSettings.NONE
 import static com.bbh.itss.coe.oneview.domain.shared.Sections.messages
 import static com.bbh.itss.coe.oneview.domain.shared.Sections.problems
+import static com.bbh.itss.coe.oneview.domain.shared.Sections.reported
 import static com.bbh.itss.coe.oneview.domain.shared.Sections.written
 
 class TestSectionsSpec extends Specification {
 
     static final String REMOTE_URL = 'https://jenkins-qc.bbh.com/job/CERT/job/regression/'
+    static final ToolCommand STATUS = ToolCommand.builder().tasks(['status']).flags(['--changelog-file=db/changelog.xml'])
+            .environment(['LIQUIBASE_COMMAND_URL=offline:oracle']).label('Changelog status').build()
+    static final String SKIPPED = 'add Liquibase commands or flags: without them the library skips the step'
 
     def "unit test settings trim their paths and allow no empty results by default"() {
         expect:
@@ -90,6 +101,72 @@ class TestSectionsSpec extends Specification {
         'tasks'                    | LIQUIBASE | UnitTestSettings.builder().command(ToolCommand.of(['validate'], [])).build()                       || []
         'a result pattern'         | FLUTTER   | UnitTestSettings.builder().resultPattern('**/TEST-*.xml').allowEmptyResults(true).build()          || []
         'cypress enabled'          | GRADLE    | UnitTestSettings.builder().cypressEnabled(true).build()                                             || []
+    }
+
+    def "unit test settings start without a Liquibase step, and keep the one they are given"() {
+        expect:
+        NONE.liquibase() == ToolCommand.NONE
+        new UnitTestSettings(null, null, null, null, null, null).liquibase() == ToolCommand.NONE
+        new UnitTestSettings(null, null, null, null, null, null, null, null, null).liquibase() == ToolCommand.NONE
+        new UnitTestSettings(null, null, null, null, null, null, null, null, null, STATUS).liquibase() == STATUS
+    }
+
+    def "the Liquibase step after the unit tests of a #tool service is written under tests.unitTests.liquibase, after their command"() {
+        given:
+        def unitTests = UnitTestSettings.builder().command(ToolCommand.of([task], [])).resultPattern('**/TEST-*.xml')
+                .liquibase(STATUS).build()
+
+        when:
+        def written = written { unitTests.writeTo(it, tool) }.tests.unitTests
+
+        then:
+        written.keySet() as List == [block, 'liquibase', 'unitTestResult']
+        written.liquibase == [commands: ['status'], flags: ['--changelog-file=db/changelog.xml'],
+                              env     : [LIQUIBASE_COMMAND_URL: 'offline:oracle'], label: 'Changelog status']
+
+        where:
+        tool    || block    | task
+        GRADLE  || 'gradle' | 'test'
+        MAVEN   || 'maven'  | 'test'
+        ANDROID || 'gradle' | 'testReleaseUnitTest'
+        DOTNET  || 'dotnet' | 'dotnet test'
+        MSBUILD || 'dotnet' | 'vstest.console.exe Orders.Tests.dll'
+    }
+
+    def "the unit tests of a #tool service write no Liquibase step and refuse one, since the library runs none after them"() {
+        given:
+        def unitTests = UnitTestSettings.builder().liquibase(STATUS).build()
+
+        expect:
+        written { unitTests.writeTo(it, tool) } == [:]
+        reported { unitTests.validate(it, tool) }.collect { [it.field, it.message] } ==
+                [['liquibase.tasks', "must be empty for ${name}: the library runs a Liquibase step only after the unit".toString()
+                        + ' tests of a Gradle, Android, Maven or .NET service']]
+
+        where:
+        tool      || name
+        FLUTTER   || 'Flutter'
+        LIQUIBASE || 'Liquibase'
+        SQL       || 'SQL and PL/SQL files'
+        NPM       || 'npm'
+        PIP       || 'pip (Python)'
+        IOS       || 'iOS'
+    }
+
+    def "a Liquibase step after the unit tests of a #tool service that sets #description reports #fields"() {
+        expect:
+        reported { unitTests.validate(it, tool) }.collect { [it.field, it.message] } == fields
+
+        where:
+        description                       | tool    | unitTests                                                                                                                   || fields
+        'commands, with the test tasks'   | GRADLE  | UnitTestSettings.builder().command(ToolCommand.of(['test'], [])).liquibase(STATUS).build()                                 || []
+        'commands, without the test tasks' | GRADLE | UnitTestSettings.builder().liquibase(STATUS).build()                                                                        || [['command.tasks', 'add the Gradle tasks of the unit tests, for example test jacocoTestReport']]
+        'commands, without the test goals' | MAVEN  | UnitTestSettings.builder().liquibase(STATUS).build()                                                                        || [['command.tasks', 'add the Maven goals of the unit tests, for example test jacoco:report']]
+        'commands, without test commands' | DOTNET  | UnitTestSettings.builder().liquibase(STATUS).build()                                                                        || []
+        'flags only'                      | ANDROID | UnitTestSettings.builder().command(ToolCommand.of(['test'], [])).liquibase(ToolCommand.of([], ['--url=offline:oracle'])).build() || []
+        'only a step label'               | MAVEN   | UnitTestSettings.builder().command(ToolCommand.of(['test'], [])).liquibase(ToolCommand.builder().label('Status').build()).build() || [['liquibase.tasks', SKIPPED]]
+        'only the output switch'          | MSBUILD | UnitTestSettings.builder().liquibase(ToolCommand.builder().returnStdout(true).build()).build()                                || [['liquibase.tasks', SKIPPED]]
+        'a Maven home'                    | MAVEN   | UnitTestSettings.builder().command(ToolCommand.of(['test'], [])).liquibase(ToolCommand.builder().tasks(['status']).mavenHome('/opt/maven').build()).build() || [['liquibase.mavenHome', 'must be empty: the Liquibase step runs the liquibase command, not Maven']]
     }
 
     def "a unit tests stage without a command is explained in the words of the build tool"() {

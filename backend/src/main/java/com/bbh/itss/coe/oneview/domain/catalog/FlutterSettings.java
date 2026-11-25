@@ -13,13 +13,17 @@ import static org.apache.commons.lang3.BooleanUtils.isTrue;
 import static org.apache.commons.lang3.ObjectUtils.allNotNull;
 import static org.apache.commons.lang3.StringUtils.trimToNull;
 
+/**
+ * The Flutter settings of a service. The SonarScanner version of a Flutter service is that of its SonarQube settings,
+ * as for every other service; the Flutter settings write it among the other SonarQube keys of Flutter.
+ */
 @Builder
 public record FlutterSettings(FlutterPlatform platform, List<String> modules, List<String> testModules,
                               List<String> testSubmodules, List<String> testSubplugins,
                               String signingPasswordCredentialsId, String prodLicenseCredentialsId,
                               String testLicenseCredentialsId, String deliveryGroup, String deliveryArtifact,
                               String deliveryPlugin, String sonarSources, String sonarTests, Boolean sonarFlutterPlugin,
-                              String dartAnalyzeCommand, String sonarScannerVersion) {
+                              String dartAnalyzeCommand) {
 
     public static final FlutterSettings NONE = builder().build();
 
@@ -38,10 +42,9 @@ public record FlutterSettings(FlutterPlatform platform, List<String> modules, Li
         sonarTests = trimToNull(sonarTests);
         sonarFlutterPlugin = isTrue(sonarFlutterPlugin);
         dartAnalyzeCommand = trimToNull(dartAnalyzeCommand);
-        sonarScannerVersion = trimToNull(sonarScannerVersion);
     }
 
-    public void writeTo(ConfigTree config) {
+    public void writeTo(ConfigTree config, String sonarScannerVersion) {
         config.set("flutter.platform", platform)
                 .set("tools.flutter.flutterModules", modules)
                 .set("tests.modules", testModules)

@@ -107,6 +107,7 @@ import static com.bbh.itss.coe.oneview.domain.catalog.DatabaseFormats.SEARCH_ROO
 import static com.bbh.itss.coe.oneview.domain.catalog.DatabaseFormats.UTPLSQL_PATHS;
 import static com.bbh.itss.coe.oneview.domain.catalog.DatabaseFormats.UTPLSQL_PATHS_MESSAGE;
 import static com.bbh.itss.coe.oneview.domain.catalog.NexusIqSettings.ONE_APPLICATION;
+import static org.apache.commons.lang3.StringUtils.isBlank;
 
 @Builder
 public record ServiceDto(
@@ -142,6 +143,28 @@ public record ServiceDto(
         @Valid DatabaseSettingsDto database,
         Map<DatabaseTarget, @Valid DatabaseTargetDto> databaseTargets) {
 
+    /** The pattern of a SonarScanner version, such as 5.0.1.3006, which names a Jenkins tool installation. */
+    static final String SCANNER_VERSION = "^[0-9A-Za-z._-]*$";
+    static final String SCANNER_VERSION_MESSAGE = "must be a SonarScanner version such as 5.0.1.3006";
+
+    /**
+     * Keeps the SonarScanner version of a Flutter service in its old place as well, flutter.sonarScannerVersion, where
+     * the clients of earlier versions of the API read it and send it back: a request fills sonar.sonarScannerVersion
+     * from it unless that holds a version of its own, which wins, and a response holds the version of sonar there too.
+     * The old field of any other service is ignored, since the portal wrote it into the config only for Flutter, and
+     * left empty.
+     */
+    public ServiceDto {
+        if (flutter != null) {
+            boolean flutterTool = build != null && build.tool() == BuildTool.FLUTTER;
+            String old = flutter.sonarScannerVersion();
+            if (flutterTool && !isBlank(old) && (sonar == null || isBlank(sonar.sonarScannerVersion()))) {
+                sonar = SonarSettingsDto.withScannerVersion(sonar, old);
+            }
+            flutter = flutter.withScannerVersion(flutterTool && sonar != null ? sonar.sonarScannerVersion() : null);
+        }
+    }
+
     static ServiceDto from(Service service) {
         return RecordMapper.map(ServiceDto.class, service, service.settings());
     }
@@ -156,7 +179,13 @@ public record ServiceDto(
             @Size(max = 500) String javaPath,
             Boolean autoSetup,
             @Size(max = 500) @Pattern(regexp = SHELL_SAFE, message = SHELL_SAFE_MESSAGE) String buildPath,
-            @Valid ToolCommandDto command) implements Mirrors<BuildSettings> {
+            @Valid ToolCommandDto command,
+            @Valid ToolCommandDto liquibase) implements Mirrors<BuildSettings> {
+
+        public BuildSettingsDto(BuildTool tool, String sourceDir, String javaPath, Boolean autoSetup, String buildPath,
+                                ToolCommandDto command) {
+            this(tool, sourceDir, javaPath, autoSetup, buildPath, command, null);
+        }
     }
 
     public record UnitTestSettingsDto(
@@ -168,11 +197,13 @@ public record ServiceDto(
             @Size(max = 500) String coverageReportPath,
             Boolean cypressEnabled,
             @Size(max = 500) String cypressCommand,
-            @Size(max = 500) String cypressReportsDir) implements Mirrors<UnitTestSettings> {
+            @Size(max = 500) String cypressReportsDir,
+            @Valid ToolCommandDto liquibase) implements Mirrors<UnitTestSettings> {
 
         public UnitTestSettingsDto(ToolCommandDto command, String resultPattern, String rootDir, String reportOutDir,
                                    Boolean allowEmptyResults, String coverageReportPath) {
-            this(command, resultPattern, rootDir, reportOutDir, allowEmptyResults, coverageReportPath, false, null, null);
+            this(command, resultPattern, rootDir, reportOutDir, allowEmptyResults, coverageReportPath, false, null, null,
+                    null);
         }
     }
 
@@ -372,7 +403,8 @@ public record ServiceDto(
             @Size(max = 100) String dastPresenceId,
             @Size(max = 200)
             @Pattern(regexp = "^[A-Za-z0-9._-]*$", message = "may contain letters, digits, '.', '_' and '-'")
-            String scanName) implements Mirrors<AppScanSettings> {
+            String scanName,
+            @Valid ToolCommandDto liquibaseCompileCommand) implements Mirrors<AppScanSettings> {
     }
 
     public record SonarSettingsDto(
@@ -390,8 +422,19 @@ public record ServiceDto(
             Boolean fullBadges,
             @Valid ToolCommandDto command,
             @Size(max = 1000) @Pattern(regexp = URL, message = URL_MESSAGE) String serverUrl,
-            @Size(max = 200) String badgeCredentialsId)
+            @Size(max = 200) String badgeCredentialsId,
+            @Size(max = 50) @Pattern(regexp = SCANNER_VERSION, message = SCANNER_VERSION_MESSAGE)
+            String sonarScannerVersion)
             implements Mirrors<SonarSettings> {
+
+        /** These settings with the given SonarScanner version; settings of their own when there are none. */
+        static SonarSettingsDto withScannerVersion(SonarSettingsDto sonar, String version) {
+            return sonar == null
+                    ? new SonarSettingsDto(null, null, null, null, null, null, null, null, null, null, null, version)
+                    : new SonarSettingsDto(sonar.projectName, sonar.projectKey, sonar.installationName,
+                            sonar.credentialsId, sonar.authTokenCredentialsId, sonar.badgeToken, sonar.addBadges,
+                            sonar.fullBadges, sonar.command, sonar.serverUrl, sonar.badgeCredentialsId, version);
+        }
     }
 
     public record NexusIqSettingsDto(
@@ -485,9 +528,19 @@ public record ServiceDto(
             @Size(max = 500) String sonarTests,
             Boolean sonarFlutterPlugin,
             @Size(max = 500) String dartAnalyzeCommand,
-            @Size(max = 50)
-            @Pattern(regexp = "^[0-9A-Za-z._-]*$", message = "must be a SonarScanner version such as 5.0.1.3006")
+            /*
+             * The SonarScanner version in the place where the API held it before it moved to sonar.sonarScannerVersion,
+             * for the clients of earlier versions: a request may send it here, and a response of a Flutter service
+             * holds the version of sonar here too. It is checked under sonar.
+             */
             String sonarScannerVersion) implements Mirrors<FlutterSettings> {
+
+        FlutterSettingsDto withScannerVersion(String version) {
+            return new FlutterSettingsDto(platform, modules, testModules, testSubmodules, testSubplugins,
+                    signingPasswordCredentialsId, prodLicenseCredentialsId, testLicenseCredentialsId, deliveryGroup,
+                    deliveryArtifact, deliveryPlugin, sonarSources, sonarTests, sonarFlutterPlugin, dartAnalyzeCommand,
+                    version);
+        }
     }
 
     public record DatabaseSettingsDto(

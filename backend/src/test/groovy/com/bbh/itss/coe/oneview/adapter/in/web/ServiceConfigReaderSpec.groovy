@@ -32,17 +32,25 @@ import static com.bbh.itss.coe.oneview.adapter.in.web.ConfigInput.SECRET
 import static com.bbh.itss.coe.oneview.adapter.in.web.ConfigInput.UNKNOWN
 import static com.bbh.itss.coe.oneview.adapter.in.web.ServiceConfigReader.APPSCAN_KEY
 import static com.bbh.itss.coe.oneview.adapter.in.web.ServiceConfigReader.GLOBAL
+import static com.bbh.itss.coe.oneview.adapter.in.web.ServiceConfigReader.LIQUIBASE_COMPILE_STEP_OFF
+import static com.bbh.itss.coe.oneview.adapter.in.web.ServiceConfigReader.LIQUIBASE_SONAR_KEYS
+import static com.bbh.itss.coe.oneview.adapter.in.web.ServiceConfigReader.LIQUIBASE_SONAR_WITHOUT_TASKS
 import static com.bbh.itss.coe.oneview.adapter.in.web.ServiceConfigReader.LONG_PATHS
 import static com.bbh.itss.coe.oneview.adapter.in.web.ServiceConfigReader.MAX_PROJECTS
 import static com.bbh.itss.coe.oneview.adapter.in.web.ServiceConfigReader.NODE_WITH_DATABASE
 import static com.bbh.itss.coe.oneview.adapter.in.web.ServiceConfigReader.NODE_WITH_FLUTTER
 import static com.bbh.itss.coe.oneview.adapter.in.web.ServiceConfigReader.NOT_A_DATABASE
 import static com.bbh.itss.coe.oneview.adapter.in.web.ServiceConfigReader.NOT_FOR_DATABASE
+import static com.bbh.itss.coe.oneview.adapter.in.web.ServiceConfigReader.NO_LIQUIBASE_COMPILE_STEP
+import static com.bbh.itss.coe.oneview.adapter.in.web.ServiceConfigReader.NO_LIQUIBASE_DELIVERY
+import static com.bbh.itss.coe.oneview.adapter.in.web.ServiceConfigReader.NO_LIQUIBASE_SONAR
 import static com.bbh.itss.coe.oneview.adapter.in.web.ServiceConfigReader.NO_PRODUCTION
 import static com.bbh.itss.coe.oneview.adapter.in.web.ServiceConfigReader.NO_PROJECT
 import static com.bbh.itss.coe.oneview.adapter.in.web.ServiceConfigReader.PIPELINE
 import static com.bbh.itss.coe.oneview.adapter.in.web.ServiceConfigReader.RUN_TIME
+import static com.bbh.itss.coe.oneview.adapter.in.web.ServiceConfigReader.SCANNER_FOR_DOTNET
 import static com.bbh.itss.coe.oneview.adapter.in.web.ServiceConfigReader.SECRET_IN_URL
+import static com.bbh.itss.coe.oneview.adapter.in.web.ServiceConfigReader.SKIPPED_LIQUIBASE_STEP
 import static com.bbh.itss.coe.oneview.adapter.in.web.ServiceConfigReader.TOOLS_IN_DEFAULTS
 import static com.bbh.itss.coe.oneview.domain.catalog.BitbucketAuthType.BASIC
 import static com.bbh.itss.coe.oneview.domain.catalog.BitbucketAuthType.BEARER
@@ -121,9 +129,11 @@ class ServiceConfigReaderSpec extends Specification {
             build: build(tool: BuildTool.MSBUILD, sourceDir: 'src', javaPath: null, command: ToolCommand.builder()
                     .tasks(['nuget restore Orders.sln', 'msbuild Orders.sln /t:Build /p:Configuration=Release'])
                     .flags(['/m']).directory('src').environment(['MSBUILDDISABLENODEREUSE=1']).label('MSBuild')
-                    .build()),
+                    .build(), liquibase: ToolCommand.builder().tasks(['validate']).flags(['--changelog-file=db/changelog.xml'])
+                    .directory('db').build()),
             unitTests: new UnitTestSettings(ToolCommand.of(['vstest.console.exe Orders.Tests.dll /Logger:trx'], []),
-                    '**/*.trx', null, null, null, null),
+                    '**/*.trx', null, null, null, null, null, null, null,
+                    ToolCommand.builder().tasks(['status']).flags(['--url=offline:oracle']).label('Changelog status').build()),
             appScan: appScan(compileCommand: ToolCommand.of(['msbuild Orders.sln /t:Build'], [])),
             sonar: SonarSettings.of('Orders', 'bbh-orders', ToolCommand.of([], ['/d:sonar.cs.vstest.reportsPaths=**/*.trx'])),
             nexusDelivery: DOTNET_VM.nexusDelivery(), urbanCode: MAVEN_VM.urbanCode(),
@@ -213,7 +223,8 @@ class ServiceConfigReaderSpec extends Specification {
         [deploy: [vm: [rd: [host: 'rdltaapps1.testbbh.com']]]]                      || 'deploy'                  | NOT_FOR_DATABASE
         [deployTarget: 'openshift']                                                 || 'deployTarget'            | NOT_FOR_DATABASE
         [appName: 'orders']                                                         || 'appName'                 | NOT_FOR_DATABASE
-        [delivery: [liquibase: [commands: ['deploy']]]]                             || 'delivery'                | NOT_FOR_DATABASE
+        [delivery: [liquibase: [commands: ['deploy']]]]                             || 'delivery.liquibase'      | NO_LIQUIBASE_DELIVERY
+        [delivery: [nexusDeliveryEnabled: false]]                                   || 'delivery'                | NOT_FOR_DATABASE
         [build: [gradle: [tasks: ['build']]]]                                       || 'build.gradle'            | BUILDS_LIQUIBASE
         [build: [maven: [goals: ['verify']]]]                                       || 'build.maven'             | BUILDS_LIQUIBASE
     }
@@ -443,6 +454,233 @@ class ServiceConfigReaderSpec extends Specification {
         'dotnet'    | 'tools.sonar.dotnet'        | [tasks: ['dotnet build Orders.sln'], goals: ['dotnet build']]                                          || 'tasks'    | ['goals']
         'liquibase' | 'build.liquibase'           | [commands: ['validate'], tasks: ['status']]                                                             || 'commands' | ['tasks']
         'liquibase' | 'tests.unitTests.liquibase' | [tasks: ['validate'], commands: ['status']]                                                             || 'commands' | ['tasks']
+    }
+
+    /** A Liquibase step with every key the library reads for it, and tasks, which its commands win over. */
+    static final Map LIQUIBASE_STEP = [tasks   : ['status'], commands: ['validate', 'updateSQL'],
+                                       flags   : ['--changelog-file=db/changelog.xml'], dir: 'db',
+                                       env     : [LIQUIBASE_LOG_LEVEL: 'INFO'], label: 'Changelog', returnStdout: true]
+
+    def "a #tool service imports the Liquibase step #key with its commands, which the library reads before its tasks, and renders it back"() {
+        when:
+        def service = imported(new Yaml().dump([buildTool: tool] + at(key, LIQUIBASE_STEP)), 'orders').services()[0]
+        def step = stepAt(service.service(), key)
+
+        then:
+        [step.tasks(), step.flags(), step.directory(), step.mavenHome(), step.environment(), step.label(), step.returnStdout()] ==
+                [['validate', 'updateSQL'], ['--changelog-file=db/changelog.xml'], 'db', null, ['LIQUIBASE_LOG_LEVEL=INFO'],
+                 'Changelog', true]
+        service.notes() == [problem("${key}.tasks".toString(), "not imported: ${key}.commands wins over it".toString())]
+        ConfigInput.valueAt(rendered(service).projects['orders'], key) == LIQUIBASE_STEP.findAll { it.key != 'tasks' }
+
+        where:
+        tool      | key
+        'gradle'  | 'build.liquibase'
+        'maven'   | 'build.liquibase'
+        'android' | 'build.liquibase'
+        'dotnet'  | 'build.liquibase'
+        'msbuild' | 'build.liquibase'
+        'gradle'  | 'tests.unitTests.liquibase'
+        'maven'   | 'tests.unitTests.liquibase'
+        'android' | 'tests.unitTests.liquibase'
+        'dotnet'  | 'tests.unitTests.liquibase'
+        'msbuild' | 'tests.unitTests.liquibase'
+        'gradle'  | 'asoc.liquibase'
+        'maven'   | 'asoc.liquibase'
+    }
+
+    def "a #tool service imports the tasks of the Liquibase step #key when it has no commands, as the library runs them"() {
+        when:
+        def service = imported(new Yaml().dump([buildTool: tool] + at(key, [tasks: 'status', flags: '--url=offline:oracle'])))
+                .services()[0]
+
+        then:
+        stepAt(service.service(), key).tasks() == ['status']
+        stepAt(service.service(), key).flags() == ['--url=offline:oracle']
+        service.notes() == []
+
+        where:
+        tool      | key
+        'gradle'  | 'build.liquibase'
+        'msbuild' | 'tests.unitTests.liquibase'
+        'maven'   | 'asoc.liquibase'
+    }
+
+    def "a #tool service leaves out the Liquibase step #key with a note when the library would not run it: #value"() {
+        when:
+        def service = imported(new Yaml().dump([buildTool: tool] + at(key, value))).services()[0]
+
+        then:
+        service.notes() == [problem(key, message)]
+        [service.service().build().liquibase(), service.service().unitTests().liquibase(),
+         service.service().appScan().liquibaseCompileCommand()].every { it.tasks().isEmpty() && it.flags().isEmpty() }
+
+        where:
+        tool      | key                         | value                                    || message
+        'gradle'  | 'build.liquibase'           | [label: 'Changelog', dir: 'db']          || SKIPPED_LIQUIBASE_STEP
+        'maven'   | 'tests.unitTests.liquibase' | [env: [A: '1'], returnStdout: true]      || SKIPPED_LIQUIBASE_STEP
+        'dotnet'  | 'build.liquibase'           | [label: 'Changelog']                     || SKIPPED_LIQUIBASE_STEP
+        'gradle'  | 'asoc.liquibase'            | 'updateSQL'                              || 'not imported: expected a map'
+        'android' | 'asoc.liquibase'            | [commands: ['updateSQL']]                || NO_LIQUIBASE_COMPILE_STEP
+        'dotnet'  | 'asoc.liquibase'            | [commands: ['updateSQL']]                || NO_LIQUIBASE_COMPILE_STEP
+        'msbuild' | 'asoc.liquibase'            | [commands: ['updateSQL']]                || NO_LIQUIBASE_COMPILE_STEP
+        'flutter' | 'build.liquibase'           | [commands: ['updateSQL']]                || 'not imported: the service builds with flutter'
+        'flutter' | 'tests.unitTests.liquibase' | [commands: ['status']]                   || 'not imported: the service builds with flutter'
+        'npm'     | 'build.liquibase'           | [commands: ['updateSQL']]                || 'not imported: the service builds with npm'
+        'pip'     | 'tests.unitTests.liquibase' | [commands: ['status']]                   || 'not imported: the service builds with pip'
+        'ios'     | 'asoc.liquibase'            | [commands: ['updateSQL']]                || 'not imported: the service builds with ios'
+    }
+
+    def "a #tool service notes asoc.liquibase #value, which keeps the AppScan compile from running build.liquibase, as the compile runs build.liquibase after the import"() {
+        when:
+        def service = imported(new Yaml().dump([buildTool: tool, build: [liquibase: [commands: ['update']]],
+                                                asoc     : [liquibase: value]]), 'orders').services()[0]
+        def project = rendered(service).projects['orders']
+
+        then:
+        service.notes() == [problem('asoc.liquibase', LIQUIBASE_COMPILE_STEP_OFF)]
+        service.service().appScan().liquibaseCompileCommand().tasks().isEmpty()
+        service.service().build().liquibase().tasks() == ['update']
+        ConfigInput.valueAt(project, 'asoc.liquibase') == null
+        ConfigInput.valueAt(project, 'build.liquibase') == [commands: ['update']]
+
+        where:
+        tool     | value
+        'gradle' | [dir: 'db']
+        'gradle' | [commands: []]
+        'maven'  | [dir: 'db']
+        'maven'  | [commands: []]
+        'gradle' | [commands: '', label: ' ']
+        'maven'  | [commands: [], dir: 'db']
+    }
+
+    def "a #tool service keeps the earlier notes of asoc.liquibase #value next to #project"() {
+        when:
+        def service = imported(new Yaml().dump(merged([buildTool: tool, asoc: [liquibase: value]], project))).services()[0]
+
+        then:
+        service.notes() == notes
+
+        where:
+        tool     | project                                                                 | value          || notes
+        'gradle' | [:]                                                                     | [dir: 'db']    || [problem('asoc.liquibase', SKIPPED_LIQUIBASE_STEP)]
+        'maven'  | [:]                                                                     | [commands: []] || []
+        'gradle' | [build: [liquibase: [commands: ['update']]], asoc: [doCompile: false]] | [dir: 'db']    || [problem('asoc.liquibase', SKIPPED_LIQUIBASE_STEP)]
+        'maven'  | [build: [liquibase: [commands: ['update']]], asoc: [doCompile: false]] | [commands: []] || []
+        'gradle' | [build: [liquibase: [dir: 'db']]]                                       | [commands: []] || [problem('build.liquibase', SKIPPED_LIQUIBASE_STEP)]
+        'maven'  | [build: [liquibase: [commands: ['update']]]]                            | [:]            || []
+        'gradle' | [build: [liquibase: [commands: ['update']]]]                            | 'updateSQL'    || [problem('asoc.liquibase', 'not imported: expected a map')]
+    }
+
+    def "a #tool service imports a running asoc.liquibase next to build.liquibase without a note"() {
+        when:
+        def service = imported(new Yaml().dump([buildTool: tool, build: [liquibase: [commands: ['update']]],
+                                                asoc     : [liquibase: [flags: '--url=offline:oracle']]])).services()[0]
+
+        then:
+        service.notes() == []
+        service.service().appScan().liquibaseCompileCommand().flags() == ['--url=offline:oracle']
+        service.service().build().liquibase().tasks() == ['update']
+
+        where:
+        tool << ['gradle', 'maven']
+    }
+
+    def "a #tool service adds tools.sonar.liquibase to the flags of its SonarQube #name, as the library does, unless a flag of the same name is set"() {
+        when:
+        def service = imported(new Yaml().dump([buildTool: tool, tools: [sonar: [
+                (block)  : [(name): ['sonar'], flags: ['-Dsonar.sources=src', '-Dsonar.verbose=true']],
+                liquibase: [sources: ['db/changelog', 'db/plsql'], inclusions: '**/*.sql', exclusions: ['**/old/**', '**/tmp/**'],
+                            flags  : '-Dsonar.sources=ignored -Dsonar.plsql.file.suffixes=sql,pks']]]])).services()[0]
+
+        then:
+        service.service().sonar().command().tasks() == ['sonar']
+        service.service().sonar().command().flags() == ['-Dsonar.sources=src', '-Dsonar.verbose=true',
+                                                        '-Dsonar.inclusions=**/*.sql', '-Dsonar.exclusions=**/old/**,**/tmp/**',
+                                                        '-Dsonar.plsql.file.suffixes=sql,pks']
+        service.notes() == []
+
+        where:
+        tool      | block    | name
+        'gradle'  | 'gradle' | 'tasks'
+        'android' | 'gradle' | 'tasks'
+        'maven'   | 'maven'  | 'goals'
+    }
+
+    def "a Maven service adds the sources of tools.sonar.liquibase to SonarQube goals without flags, and notes the keys its goals do not read"() {
+        when:
+        def service = imported(new Yaml().dump([buildTool: 'maven', tools: [sonar: [maven: [goals: ['sonar:sonar']],
+                liquibase: [sources: 'db', dir: 'db', commands: ['status'], tests: ' ', exclusions: []]]]])).services()[0]
+
+        then:
+        service.service().sonar().command().flags() == ['-Dsonar.sources=db']
+        service.notes() as Set == [problem('tools.sonar.liquibase.dir', LIQUIBASE_SONAR_KEYS),
+                                   problem('tools.sonar.liquibase.commands', LIQUIBASE_SONAR_KEYS)] as Set
+    }
+
+    def "a #tool service leaves out tools.sonar.liquibase with a note when no SonarQube #name read it: #sonar"() {
+        when:
+        def service = imported(new Yaml().dump([buildTool: tool, tools: [sonar: sonar]])).services()[0]
+
+        then:
+        service.service().sonar().command().flags() == []
+        service.notes() == [problem('tools.sonar.liquibase', message)]
+
+        where:
+        tool      | name    | sonar                                                     || message
+        'gradle'  | 'tasks' | [projectKey: 'cert', liquibase: [sources: 'db']]          || LIQUIBASE_SONAR_WITHOUT_TASKS
+        'maven'   | 'goals' | [projectName: 'Cert', liquibase: [flags: ['-Dsonar.verbose=true']]] || LIQUIBASE_SONAR_WITHOUT_TASKS
+        'android' | 'tasks' | [liquibase: [sources: 'db']]                              || LIQUIBASE_SONAR_WITHOUT_TASKS
+        'gradle'  | 'tasks' | [gradle: [tasks: ['sonar']], liquibase: 'db']             || 'not imported: expected a map'
+        'dotnet'  | 'steps' | [liquibase: [sources: 'db']]                              || NO_LIQUIBASE_SONAR
+        'msbuild' | 'steps' | [liquibase: [sources: 'db']]                              || NO_LIQUIBASE_SONAR
+    }
+
+    def "delivery.liquibase of a #project.buildTool service is left out with a note, since no stage of the library reads it"() {
+        when:
+        def service = imported(new Yaml().dump(project + [delivery: [liquibase: [commands: ['deploy'], flags: ['-x']]]]))
+                .services()[0]
+
+        then:
+        service.notes() == [problem('delivery.liquibase', NO_LIQUIBASE_DELIVERY)]
+        service.service().delivery().tasks() == []
+        service.service().delivery().flags() == []
+
+        where:
+        project << [[buildTool: 'liquibase'], [buildTool: 'gradle'], [buildTool: 'maven'], [buildTool: 'dotnet'],
+                    [buildTool: 'npm']]
+    }
+
+    def "the SonarScanner version of a #project.buildTool service is imported into its SonarQube settings and rendered back"() {
+        when:
+        def service = imported(new Yaml().dump(merged(project, [tools: [sonar: [projectKey: 'cert',
+                                                                                   sonarScannerVersion: '5.0.1.3006']]])),
+                'cert').services()[0]
+
+        then:
+        service.service().sonar().sonarScannerVersion() == '5.0.1.3006'
+        !service.notes().any { it.field().startsWith('tools.sonar') }
+        rendered(service).projects['cert'].tools.sonar.sonarScannerVersion == '5.0.1.3006'
+
+        where:
+        project << [[buildTool: 'gradle'], [buildTool: 'maven'], [buildTool: 'android'], [buildTool: 'flutter'],
+                    [buildTool: 'liquibase'], ORDERS, [buildTool: 'sql'], [buildTool: 'npm'], [buildTool: 'pip'],
+                    [buildTool: 'ios']]
+    }
+
+    def "the SonarScanner version of a #tool service is left out with a note, since the SonarScanner for .NET does not read it"() {
+        when:
+        def service = imported(new Yaml().dump([buildTool: tool, tools: [sonar: [projectKey: 'cert',
+                                                                                sonarScannerVersion: '5.0.1.3006']]]))
+                .services()[0]
+
+        then:
+        service.service().sonar().sonarScannerVersion() == null
+        service.service().sonar().projectKey() == 'cert'
+        service.notes() == [problem('tools.sonar.sonarScannerVersion', SCANNER_FOR_DOTNET)]
+
+        where:
+        tool << ['dotnet', 'msbuild', 'csharp']
     }
 
     def "for buildTool #tool a command block that is not a map is noted as not imported, since the library ignores it too: #build"() {
@@ -1370,6 +1608,16 @@ class ServiceConfigReaderSpec extends Specification {
             case 'tools.sonar': return service.sonar().command()
             case 'asoc': return service.appScan().compileCommand()
             default: throw new IllegalArgumentException(path)
+        }
+    }
+
+    /** The Liquibase step of the service that the import fills from a block, such as build.liquibase. */
+    private static stepAt(ServiceDto service, String key) {
+        switch (key) {
+            case 'build.liquibase': return service.build().liquibase()
+            case 'tests.unitTests.liquibase': return service.unitTests().liquibase()
+            case 'asoc.liquibase': return service.appScan().liquibaseCompileCommand()
+            default: throw new IllegalArgumentException(key)
         }
     }
 

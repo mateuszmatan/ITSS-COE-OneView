@@ -127,6 +127,14 @@ projects:
         - compile
         flags:
         - -q
+      liquibase:
+        commands:
+        - updateSQL
+        flags:
+        - --changelog-file=db/changelog.xml
+        - --url=offline:oracle
+        env:
+          LIQUIBASE_OUTPUT_FILE: target/sast/ledger.sql
     influx:
       url: https://influx-ledger.bbh.com/api/v2/write
       credentialsId: ledger-influx
@@ -178,6 +186,13 @@ projects:
         env:
           MAVEN_OPTS: -Xmx1g
         label: Ledger build
+      liquibase:
+        commands:
+        - validate
+        flags:
+        - --changelog-file=db/changelog.xml
+        dir: ledger
+        label: Ledger changelog
     delivery:
       maven:
         goals:
@@ -219,6 +234,12 @@ projects:
           - test
           flags:
           - -Pcoverage
+        liquibase:
+          commands:
+          - status
+          flags:
+          - --changelog-file=db/changelog.xml
+          - --url=offline:oracle
         unitTestResult: '**/surefire-reports/*.xml'
         rootDir: ledger
         reportOutDir: target/unit-reports

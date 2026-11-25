@@ -124,8 +124,34 @@ public record ToolCommand(List<String> tasks, List<String> flags, String directo
         }
     }
 
-    private static final Map<BuildTool, String> TOOL_NAMES = Map.of(NPM, "npm", BuildTool.PIP, "pip (Python)",
-            BuildTool.IOS, "iOS");
+    private static final Map<BuildTool, String> TOOL_NAMES = Map.ofEntries(Map.entry(GRADLE, "Gradle"),
+            Map.entry(MAVEN, "Maven"), Map.entry(BuildTool.FLUTTER, "Flutter"), Map.entry(LIQUIBASE, "Liquibase"),
+            Map.entry(BuildTool.DOTNET, "C# / .NET"), Map.entry(SQL, "SQL and PL/SQL files"), Map.entry(NPM, "npm"),
+            Map.entry(BuildTool.PIP, "pip (Python)"), Map.entry(ANDROID, "Android"), Map.entry(BuildTool.IOS, "iOS"),
+            Map.entry(BuildTool.MSBUILD, "C# / .NET Framework (MSBuild)"));
+
+    /**
+     * Adds a problem for a Liquibase step of a Gradle, Android, Maven or .NET service (build.liquibase,
+     * tests.unitTests.liquibase or asoc.liquibase) that the library would not run as given: a step of a build tool
+     * that runs none, which the given reason explains, a step without commands and flags, which LiquibaseBuildRunner
+     * skips, and a Maven home, which the liquibase command does not read.
+     */
+    public void validateLiquibaseStep(ValidationProblems problems, BuildTool tool, boolean runs, String reason) {
+        if (isEmpty()) {
+            return;
+        }
+        if (!runs) {
+            problems.add("tasks", "must be empty for " + TOOL_NAMES.get(tool) + ": " + reason);
+            return;
+        }
+        if (tasks.isEmpty() && flags.isEmpty()) {
+            problems.add("tasks", "add Liquibase commands or flags: without them the library skips the step");
+        }
+        if (mavenHome != null) {
+            problems.add("mavenHome", "must be empty: the Liquibase step runs the liquibase command, not Maven");
+        }
+        validate(problems);
+    }
 
     public void validate(ValidationProblems problems) {
         LINES_1000.check(problems, "tasks", tasks);

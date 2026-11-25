@@ -93,7 +93,8 @@ final class Fixtures {
                 : tool == MAVEN ? command(['clean', 'verify']) : command(['clean', 'build'])
         new BuildSettings(tool, args.sourceDir as String,
                 args.containsKey('javaPath') ? args.javaPath as String : JDK, args.autoSetup as Boolean,
-                args.buildPath as String, args.containsKey('command') ? args.command as ToolCommand : defaultCommand)
+                args.buildPath as String, args.containsKey('command') ? args.command as ToolCommand : defaultCommand,
+                args.liquibase as ToolCommand)
     }
 
     static DeploymentSettings deployment(Map args = [:]) {
@@ -111,6 +112,7 @@ final class Fixtures {
                 .compileCommand(args.compileCommand as ToolCommand).dastEnabled(args.dastEnabled as Boolean)
                 .dastTargetUrl(args.dastTargetUrl as String)
                 .dastPresenceId(args.dastPresenceId as String)
+                .liquibaseCompileCommand(args.liquibaseCompileCommand as ToolCommand)
                 .build()
     }
 
@@ -178,12 +180,13 @@ final class Fixtures {
 
     static ServiceSettings fullSettings(String name = 'gui') {
         ServiceSettings.builder()
-                .build(new BuildSettings(MAVEN, 'app', JDK, true, 'target/*.war', fullCommand('build')))
+                .build(new BuildSettings(MAVEN, 'app', JDK, true, 'target/*.war', fullCommand('build'),
+                        liquibaseStep('build')))
                 .nodeBuild(new NodeBuildSettings(true, 'app/frontend', ['npm ci', 'npm run build:prod', 'npm ci'], null,
                         '/opt/node-20', ['NODE_OPTIONS=--max-old-space-size=4096', 'CI=true'],
                         'https://nexus.bbh.com/repository/npm-group/', "cert-${name}-npmrc", 45, false))
                 .unitTests(new UnitTestSettings(fullCommand('test'), '**/TEST-*.xml', 'app', 'reports', true,
-                        'target/jacoco.xml'))
+                        'target/jacoco.xml', false, null, null, liquibaseStep('test')))
                 .tests(TestSettings.builder().maxParallel(5).smokeMaxParallel(1).regressionMaxParallel(2)
                         .performanceMaxParallel(3).regressionRequired(false).smokePollIntervalSec(10)
                         .performancePollIntervalSec(30).build())
@@ -229,10 +232,10 @@ final class Fixtures {
                         .compile(false).sourceCodeOnly(true).useConfigFile(true).insecureTls(true)
                         .clientPath('/opt/appscan').compileCommand(fullCommand('compile')).dastEnabled(true)
                         .dastTargetUrl('https://cert.testbbh.com').dastPresenceId('presence-1')
-                        .scanName("cert-${name}-sast")
+                        .scanName("cert-${name}-sast").liquibaseCompileCommand(liquibaseStep('compile'))
                         .build())
                 .sonar(new SonarSettings('CertScanner', "cert-${name}", 'SonarQube BBH', 'sonar-creds', 'sonar-token',
-                        null, true, true, fullCommand('sonar'), 'https://sonar.cert.bbh.com', 'sonar-badge'))
+                        null, true, true, fullCommand('sonar'), 'https://sonar.cert.bbh.com', 'sonar-badge', '5.0'))
                 .nexusIq(new NexusIqSettings('https://iq.cert.bbh.com', 'cert-iq'))
                 .nexusIqApplications([new NexusIqApplication("cert-${name}", ['**/*.war', '**/*.jar'], 'release', true)])
                 .scm(new ScmSettings('https://bitbucket.bbh.com/scm/ta/cert.git', 'bb-creds', BEARER, SERVER, 'develop',
@@ -246,8 +249,19 @@ final class Fixtures {
                         'cert-influx'))
                 .flutter(new FlutterSettings(APPBUNDLE, ['core', 'app'], ['core'], ['core/sub'], ['plugin'], 'signing',
                         'prod-licence', 'test-licence', 'com.bbh', 'cert-mobile', 'deploy:deploy-file', 'lib', 'test',
-                        true, 'dart analyze', '5.0'))
+                        true, 'dart analyze'))
                 .build()
+    }
+
+    /**
+     * A Liquibase step with every part the library reads, such as the one of a Maven build: commands, flags, folder,
+     * variables, label and returned output, and no Maven home, which the liquibase command does not read.
+     */
+    static ToolCommand liquibaseStep(String prefix) {
+        ToolCommand.builder().tasks(['validate', prefix == 'test' ? 'status' : 'updateSQL'])
+                .flags(['--changelog-file=db/changelog.xml', '--url=offline:oracle']).directory(prefix + '-db')
+                .environment(['LIQUIBASE_' + prefix.toUpperCase() + '=1']).label(prefix.capitalize() + ' Liquibase step')
+                .returnStdout(prefix == 'compile').build()
     }
 
     static ToolCommand fullCommand(String prefix) {

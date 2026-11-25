@@ -172,7 +172,8 @@ public class ServiceEntity extends AuditedEntity {
             String sourceDir, String javaPath,
             @Column(name = "BUILD_TOOL_AUTO_SETUP") Boolean autoSetup,
             String buildPath,
-            @EmbeddedColumnNaming("BUILD_%s") ToolCommandEmbeddable command) {
+            @EmbeddedColumnNaming("BUILD_%s") ToolCommandEmbeddable command,
+            @EmbeddedColumnNaming("BUILD_LIQUIBASE_%s") ToolCommandEmbeddable liquibase) {
     }
 
     @Embeddable
@@ -192,11 +193,13 @@ public class ServiceEntity extends AuditedEntity {
             String coverageReportPath,
             @Column(name = "UNIT_TEST_CYPRESS_ENABLED") Boolean cypressEnabled,
             @Column(name = "UNIT_TEST_CYPRESS_COMMAND") String cypressCommand,
-            @Column(name = "UNIT_TEST_CYPRESS_REPORTS_DIR") String cypressReportsDir) {
+            @Column(name = "UNIT_TEST_CYPRESS_REPORTS_DIR") String cypressReportsDir,
+            @EmbeddedColumnNaming("UNIT_TEST_LIQUIBASE_%s") ToolCommandEmbeddable liquibase) {
 
         public UnitTestSettingsEmbeddable(ToolCommandEmbeddable command, String resultPattern, String rootDir,
                                           String reportOutDir, Boolean allowEmptyResults, String coverageReportPath) {
-            this(command, resultPattern, rootDir, reportOutDir, allowEmptyResults, coverageReportPath, false, null, null);
+            this(command, resultPattern, rootDir, reportOutDir, allowEmptyResults, coverageReportPath, false, null, null,
+                    null);
         }
     }
 
@@ -287,13 +290,15 @@ public class ServiceEntity extends AuditedEntity {
             @Column(name = "APPSCAN_CLIENT_PATH") String clientPath,
             @EmbeddedColumnNaming("APPSCAN_COMPILE_%s") ToolCommandEmbeddable compileCommand,
             Boolean dastEnabled, String dastTargetUrl, String dastPresenceId,
-            @Column(name = "APPSCAN_SCAN_NAME") String scanName) {
+            @Column(name = "APPSCAN_SCAN_NAME") String scanName,
+            @EmbeddedColumnNaming("APPSCAN_COMPILE_LIQUIBASE_%s") ToolCommandEmbeddable liquibaseCompileCommand) {
     }
 
     @Embeddable
     public record SonarSettingsEmbeddable(String projectName, String projectKey, String installationName,
             String credentialsId, String authTokenCredentialsId, String badgeToken, Boolean addBadges,
-            Boolean fullBadges, ToolCommandEmbeddable command, String serverUrl, String badgeCredentialsId) {
+            Boolean fullBadges, ToolCommandEmbeddable command, String serverUrl, String badgeCredentialsId,
+            @Column(name = "SCANNER_VERSION") String sonarScannerVersion) {
     }
 
     @Embeddable
@@ -362,8 +367,7 @@ public class ServiceEntity extends AuditedEntity {
             @Column(name = "SIGNING_CREDENTIALS_ID") String signingPasswordCredentialsId,
             String prodLicenseCredentialsId, String testLicenseCredentialsId, String deliveryGroup,
             String deliveryArtifact, String deliveryPlugin, String sonarSources, String sonarTests,
-            @Column(name = "SONAR_PLUGIN") Boolean sonarFlutterPlugin, String dartAnalyzeCommand,
-            String sonarScannerVersion) {
+            @Column(name = "SONAR_PLUGIN") Boolean sonarFlutterPlugin, String dartAnalyzeCommand) {
     }
 
     @Embeddable

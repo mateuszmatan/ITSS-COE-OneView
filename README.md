@@ -190,6 +190,11 @@ A C# / .NET service (`buildTool: dotnet`) and an MSBuild service (`buildTool: ms
 `msbuild` as well when no `.msbuild` block is given. The library builds an MSBuild service with NuGet.exe and
 MSBuild.exe, and chooses for a C# / .NET service between the dotnet command line, MSBuild and both from its projects
 and the agent.
+A Gradle, Android, Maven, C# / .NET or MSBuild service may run a Liquibase step after its build and after its unit
+tests, rendered as `build.liquibase` and `tests.unitTests.liquibase`, and a Gradle or Maven service one after the
+compile of its SAST scan, `asoc.liquibase`; each runs the `liquibase` command of the agent with its flags and commands.
+Every service but a .NET one renders its SonarScanner version as `tools.sonar.sonarScannerVersion`, the Jenkins tool
+`sonar-scanner-cli-<version>` of each analysis with the sonar-scanner CLI.
 
 ## Importing a service from a config file
 
@@ -209,8 +214,12 @@ users inside JDBC URLs and production targets are never imported. `buildTool` ta
 C# / .NET. A .NET service reads the `.msbuild` or `.dotnet` block of `build`, `tests.unitTests`, `tools.sonar` and
 `asoc` that the library takes, and a note says when an `.msbuild` block is rendered as the `.dotnet` block. Of the
 `commands`, `tasks` and `goals` of such a block, and of the `commands` and `tasks` of a Liquibase block, the first one
-set is imported, as the library runs it, and the others are noted. The call stores nothing, so the action history does
-not record it.
+set is imported, as the library runs it, and the others are noted. The Liquibase steps of a Gradle, Android, Maven or
+.NET service are imported; a step without commands, tasks and flags, which the library skips, gets a note instead.
+`tools.sonar.liquibase` of a Gradle, Android or Maven service becomes `-Dsonar.` flags of its SonarQube command while it
+has SonarQube tasks or goals, the only analysis that reads it, and is noted otherwise. `delivery.liquibase` is noted
+as not imported, because no stage of the library reads it. The call stores nothing, so the action history does not
+record it.
 
 ## Repo Auto-Discovery and Bitbucket PR Decoration
 
@@ -322,6 +331,18 @@ with who, what, when and the result, and shown under Action history.
   tool and render as before; a service imported from `buildTool: msbuild` before stays C# / .NET until MSBuild is
   chosen for it. A rollback stops at the build tool checks while a service or the Library defaults have the build tool
   `MSBUILD`: change those, then run the same rollback again.
+- Changeset 051 adds the Liquibase steps to `DSO_SERVICE` (the `BUILD_LIQUIBASE_`, `UNIT_TEST_LIQUIBASE_` and
+  `APPSCAN_COMPILE_LIQUIBASE_` columns, with the check `CK_DSO_SERVICE_LIQUIBASE_STEP`) and copies the SonarScanner
+  version of every Flutter service, the only one the portal rendered, from `FLUTTER_SONAR_SCANNER_VERSION` to the new
+  `SONAR_SCANNER_VERSION`, in four changesets of one statement each, so that a statement that fails leaves nothing
+  half applied. Every service starts without a step and renders as before, and every Flutter service keeps its
+  version. `FLUTTER_SONAR_SCANNER_VERSION` stays, no longer read or written, so that the pod of the previous release
+  keeps serving during the rolling update; a later release drops it (TODO 3.9). A rollback drops the steps and copies
+  the version of every Flutter service back; the versions of other services are dropped.
+  The API takes the version as `sonar.sonarScannerVersion` and still accepts `flutter.sonarScannerVersion` of a
+  Flutter service, which fills it while it is empty; a response of a Flutter service holds the version in both places,
+  so a client of the earlier API keeps it when it saves the service. A request without the new fields saves a service
+  without steps.
 
 ## Known gaps
 
@@ -333,9 +354,9 @@ management is [docs/MANAGEMENT_OVERVIEW.md](docs/MANAGEMENT_OVERVIEW.md).
 - A new Liquibase service gets the build command `updateSQL` without flags, which fails unless flags or a
   `liquibase.properties` name the changelog and a URL, and a Nexus IQ application without a scan pattern, which the
   save refuses until a pattern is typed or the application is removed.
-- The extra Liquibase step of a Gradle or Maven service (`build.liquibase`, `tests.unitTests.liquibase`), which the
-  library runs, has no field; an import notes it as not imported. `delivery.liquibase` and
-  `tools.sonar.sonarScannerVersion` of a Liquibase project are read by the import but not rendered.
+- On a Linux or macOS agent the library stops the SAST compile of an Android, npm, pip, iOS or Flutter service with
+  "Build Tool is not specified in configuration", so its SAST stage fails while "Compile before preparing the IRX" is
+  ticked, as it is by default: untick it for such a service (TODO 2.11).
 - The .NET settings that choose the mode, the solution, the configuration and platform, the paths of the tools, the
   test runner and the coverage tool (`build.dotnet.mode`, `useDotnetCli`, `solution`, `configuration`, `platform`,
   `msbuildPath`, `nugetPath`, `msbuildTarget`, `useMsbuildRestore`, `tests.unitTests.dotnet.runner`, `coverageTool`,

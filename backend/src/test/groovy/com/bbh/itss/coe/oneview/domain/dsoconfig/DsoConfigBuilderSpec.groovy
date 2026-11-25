@@ -104,11 +104,30 @@ class DsoConfigBuilderSpec extends Specification {
                             env               : [NODE_OPTIONS: '--max-old-space-size=4096', CI: 'true'],
                             registry          : 'https://nexus.bbh.com/repository/npm-group/',
                             npmrcCredentialsId: 'cert-gui-npmrc', timeoutMin: 45, nexusIqScan: false]
-        full.build.keySet() as List == ['buildPath', 'maven', 'node']
+        full.build.keySet() as List == ['buildPath', 'maven', 'liquibase', 'node']
         full.goldenFix.versionCatalogs == ['gradle/libs.versions.toml', 'platform/**/pom.xml']
         off == builder.productConfig(certScanner).projects.gui
         !off.build.containsKey('node')
         !off.containsKey('goldenFix')
+    }
+
+    def "a Maven service writes its Liquibase steps after the commands they follow, and its SonarScanner version after the analysis command"() {
+        when:
+        Map entry = builder.productConfig(product(services: [[id: 10L, name: 'gui', settings: fullSettings('gui')]]))
+                .projects.gui
+
+        then:
+        entry.build.liquibase == [commands: ['validate', 'updateSQL'], flags: ['--changelog-file=db/changelog.xml', '--url=offline:oracle'],
+                                  dir     : 'build-db', env: [LIQUIBASE_BUILD: '1'], label: 'Build Liquibase step']
+        (entry.tests.unitTests.keySet() as List).subList(0, 3) == ['maven', 'liquibase', 'unitTestResult']
+        entry.tests.unitTests.liquibase == [commands: ['validate', 'status'], flags: ['--changelog-file=db/changelog.xml', '--url=offline:oracle'],
+                                            dir     : 'test-db', env: [LIQUIBASE_TEST: '1'], label: 'Test Liquibase step']
+        (entry.asoc.keySet() as List).takeRight(2) == ['maven', 'liquibase']
+        entry.asoc.liquibase == [commands: ['validate', 'updateSQL'], flags: ['--changelog-file=db/changelog.xml', '--url=offline:oracle'],
+                                 dir     : 'compile-db', env: [LIQUIBASE_COMPILE: '1'], label: 'Compile Liquibase step',
+                                 returnStdout: true]
+        (entry.tools.sonar.keySet() as List).takeRight(2) == ['maven', 'sonarScannerVersion']
+        entry.tools.sonar.sonarScannerVersion == '5.0'
     }
 
     def "a Liquibase service with database changes renders its database block in the template's place, without VM hosts"() {

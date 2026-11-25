@@ -25,8 +25,11 @@ import {
   ResolvedParameter,
   databaseTool,
   dotnetTool,
+  liquibaseCompileStep,
+  liquibaseStep,
   mavenUpload,
   releases,
+  scannerVersion,
   scripted,
 } from '../core/models';
 import { ProductsApi } from '../core/api';
@@ -75,7 +78,7 @@ import {
   dropForeignCommands,
 } from './product-form-model';
 import { TestJobsFields } from './test-jobs-fields';
-import { ToolCommandFields, commandFields } from './tool-command-fields';
+import { ToolCommandFields, commandFields, liquibaseStepFields } from './tool-command-fields';
 import { URBAN_CODE_APPLICATION, URBAN_CODE_COMPONENT, UrbanCodeFields } from './urban-code-fields';
 
 /** The build tools of the portal: a repository scan may also find one it has none for, such as PIP, or none. */
@@ -212,7 +215,7 @@ const APP_SCAN_OPTIONS: Field[] = [
     help: 'The folders the static scan leaves out. They apply on Linux agents, and only while no folder is included.',
   }),
   check('compile', 'Compile before preparing the IRX', 'asoc.doCompile', 6, {
-    help: 'Linux agents only: runs the compile command first, so the scan includes the compiled classes.',
+    help: 'Linux agents only: runs the compile command first, so the scan includes the compiled classes. Untick it for an Android, npm, pip, iOS or Flutter service: the library stops the SAST compile of these build tools with an error, which fails the SAST stage.',
   }),
   check('sourceCodeOnly', 'Scan source code only', 'asoc.sourceCodeOnly', 6, {
     help: 'Linux agents only: prepares the scan from the source code without compiled classes.',
@@ -574,11 +577,6 @@ const FLUTTER_SONAR: Field[] = [
     placeholder: 'test',
     help: 'The folders of the Dart tests.',
   }),
-  mono('sonarScannerVersion', 'SonarScanner version', 'tools.sonar.sonarScannerVersion', 4, {
-    placeholder: '5.0.1.3006',
-    help: "Selects the Jenkins tool installation named sonar-scanner-cli- followed by this version. Left empty, the sonar-scanner on the agent's PATH runs.",
-    error: 'Must be a version such as 5.0.1.3006',
-  }),
   mono('dartAnalyzeCommand', 'Dart analyze command', 'tools.sonar.dartAnalyzeCommand', 8, {
     help: 'Runs when the Flutter plugin is off; its findings, in machine format, are imported into SonarQube as external issues. Left empty: dart analyze --format=machine.',
   }),
@@ -693,6 +691,7 @@ export class ServiceFields {
       build: [
         c.build.controls.sourceDir,
         ...options(c.build.controls.command),
+        c.build.controls.liquibase,
         ...of(
           c.nodeBuild,
           'nodePath',
@@ -705,11 +704,20 @@ export class ServiceFields {
       unitTests: [
         ...of(c.unitTests, 'rootDir', 'reportOutDir', 'allowEmptyResults'),
         ...options(c.unitTests.controls.command),
+        c.unitTests.controls.liquibase,
       ],
       deployment: of(c.deployment, 'baseArtifactName'),
-      appScan: of(scan, 'scanName', 'clientPath', 'includedDirs', 'excludedDirs', 'compileCommand'),
+      appScan: of(
+        scan,
+        'scanName',
+        'clientPath',
+        'includedDirs',
+        'excludedDirs',
+        'compileCommand',
+        'liquibaseCompileCommand',
+      ),
       sonar: [
-        ...of(sonar, 'authTokenCredentialsId', 'credentialsId', 'serverUrl'),
+        ...of(sonar, 'authTokenCredentialsId', 'credentialsId', 'serverUrl', 'sonarScannerVersion'),
         ...of(sonar, 'badgeToken', 'badgeCredentialsId'),
         ...options(sonar.controls.command),
       ],
@@ -854,6 +862,9 @@ export class ServiceFields {
             commandFields(command === c.delivery ? this.uploadTool() : this.tool(), ''),
           ] as const,
       ),
+      [c.build.controls.liquibase, liquibaseStepFields('build')],
+      [c.unitTests.controls.liquibase, liquibaseStepFields('tests.unitTests')],
+      [c.appScan.controls.liquibaseCompileCommand, liquibaseStepFields('asoc')],
       ...REGIONS.flatMap((region) => [
         [c.sshTargets.controls[region], this.sshFields(region)] as const,
         [c.openShiftTargets.controls[region], openShiftFields(region)] as const,
@@ -927,6 +938,19 @@ export class ServiceFields {
     return this.npm() || this.form().controls.nodeBuild.controls.enabled.value;
   }
 
+  /**
+   * Whether the library runs a Liquibase step after the build and after the unit tests of the service: Gradle,
+   * Android, Maven, C# / .NET and MSBuild.
+   */
+  protected liquibaseStep(): boolean {
+    return liquibaseStep(this.tool());
+  }
+
+  /** Whether the library runs a Liquibase step after the AppScan compile of the service: Gradle and Maven. */
+  protected liquibaseCompileStep(): boolean {
+    return liquibaseCompileStep(this.tool());
+  }
+
   protected buildOptionsSummary(): string {
     if (this.flutter()) {
       return 'Source folder';
@@ -937,9 +961,30 @@ export class ServiceFields {
     if (this.scripted()) {
       return 'Source folder';
     }
+    if (this.liquibaseStep()) {
+      return this.buildsNode()
+        ? 'Source folder, build command, Liquibase step and Node.js options'
+        : 'Source folder, build command options and Liquibase step';
+    }
     return this.buildsNode()
       ? 'Source folder, build command and Node.js options'
       : 'Source folder and build command options';
+  }
+
+  protected unitTestOptionsSummary(): string {
+    return this.liquibaseStep()
+      ? 'Folders, empty results, test command options and Liquibase step'
+      : 'Folders, empty results and test command options';
+  }
+
+  /** Names the SonarScanner version wherever the panel holds it, and no command options for Flutter, which has none. */
+  protected sonarOptionsSummary(): string {
+    if (this.flutter()) {
+      return 'Tokens, scanner credentials, server, SonarScanner version and badges';
+    }
+    return scannerVersion(this.tool())
+      ? 'Tokens, scanner credentials, server, SonarScanner version, badges and analysis command options'
+      : 'Tokens, scanner credentials, server, badges and analysis command options';
   }
 
   protected buildTool(): Field[] {
@@ -1550,6 +1595,22 @@ export class ServiceFields {
       check('fullBadges', 'Every badge', 'tools.sonar.fullBadges', 6, {
         help: 'Adds every metric badge to the build description instead of the quality gate badge only.',
       }),
+      ...(scannerVersion(this.tool())
+        ? [
+            mono(
+              'sonarScannerVersion',
+              'SonarScanner version',
+              'tools.sonar.sonarScannerVersion',
+              6,
+              {
+                placeholder: '5.0.1.3006',
+                hint: "left empty: the sonar-scanner on the agent's PATH",
+                help: "The analysis runs the sonar-scanner of the Jenkins tool installation named sonar-scanner-cli- followed by this version, such as sonar-scanner-cli-5.0.1.3006. The library reads it whenever it runs sonar-scanner: for Flutter, Liquibase, SQL and PL/SQL files, npm, pip and iOS, and for Gradle, Android and Maven while no SonarQube tasks or goals are given; with them, the SonarQube plugin of the build analyses the code and the version is not used. Left empty, the sonar-scanner on the agent's PATH runs.",
+                error: 'Must be a version such as 5.0.1.3006',
+              },
+            ),
+          ]
+        : []),
     ];
   }
 

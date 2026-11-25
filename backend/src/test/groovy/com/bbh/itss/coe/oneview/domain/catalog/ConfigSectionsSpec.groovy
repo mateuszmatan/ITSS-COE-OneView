@@ -6,12 +6,17 @@ import static com.bbh.itss.coe.oneview.domain.catalog.BitbucketAuthType.BASIC
 import static com.bbh.itss.coe.oneview.domain.catalog.BitbucketAuthType.BEARER
 import static com.bbh.itss.coe.oneview.domain.catalog.BitbucketType.CLOUD
 import static com.bbh.itss.coe.oneview.domain.catalog.BitbucketType.SERVER
+import static com.bbh.itss.coe.oneview.domain.catalog.BuildTool.ANDROID
 import static com.bbh.itss.coe.oneview.domain.catalog.BuildTool.DOTNET
 import static com.bbh.itss.coe.oneview.domain.catalog.BuildTool.FLUTTER
 import static com.bbh.itss.coe.oneview.domain.catalog.BuildTool.GRADLE
+import static com.bbh.itss.coe.oneview.domain.catalog.BuildTool.IOS
 import static com.bbh.itss.coe.oneview.domain.catalog.BuildTool.LIQUIBASE
 import static com.bbh.itss.coe.oneview.domain.catalog.BuildTool.MAVEN
 import static com.bbh.itss.coe.oneview.domain.catalog.BuildTool.MSBUILD
+import static com.bbh.itss.coe.oneview.domain.catalog.BuildTool.NPM
+import static com.bbh.itss.coe.oneview.domain.catalog.BuildTool.PIP
+import static com.bbh.itss.coe.oneview.domain.catalog.BuildTool.SQL
 import static com.bbh.itss.coe.oneview.domain.catalog.DeployTarget.OPENSHIFT
 import static com.bbh.itss.coe.oneview.domain.catalog.DeployTarget.VM
 import static com.bbh.itss.coe.oneview.domain.catalog.MetricsSettings.DEFAULTS
@@ -25,6 +30,15 @@ class ConfigSectionsSpec extends Specification {
 
     static final String APP_ID = '109f44ac-cc06-4ca0-884e-d944904f7019'
     static final String REPO = 'https://bitbucket.bbh.com/scm/ta/cert.git'
+    /** A Liquibase step of a Gradle, Android, Maven or .NET service, and the block the library reads for it. */
+    static final ToolCommand STEP = ToolCommand.builder().tasks(['validate', 'updateSQL'])
+            .flags(['--changelog-file=db/changelog.xml', '--url=offline:oracle']).directory(' db ')
+            .environment(['LIQUIBASE_LOG_LEVEL=INFO']).label(' Changelog ').returnStdout(true).build()
+    static final Map STEP_BLOCK = [commands: ['validate', 'updateSQL'],
+                                   flags   : ['--changelog-file=db/changelog.xml', '--url=offline:oracle'], dir: 'db',
+                                   env     : [LIQUIBASE_LOG_LEVEL: 'INFO'], label: 'Changelog', returnStdout: true]
+    static final String VERSION_MESSAGE = "must be a SonarScanner version such as 5.0.1.3006: at most 50 letters," +
+            " digits, '.', '_' and '-'"
 
     def "build settings default the source directory, trim the paths and start without a command"() {
         when:
@@ -93,6 +107,70 @@ class ConfigSectionsSpec extends Specification {
         DOTNET    | null     | false     | []            || []
         MSBUILD   | null     | false     | []            || []
         MSBUILD   | null     | false     | ['msbuild']   || []
+    }
+
+    def "build settings start without a Liquibase step, and keep the one they are given"() {
+        expect:
+        new BuildSettings(GRADLE, null, '/jdk', false, null, null).liquibase() == NONE
+        new BuildSettings(GRADLE, null, '/jdk', false, null, null, null).liquibase() == NONE
+        new BuildSettings(GRADLE, null, '/jdk', false, null, null, STEP).liquibase() == STEP
+        new BuildSettings(GRADLE, null, '/jdk', false, null, null, STEP).liquibase().directory() == 'db'
+    }
+
+    def "the Liquibase step after a #tool build is written under build.liquibase, after the command of the build"() {
+        when:
+        def build = written(new BuildSettings(tool, null, '/jdk', false, 'out/app.zip', ToolCommand.of([task], []), STEP))
+
+        then:
+        build.buildTool == name
+        build.build.keySet() as List == ['buildPath', block, 'liquibase']
+        build.build.liquibase == STEP_BLOCK
+
+        where:
+        tool    || name      | block    | task
+        GRADLE  || 'gradle'  | 'gradle' | 'build'
+        MAVEN   || 'maven'   | 'maven'  | 'verify'
+        ANDROID || 'android' | 'gradle' | 'assembleRelease'
+        DOTNET  || 'dotnet'  | 'dotnet' | 'dotnet build -c Release'
+        MSBUILD || 'msbuild' | 'dotnet' | 'msbuild Orders.sln /t:Build'
+    }
+
+    def "a #tool build writes no Liquibase step and refuses one, since the library runs none after it"() {
+        given:
+        def build = new BuildSettings(tool, null, '/jdk', false, null, NONE, ToolCommand.of(['validate'], []))
+
+        expect:
+        written(build).build?.liquibase == null
+        reported(build).findAll { it.field.startsWith('liquibase') }.collect { [it.field, it.message] } ==
+                [['liquibase.tasks', "must be empty for ${name}: the library runs a Liquibase step only after a Gradle,".toString()
+                        + ' Android, Maven or .NET build']]
+        problems(new BuildSettings(tool, null, '/jdk', false, null, NONE, NONE)).findAll { it.startsWith('liquibase') } == []
+
+        where:
+        tool      || name
+        FLUTTER   || 'Flutter'
+        LIQUIBASE || 'Liquibase'
+        SQL       || 'SQL and PL/SQL files'
+        NPM       || 'npm'
+        PIP       || 'pip (Python)'
+        IOS       || 'iOS'
+    }
+
+    def "a Liquibase step after a #tool build that sets #description reports #fields"() {
+        expect:
+        reported(new BuildSettings(tool, null, '/jdk', false, null, ToolCommand.of([task], []), step))
+                .collect { [it.field, it.message] } == fields
+
+        where:
+        description               | tool    | task           | step                                                                     || fields
+        'commands'                | GRADLE  | 'build'        | ToolCommand.of(['update-testing-rollback'], [])                          || []
+        'flags only'              | MAVEN   | 'verify'       | ToolCommand.of([], ['--changelog-file=db/changelog.xml'])                || []
+        'every key'               | ANDROID | 'assemble'     | STEP                                                                     || []
+        'commands'                | DOTNET  | 'dotnet build' | ToolCommand.of(['validate'], [])                                         || []
+        'only a step label'       | GRADLE  | 'build'        | ToolCommand.builder().label('Changelog').build()                         || [['liquibase.tasks', 'add Liquibase commands or flags: without them the library skips the step']]
+        'only a folder'           | MSBUILD | 'msbuild'      | ToolCommand.builder().directory('db').build()                            || [['liquibase.tasks', 'add Liquibase commands or flags: without them the library skips the step']]
+        'a Maven home'            | MAVEN   | 'verify'       | ToolCommand.builder().tasks(['validate']).mavenHome('/opt/maven').build() || [['liquibase.mavenHome', 'must be empty: the Liquibase step runs the liquibase command, not Maven']]
+        'too many commands'       | GRADLE  | 'build'        | ToolCommand.of(['update-testing-rollback'] * 50, [])                    || [['liquibase.tasks', 'is too long: all entries together may take at most 1000 bytes']]
     }
 
     def "OpenShift deployment needs the application name, and the artifact name while it delivers to Nexus"() {
@@ -201,6 +279,69 @@ class ConfigSectionsSpec extends Specification {
         'tasks and a label'      | GRADLE    | true    | ToolCommand.builder().tasks(['classes']).label('Compile').build() || []
     }
 
+    def "AppScan settings start without a Liquibase step of the compile, and keep the one they are given"() {
+        expect:
+        AppScanSettings.of(APP_ID).liquibaseCompileCommand() == NONE
+        new AppScanSettings(APP_ID, null, null, null, null, null, null, null, null, null, null, null, null)
+                .liquibaseCompileCommand() == NONE
+        AppScanSettings.builder().applicationId(APP_ID).liquibaseCompileCommand(STEP).build().liquibaseCompileCommand() ==
+                STEP
+    }
+
+    def "the Liquibase step after the AppScan compile of a #tool service is written under asoc.liquibase, after the compile command"() {
+        given:
+        def appScan = AppScanSettings.builder().applicationId(APP_ID).compileCommand(ToolCommand.of(['compile'], []))
+                .liquibaseCompileCommand(STEP).build()
+
+        expect:
+        written { appScan.writeTo(it, tool) }.asoc == [(block): [(key): ['compile']], liquibase: STEP_BLOCK]
+        written { AppScanSettings.builder().applicationId(APP_ID).compile(false).liquibaseCompileCommand(STEP).build()
+                .writeTo(it, tool) }.asoc == [doCompile: false, liquibase: STEP_BLOCK]
+
+        where:
+        tool   || block    | key
+        GRADLE || 'gradle' | 'tasks'
+        MAVEN  || 'maven'  | 'goals'
+    }
+
+    def "the AppScan compile of a #tool service writes no Liquibase step and refuses one, since the library runs none after it"() {
+        given:
+        def appScan = AppScanSettings.builder().applicationId(APP_ID).liquibaseCompileCommand(STEP).build()
+
+        expect:
+        written { appScan.writeTo(it, tool) }.asoc?.liquibase == null
+        reported { appScan.validate(it, tool) }.collect { [it.field, it.message] } ==
+                [['liquibaseCompileCommand.tasks', "must be empty for ${name}: the library runs a Liquibase step of the".toString()
+                        + ' scan only after the Gradle or Maven compile']]
+
+        where:
+        tool      || name
+        ANDROID   || 'Android'
+        DOTNET    || 'C# / .NET'
+        MSBUILD   || 'C# / .NET Framework (MSBuild)'
+        FLUTTER   || 'Flutter'
+        LIQUIBASE || 'Liquibase'
+        NPM       || 'npm'
+        PIP       || 'pip (Python)'
+        IOS       || 'iOS'
+    }
+
+    def "a Liquibase step after the AppScan compile of a #tool service that sets #description reports #fields"() {
+        given:
+        def appScan = AppScanSettings.builder().applicationId(APP_ID).compileCommand(ToolCommand.of(['compile'], []))
+                .liquibaseCompileCommand(step).build()
+
+        expect:
+        reported { appScan.validate(it, tool) }.collect { [it.field, it.message] } == fields
+
+        where:
+        description         | tool   | step                                                                       || fields
+        'commands'          | GRADLE | ToolCommand.of(['updateSQL'], [])                                          || []
+        'every key'         | MAVEN  | STEP                                                                       || []
+        'only the variables' | GRADLE | ToolCommand.builder().environment(['LIQUIBASE_OUTPUT_FILE=db.sql']).build() || [['liquibaseCompileCommand.tasks', 'add Liquibase commands or flags: without them the library skips the step']]
+        'a Maven home'      | MAVEN  | ToolCommand.builder().flags(['--url=offline:oracle']).mavenHome('/opt/maven').build() || [['liquibaseCompileCommand.mavenHome', 'must be empty: the Liquibase step runs the liquibase command, not Maven']]
+    }
+
     def "SonarQube settings trim their values and switch the badges off by default"() {
         when:
         def sonar = new SonarSettings(' ', ' cert ', ' ', ' ', ' ', ' ', null, null, null, null, ' ')
@@ -233,6 +374,63 @@ class ConfigSectionsSpec extends Specification {
         written { SonarSettings.of('CertScanner', 'cert', null).writeTo(it, GRADLE) } ==
                 [tools: [sonar: [projectName: 'CertScanner', projectKey: 'cert']]]
         written { SonarSettings.NONE.writeTo(it, GRADLE) } == [:]
+    }
+
+    def "SonarQube settings trim the SonarScanner version and start without one"() {
+        expect:
+        SonarSettings.builder().sonarScannerVersion(' 5.0.1.3006 ').build().sonarScannerVersion() == '5.0.1.3006'
+        SonarSettings.builder().sonarScannerVersion(' ').build() == SonarSettings.NONE
+        new SonarSettings(null, 'cert', null, null, null, null, null, null, null, null, null).sonarScannerVersion() == null
+        SonarSettings.of('Cert', 'cert', null).sonarScannerVersion() == null
+    }
+
+    def "the SonarScanner version of a #tool service is written under tools.sonar, after the analysis command"() {
+        given:
+        def sonar = SonarSettings.builder().projectKey('cert').command(command).sonarScannerVersion('5.0.1.3006').build()
+
+        when:
+        def written = written { sonar.writeTo(it, tool) }.tools.sonar
+
+        then:
+        written.keySet() as List == keys
+        written.sonarScannerVersion == version
+
+        where:
+        tool      | command                                    || keys                                              | version
+        GRADLE    | ToolCommand.of(['sonar'], [])              || ['projectKey', 'gradle', 'sonarScannerVersion']    | '5.0.1.3006'
+        MAVEN     | ToolCommand.of(['sonar:sonar'], [])        || ['projectKey', 'maven', 'sonarScannerVersion']     | '5.0.1.3006'
+        ANDROID   | ToolCommand.of(['sonar'], [])              || ['projectKey', 'gradle', 'sonarScannerVersion']    | '5.0.1.3006'
+        LIQUIBASE | ToolCommand.of([], ['-Dsonar.sources=db']) || ['projectKey', 'liquibase', 'sonarScannerVersion'] | '5.0.1.3006'
+        SQL       | ToolCommand.of([], ['-Dsonar.sources=db']) || ['projectKey', 'liquibase', 'sonarScannerVersion'] | '5.0.1.3006'
+        NPM       | ToolCommand.of([], ['-Dsonar.sources=src']) || ['projectKey', 'npm', 'sonarScannerVersion']      | '5.0.1.3006'
+        PIP       | ToolCommand.of([], ['-Dsonar.sources=src']) || ['projectKey', 'pip', 'sonarScannerVersion']      | '5.0.1.3006'
+        IOS       | ToolCommand.of([], ['-Dsonar.sources=App']) || ['projectKey', 'ios', 'sonarScannerVersion']      | '5.0.1.3006'
+        FLUTTER   | ToolCommand.NONE                           || ['projectKey']                                    | null
+        DOTNET    | ToolCommand.NONE                           || ['projectKey']                                    | null
+        MSBUILD   | ToolCommand.NONE                           || ['projectKey']                                    | null
+    }
+
+    def "a SonarScanner version #version of a #tool service reports #fields"() {
+        expect:
+        reported { SonarSettings.builder().sonarScannerVersion(version).build().validate(it, tool) }
+                .collect { [it.field, it.message] } == fields
+
+        where:
+        tool      | version      || fields
+        GRADLE    | '5.0.1.3006' || []
+        MAVEN     | '4.8.0.2856' || []
+        LIQUIBASE | '5.0.1.3006' || []
+        SQL       | '5.0'        || []
+        FLUTTER   | '5.0.1.3006' || []
+        NPM       | 'latest'     || []
+        IOS       | 'cli_6-2'    || []
+        PIP       | null         || []
+        GRADLE    | '5.0 beta'   || [['sonarScannerVersion', VERSION_MESSAGE]]
+        MAVEN     | '../5.0'     || [['sonarScannerVersion', VERSION_MESSAGE]]
+        LIQUIBASE | '5' * 51     || [['sonarScannerVersion', VERSION_MESSAGE]]
+        DOTNET    | '5.0.1.3006' || [['sonarScannerVersion', 'must be empty for .NET: the library analyses a .NET service with the SonarScanner for .NET, which does not read it']]
+        MSBUILD   | '5.0 beta'   || [['sonarScannerVersion', 'must be empty for .NET: the library analyses a .NET service with the SonarScanner for .NET, which does not read it']]
+        DOTNET    | null         || []
     }
 
     def "the SonarQube badges read the badge token or the credential holding it, not both"() {

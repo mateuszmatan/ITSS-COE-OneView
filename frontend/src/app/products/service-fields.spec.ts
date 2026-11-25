@@ -28,6 +28,7 @@ import {
 } from '../testing/fixtures';
 import {
   BADGE_TWICE,
+  LIQUIBASE_STEP_SKIPPED,
   NODE_TWICE,
   ONE_APPLICATION,
   ServiceForm,
@@ -456,7 +457,10 @@ describe('ServiceFields', () => {
       await open('Build');
       const box = () => checkboxOf(pane(), 'Build the frontend with Node.js first');
 
-      expect([...pane().querySelectorAll('h4')].map(text)).toEqual(['Node.js build (stage 0)']);
+      expect([...pane().querySelectorAll('h4')].map(text)).toEqual([
+        'Node.js build (stage 0)',
+        'Liquibase step after the build build.liquibase',
+      ]);
       expect(text(box().closest('ov-checkbox'))).toContain('build.node.enabled');
       expect(fieldOf(pane(), 'Folder with package.json')).toBeNull();
 
@@ -475,7 +479,7 @@ describe('ServiceFields', () => {
       expect(inputOf(pane(), 'Commands').placeholder).toBe('npm ci\nnpm run build');
       expect(checkboxOf(pane(), 'Scan the npm dependencies with Nexus IQ').checked).toBe(true);
       expect(text(pane().querySelector('ov-advanced-settings .panel-description'))).toBe(
-        'Source folder, build command and Node.js options',
+        'Source folder, build command, Liquibase step and Node.js options',
       );
       expect(field('Node.js home on the agent').closest('ov-advanced-settings')).not.toBeNull();
       form.controls.nodeBuild.controls.nodePath.setValue('/opt/node-20');
@@ -1443,6 +1447,130 @@ describe('ServiceFields', () => {
     });
   });
 
+  describe('Liquibase steps', () => {
+    const headings = () => [...pane().querySelectorAll('ov-advanced-settings h4')].map(text);
+    const steps = () => headings().filter((heading) => heading.startsWith('Liquibase step'));
+    const notes = () => [...pane().querySelectorAll('ov-advanced-settings .note')].map(text);
+    const labelled = (label: string) =>
+      [...pane().querySelectorAll('ov-form-field ov-label')].filter((item) => text(item) === label);
+
+    async function renderTool(tool: BuildTool, compile = true) {
+      const stored = service();
+      await render(
+        service({
+          build: { ...stored.build, tool },
+          appScan: { ...stored.appScan, compile },
+        }),
+      );
+    }
+
+    it('shows the step after the build of a Maven service under Advanced settings, with its keys and no Maven home', async () => {
+      await renderTool('MAVEN');
+      await open('Build');
+
+      expect(steps()).toEqual(['Liquibase step after the build build.liquibase']);
+      expect(text(pane().querySelector('ov-advanced-settings .panel-description'))).toBe(
+        'Source folder, build command options and Liquibase step',
+      );
+      const commands = fieldOf(pane(), 'Liquibase commands')!;
+      expect(commands.closest('ov-advanced-settings')).not.toBeNull();
+      expect(text(commands)).toContain('build.liquibase.commands');
+      expect(helpOf(commands)).toContain('A failure of the step fails the build.');
+      expect(text(fieldOf(pane(), 'Liquibase flags'))).toContain('build.liquibase.flags');
+      expect(text(fieldOf(pane(), 'Liquibase directory'))).toContain('build.liquibase.dir');
+      expect(helpOf(fieldOf(pane(), 'Liquibase step label')!)).toContain(
+        'Left empty, the step is named Liquibase: and its commands',
+      );
+      expect(
+        text(checkboxOf(pane(), 'Return the Liquibase output').closest('ov-checkbox')),
+      ).toContain('build.liquibase.returnStdout');
+      expect(labelled('Maven home')).toHaveLength(1);
+      expect(notes()).toContain(
+        'The Build artifact stage runs liquibase with these flags and commands once the build has passed, for example to validate the changelog of a module. A failure of the step fails the build. Left empty, no step runs.',
+      );
+    });
+
+    it('explains the step after the unit tests, which needs the test tasks of a Gradle service and keeps a .NET service from skipping its unit tests', async () => {
+      await renderTool('GRADLE');
+      await open('Unit tests and coverage');
+
+      expect(steps()).toEqual(['Liquibase step after the unit tests tests.unitTests.liquibase']);
+      expect(text(pane().querySelector('ov-advanced-settings .panel-description'))).toBe(
+        'Folders, empty results, test command options and Liquibase step',
+      );
+      expect(notes().join(' ')).toContain('so it needs the test tasks or goals above');
+      expect(helpOf(fieldOf(pane(), 'Liquibase commands')!)).toContain(
+        'the Unit tests stage turns orange and the build unstable',
+      );
+      expect(text(fieldOf(pane(), 'Liquibase step label'))).toContain(
+        'tests.unitTests.liquibase.label',
+      );
+
+      form.controls.build.controls.tool.setValue('DOTNET');
+      await fixture.whenStable();
+
+      expect(steps()).toEqual(['Liquibase step after the unit tests tests.unitTests.liquibase']);
+      expect(notes().join(' ')).toContain(
+        'so the Unit tests stage no longer skips the .NET unit tests: it runs the .NET commands above, or the automatic tests while they are empty.',
+      );
+    });
+
+    it.each<[BuildTool, string[]]>([
+      ['GRADLE', ['Liquibase step after the compile asoc.liquibase']],
+      ['MAVEN', ['Liquibase step after the compile asoc.liquibase']],
+      ['ANDROID', []],
+      ['DOTNET', []],
+      ['MSBUILD', []],
+    ])('shows a %s service the step after the AppScan compile %j', async (tool, shown) => {
+      await renderTool(tool);
+      await open('AppScan SAST and DAST');
+
+      expect(steps()).toEqual(shown);
+      if (shown.length) {
+        expect(notes()).toContain(
+          'On a Linux or macOS agent the SAST compile runs liquibase with these flags and commands after the Gradle or Maven compile. Left empty, it runs the Liquibase step of the build, if the service has one; a Windows agent runs no step.',
+        );
+        expect(text(fieldOf(pane(), 'Liquibase commands'))).toContain('asoc.liquibase.commands');
+      }
+    });
+
+    it('hides the step after the AppScan compile while the scan does not compile', async () => {
+      await renderTool('MAVEN', false);
+      await open('AppScan SAST and DAST');
+
+      expect(steps()).toEqual([]);
+    });
+
+    it.each<BuildTool>(['FLUTTER', 'LIQUIBASE', 'SQL', 'NPM', 'PIP', 'IOS'])(
+      'shows a %s service no Liquibase step, as the library runs none for it',
+      async (tool) => {
+        await renderTool(tool);
+        for (const section of ['Build', 'Unit tests and coverage', 'AppScan SAST and DAST']) {
+          if (railLabels().includes(section)) {
+            await open(section);
+            expect(steps(), section).toEqual([]);
+          }
+        }
+      },
+    );
+
+    it('names a step that sets only a label by its commands, which it needs, and opens it under Advanced settings', async () => {
+      await renderTool('GRADLE');
+      form.controls.build.controls.liquibase.controls.label.setValue('Changelog check');
+      const [missing] = fixture.componentInstance.missing();
+
+      expect(`${missing.section}: ${missing.label}`).toBe('build: Liquibase commands');
+
+      fixture.componentInstance.reveal(missing);
+      await fixture.whenStable();
+
+      expect(text(fieldOf(pane(), 'Liquibase commands')?.querySelector('ov-error'))).toBe(
+        LIQUIBASE_STEP_SKIPPED,
+      );
+      expect(pane().querySelector('ov-advanced-settings .has-errors')).not.toBeNull();
+    });
+  });
+
   describe('SonarQube', () => {
     it('shows the project first, keeps the tokens and badges under Advanced settings and refuses both badge values', async () => {
       await render();
@@ -1471,6 +1599,67 @@ describe('ServiceFields', () => {
 
       expect(text(fieldOf(pane(), 'Badge token')?.querySelector('ov-error'))).toBe(BADGE_TWICE);
       expect(pane().querySelector('ov-advanced-settings .has-errors')).not.toBeNull();
+    });
+
+    it.each<BuildTool>(['GRADLE', 'MAVEN', 'FLUTTER', 'LIQUIBASE', 'NPM', 'IOS'])(
+      'takes the SonarScanner version of a %s service under Advanced settings',
+      async (tool) => {
+        await render(service({ build: { ...service().build, tool } }));
+        await open('SonarQube');
+        const version = fieldOf(pane(), 'SonarScanner version')!;
+
+        expect(version.closest('ov-advanced-settings')).not.toBeNull();
+        expect(text(pane().querySelector('ov-advanced-settings .panel-description'))).toBe(
+          tool === 'FLUTTER'
+            ? 'Tokens, scanner credentials, server, SonarScanner version and badges'
+            : 'Tokens, scanner credentials, server, SonarScanner version, badges and analysis command options',
+        );
+        expect(text(version)).toContain('tools.sonar.sonarScannerVersion');
+        expect(helpOf(version)).toContain('sonar-scanner-cli-5.0.1.3006');
+        expect(helpOf(version)).toContain(
+          'for Gradle, Android and Maven while no SonarQube tasks or goals are given',
+        );
+
+        inputOf(pane(), 'SonarScanner version').value = '5.0 beta';
+        inputOf(pane(), 'SonarScanner version').dispatchEvent(new Event('input'));
+        inputOf(pane(), 'SonarScanner version').dispatchEvent(new Event('blur'));
+        await fixture.whenStable();
+
+        expect(text(fieldOf(pane(), 'SonarScanner version')?.querySelector('ov-error'))).toBe(
+          'Must be a version such as 5.0.1.3006',
+        );
+      },
+    );
+
+    it.each<BuildTool>(['DOTNET', 'MSBUILD'])(
+      'offers a %s service no SonarScanner version, which the SonarScanner for .NET does not read',
+      async (tool) => {
+        await render(service({ build: { ...service().build, tool } }));
+        await open('SonarQube');
+
+        expect(fieldOf(pane(), 'SonarScanner version')).toBeNull();
+        expect(text(pane().querySelector('ov-advanced-settings .panel-description'))).toBe(
+          'Tokens, scanner credentials, server, badges and analysis command options',
+        );
+        expect(form.controls.sonar.controls.sonarScannerVersion.disabled).toBe(true);
+      },
+    );
+
+    it('keeps the SonarScanner version of a Flutter service out of the Flutter section', async () => {
+      const stored = service();
+      await render(
+        service({
+          build: { ...stored.build, tool: 'FLUTTER' },
+          sonar: { ...stored.sonar, sonarScannerVersion: '5.0.1.3006' },
+        }),
+      );
+      await open('Flutter');
+
+      expect(fieldOf(pane(), 'SonarScanner version')).toBeNull();
+
+      await open('SonarQube');
+
+      expect(inputOf(pane(), 'SonarScanner version').value).toBe('5.0.1.3006');
     });
   });
 

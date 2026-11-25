@@ -3,7 +3,7 @@ import { TestBed } from '@angular/core/testing';
 import { of } from 'rxjs';
 import { FormGroup } from '@angular/forms';
 import { applyFieldProblems, controlAt, revalidateAll } from '@common/shared/form-controls';
-import { BuildTool, PipelineType, ServiceDefaults } from '../core/models';
+import { BuildTool, PipelineType, Service, ServiceDefaults } from '../core/models';
 import {
   anotherService,
   command,
@@ -20,6 +20,7 @@ import {
 import {
   BADGE_TWICE,
   CHANGELOG_AT_ROOT,
+  LIQUIBASE_STEP_SKIPPED,
   NOT_ALLOWED_DATABASE,
   NO_ALLOWED_DATABASES,
   OWN_TEST_DATABASE,
@@ -95,6 +96,15 @@ const DEFAULTS: ServiceDefaults = {
 describe('createServiceForm', () => {
   it('starts a new service with the defaults of the DevSecOps library', () => {
     const value = createServiceForm().getRawValue();
+    const empty = {
+      tasks: '',
+      flags: '',
+      directory: '',
+      mavenHome: '',
+      environment: '',
+      label: '',
+      returnStdout: false,
+    };
 
     expect(value.build).toEqual({
       tool: 'GRADLE',
@@ -102,16 +112,12 @@ describe('createServiceForm', () => {
       javaPath: '',
       autoSetup: false,
       buildPath: '',
-      command: {
-        tasks: '',
-        flags: '',
-        directory: '',
-        mavenHome: '',
-        environment: '',
-        label: '',
-        returnStdout: false,
-      },
+      command: empty,
+      liquibase: empty,
     });
+    expect(value.unitTests.liquibase).toEqual(empty);
+    expect(value.appScan.liquibaseCompileCommand).toEqual(empty);
+    expect(value.sonar.sonarScannerVersion).toBe('');
     expect(value.deployment.target).toBe('VM');
     expect(value.testJobs).toEqual([]);
     expect(value.nexusIqApplications).toEqual([]);
@@ -284,6 +290,181 @@ describe('createServiceForm', () => {
       Array.from({ length: 21 }, (_, i) => `p${i}`).join('\n'),
     );
     expect(nexusIq.controls.scanPatterns.hasError('maxLines')).toBe(true);
+  });
+});
+
+describe('Liquibase steps and the SonarScanner version', () => {
+  /** A Maven service with a Liquibase step after its build, its unit tests and its AppScan compile. */
+  function withSteps(): Service {
+    const stored = service();
+    return service({
+      build: {
+        ...stored.build,
+        tool: 'MAVEN',
+        command: command({ tasks: ['clean', 'verify'] }),
+        liquibase: command({
+          tasks: ['validate', 'updateSQL'],
+          flags: ['--changelog-file=db/changelog.xml', '--url=offline:oracle'],
+          directory: 'ledger-db',
+          environment: ['LIQUIBASE_LOG_LEVEL=INFO'],
+          label: 'Build Liquibase step',
+        }),
+      },
+      unitTests: {
+        ...stored.unitTests,
+        command: command({ tasks: ['test', 'jacoco:report'] }),
+        liquibase: command({ tasks: ['status'], flags: ['--changelog-file=db/changelog.xml'] }),
+      },
+      appScan: {
+        ...stored.appScan,
+        liquibaseCompileCommand: command({
+          flags: ['--changelog-file=db/changelog.xml'],
+          returnStdout: true,
+        }),
+      },
+      sonar: {
+        ...stored.sonar,
+        command: command({ tasks: ['sonar:sonar'] }),
+        sonarScannerVersion: '5.0',
+      },
+      delivery: command({ tasks: ['deploy'] }),
+    });
+  }
+
+  const steps = (form: ReturnType<typeof createServiceForm>) => [
+    form.controls.build.controls.liquibase,
+    form.controls.unitTests.controls.liquibase,
+    form.controls.appScan.controls.liquibaseCompileCommand,
+  ];
+
+  it.each<[BuildTool, boolean, boolean]>([
+    ['GRADLE', true, true],
+    ['MAVEN', true, true],
+    ['ANDROID', true, false],
+    ['DOTNET', true, false],
+    ['MSBUILD', true, false],
+    ['FLUTTER', false, false],
+    ['LIQUIBASE', false, false],
+    ['SQL', false, false],
+    ['NPM', false, false],
+    ['PIP', false, false],
+    ['IOS', false, false],
+  ])(
+    'offers a %s service the steps after the build and the unit tests (%s) and after the AppScan compile (%s), never with a Maven home',
+    (tool, afterBuild, afterCompile) => {
+      const form = createServiceForm(service());
+      form.controls.build.controls.tool.setValue(tool);
+      const [build, unitTests, compile] = steps(form);
+
+      expect([build.enabled, unitTests.enabled, compile.enabled]).toEqual([
+        afterBuild,
+        afterBuild,
+        afterCompile,
+      ]);
+      steps(form).forEach((step) => expect(step.controls.mavenHome.disabled).toBe(true));
+    },
+  );
+
+  it('needs the commands or the flags of a step that sets anything else, as the library skips it without them', () => {
+    const form = createServiceForm(service());
+    steps(form).forEach((step) => {
+      const c = step.controls;
+      expect(c.tasks.valid).toBe(true);
+
+      c.label.setValue('Changelog check');
+      expect(c.tasks.errors).toEqual({ rule: LIQUIBASE_STEP_SKIPPED });
+
+      c.flags.setValue('--changelog-file=db/changelog.xml');
+      expect(c.tasks.valid).toBe(true);
+
+      c.flags.setValue('');
+      c.tasks.setValue('validate');
+      expect(c.tasks.valid).toBe(true);
+    });
+  });
+
+  it('needs the unit test tasks of a Gradle service with a step after its unit tests, which the library then runs', () => {
+    const form = createServiceForm(service());
+    const { unitTests } = form.controls;
+    unitTests.patchValue({ command: { tasks: '' }, resultPattern: '' });
+    expect(unitTestsConfigured(form)).toBe(false);
+    expect(unitTests.controls.command.controls.tasks.valid).toBe(true);
+
+    unitTests.controls.liquibase.controls.tasks.setValue('validate');
+
+    expect(unitTestsConfigured(form)).toBe(true);
+    expect(unitTests.controls.command.controls.tasks.hasError('required')).toBe(true);
+  });
+
+  it('round-trips the steps and the SonarScanner version of a stored Maven service', () => {
+    const stored = withSteps();
+
+    expect(toServiceRequest(createServiceForm(stored))).toEqual({ ...stored, flutter: null });
+  });
+
+  it('sends a step without a Maven home, and empty steps for a build tool that runs none', () => {
+    const form = createServiceForm(withSteps());
+    form.controls.build.controls.liquibase.controls.mavenHome.setValue('/opt/maven');
+
+    expect(toServiceRequest(form).build.liquibase.mavenHome).toBeNull();
+
+    form.controls.build.controls.tool.setValue('ANDROID');
+    const android = toServiceRequest(form);
+    expect(android.build.liquibase.tasks).toEqual(['validate', 'updateSQL']);
+    expect(android.unitTests.liquibase.tasks).toEqual(['status']);
+    expect(android.appScan.liquibaseCompileCommand).toEqual(NO_COMMAND);
+
+    form.controls.build.controls.tool.setValue('LIQUIBASE');
+    const liquibase = toServiceRequest(form);
+    expect([
+      liquibase.build.liquibase,
+      liquibase.unitTests.liquibase,
+      liquibase.appScan.liquibaseCompileCommand,
+    ]).toEqual([NO_COMMAND, NO_COMMAND, NO_COMMAND]);
+
+    form.controls.build.controls.tool.setValue('MAVEN');
+    expect(toServiceRequest(form)).toEqual({ ...withSteps(), flutter: null });
+  });
+
+  it('hides the AppScan step with the compile and keeps it while it passes its rules, as the compile command', () => {
+    const form = createServiceForm(withSteps());
+    const { compile, liquibaseCompileCommand } = form.controls.appScan.controls;
+
+    compile.setValue(false);
+
+    expect(liquibaseCompileCommand.disabled).toBe(true);
+    expect(toServiceRequest(form).appScan.liquibaseCompileCommand.flags).toEqual([
+      '--changelog-file=db/changelog.xml',
+    ]);
+
+    liquibaseCompileCommand.patchValue({ flags: '', label: 'SAST step' });
+    expect(form.valid).toBe(true);
+    expect(toServiceRequest(form).appScan.liquibaseCompileCommand).toEqual(NO_COMMAND);
+
+    compile.setValue(true);
+    expect(liquibaseCompileCommand.controls.tasks.errors).toEqual({ rule: LIQUIBASE_STEP_SKIPPED });
+  });
+
+  it('takes the SonarScanner version for every build tool but .NET, whose analysis does not read it', () => {
+    const form = createServiceForm(service());
+    const version = form.controls.sonar.controls.sonarScannerVersion;
+    version.setValue('5.0.1.3006');
+
+    expect(toServiceRequest(form).sonar.sonarScannerVersion).toBe('5.0.1.3006');
+
+    form.controls.build.controls.tool.setValue('MSBUILD');
+    expect(version.disabled).toBe(true);
+    expect(toServiceRequest(form).sonar.sonarScannerVersion).toBeNull();
+
+    form.controls.build.controls.tool.setValue('FLUTTER');
+    expect(version.enabled).toBe(true);
+    expect(toServiceRequest(form).sonar.sonarScannerVersion).toBe('5.0.1.3006');
+    expect(toServiceRequest(form).flutter).not.toHaveProperty('sonarScannerVersion');
+
+    version.setValue('5.0 beta');
+    expect(version.hasError('pattern')).toBe(true);
+    version.setValue('5'.repeat(51));
+    expect(version.hasError('maxlength')).toBe(true);
   });
 });
 

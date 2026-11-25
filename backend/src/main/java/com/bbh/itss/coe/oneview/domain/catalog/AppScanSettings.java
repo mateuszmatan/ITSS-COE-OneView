@@ -6,6 +6,7 @@ import lombok.Builder;
 
 import java.util.List;
 
+import static com.bbh.itss.coe.oneview.domain.catalog.BuildTool.LIQUIBASE;
 import static com.bbh.itss.coe.oneview.domain.catalog.BuildTool.MAVEN;
 import static com.bbh.itss.coe.oneview.domain.catalog.ToolCommand.NONE;
 import static com.bbh.itss.coe.oneview.domain.shared.StoredList.LINES_2000;
@@ -18,11 +19,15 @@ import static org.apache.commons.lang3.StringUtils.lowerCase;
 import static org.apache.commons.lang3.StringUtils.trim;
 import static org.apache.commons.lang3.StringUtils.trimToNull;
 
+/**
+ * The AppScan on Cloud scans of a service: the static analysis with its compile, and the Liquibase step that the library
+ * runs after the Gradle or Maven compile of the scan (asoc.liquibase, else build.liquibase), and the dynamic analysis.
+ */
 @Builder
 public record AppScanSettings(String applicationId, List<String> includedDirs, List<String> excludedDirs,
                               Boolean compile, Boolean sourceCodeOnly, Boolean useConfigFile, Boolean insecureTls,
                               String clientPath, ToolCommand compileCommand, Boolean dastEnabled, String dastTargetUrl,
-                              String dastPresenceId, String scanName) {
+                              String dastPresenceId, String scanName, ToolCommand liquibaseCompileCommand) {
 
     public AppScanSettings {
         applicationId = lowerCase(trim(applicationId), ROOT);
@@ -38,6 +43,15 @@ public record AppScanSettings(String applicationId, List<String> includedDirs, L
         dastTargetUrl = trimToNull(dastTargetUrl);
         dastPresenceId = trimToNull(dastPresenceId);
         scanName = trimToNull(scanName);
+        liquibaseCompileCommand = getIfNull(liquibaseCompileCommand, NONE);
+    }
+
+    public AppScanSettings(String applicationId, List<String> includedDirs, List<String> excludedDirs,
+                           Boolean compile, Boolean sourceCodeOnly, Boolean useConfigFile, Boolean insecureTls,
+                           String clientPath, ToolCommand compileCommand, Boolean dastEnabled, String dastTargetUrl,
+                           String dastPresenceId, String scanName) {
+        this(applicationId, includedDirs, excludedDirs, compile, sourceCodeOnly, useConfigFile, insecureTls, clientPath,
+                compileCommand, dastEnabled, dastTargetUrl, dastPresenceId, scanName, NONE);
     }
 
     public static AppScanSettings of(String applicationId) {
@@ -54,6 +68,9 @@ public record AppScanSettings(String applicationId, List<String> includedDirs, L
                 .flag("asoc.useAppScanConfig", useConfigFile)
                 .flag("asoc.insecureTls", insecureTls);
         compileCommand.writeTo(config, "asoc", tool);
+        if (BuildTool.liquibaseCompileStep(tool)) {
+            liquibaseCompileCommand.writeTo(config, "asoc", LIQUIBASE);
+        }
         config.set("sast.scanName", scanName)
                 .set("dast.enabled", dastEnabled)
                 .set("dast.targetUrl", dastTargetUrl)
@@ -74,5 +91,8 @@ public record AppScanSettings(String applicationId, List<String> includedDirs, L
         LINES_2000.check(problems, "excludedDirs", excludedDirs);
         compileCommand.validate(problems.at("compileCommand"));
         compileCommand.validateScripted(problems.at("compileCommand"), "asoc", tool);
+        liquibaseCompileCommand.validateLiquibaseStep(problems.at("liquibaseCompileCommand"), tool,
+                BuildTool.liquibaseCompileStep(tool),
+                "the library runs a Liquibase step of the scan only after the Gradle or Maven compile");
     }
 }

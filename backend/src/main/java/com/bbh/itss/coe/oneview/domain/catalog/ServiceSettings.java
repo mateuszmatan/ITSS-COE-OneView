@@ -132,7 +132,7 @@ public record ServiceSettings(BuildSettings build, NodeBuildSettings nodeBuild, 
             nexusDelivery.writeNugetTo(config);
         }
         if (tool == FLUTTER) {
-            flutter.writeTo(config);
+            flutter.writeTo(config, sonar.sonarScannerVersion());
         }
     }
 

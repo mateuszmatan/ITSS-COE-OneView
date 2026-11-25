@@ -8,6 +8,7 @@ import java.util.concurrent.Callable
 
 import static com.bbh.itss.coe.oneview.support.ApiJson.appScan
 import static com.bbh.itss.coe.oneview.support.ApiJson.build
+import static com.bbh.itss.coe.oneview.support.ApiJson.command
 import static com.bbh.itss.coe.oneview.support.ApiJson.databaseDefaults
 import static com.bbh.itss.coe.oneview.support.ApiJson.databaseService
 import static com.bbh.itss.coe.oneview.support.ApiJson.deployedBy
@@ -45,9 +46,11 @@ class ProductCatalogRegressionSpec extends OneViewSpecification {
             createdAt != null
             services*.name == ['gateway', 'ledger']
             services*.metrics*.influxProject == ["$code-gateway", "$code-ledger"]
-            services[1].build == [tool   : 'MAVEN', sourceDir: '.', javaPath: null, autoSetup: true, buildPath: 'target/*.jar',
-                                  command: [tasks: ['clean', 'verify'], flags: [], directory: null, mavenHome: null,
-                                            environment: [], label: null, returnStdout: false]]
+            services[1].build == [tool     : 'MAVEN', sourceDir: '.', javaPath: null, autoSetup: true, buildPath: 'target/*.jar',
+                                  command  : [tasks: ['clean', 'verify'], flags: [], directory: null, mavenHome: null,
+                                              environment: [], label: null, returnStdout: false],
+                                  liquibase: [tasks: [], flags: [], directory: null, mavenHome: null, environment: [],
+                                              label: null, returnStdout: false]]
             services[1].delivery.tasks == ['deploy:deploy-file']
             services[0].goldenFix.enabled == null
             services[0].goldenFix.minThreatLevel == null
@@ -87,10 +90,12 @@ class ProductCatalogRegressionSpec extends OneViewSpecification {
         then:
         created.status == 201
         created.json.services.size() == 3
-        def sections = [services[0].keySet(), ['build', 'deployment', 'openShiftTargets'], ['build', 'deployment', 'flutter']]
+        def sections = [services[0].keySet(), ['build', 'deployment', 'openShiftTargets'], ['build', 'deployment']]
         [created.json.services, services, sections].transpose().each { stored, sent, checked ->
             checked.each { section -> assert stored[section] == sent[section] }
         }
+        created.json.services[2].sonar.sonarScannerVersion == '5.0.1.3006'
+        created.json.services[2].flutter == services[2].flutter + [sonarScannerVersion: '5.0.1.3006']
 
         and: 'reading the product back and saving it unchanged keeps every value'
         def read = api.get("/api/products/${created.json.id}").json
@@ -352,6 +357,102 @@ class ProductCatalogRegressionSpec extends OneViewSpecification {
         'Node.js lists fit too'      | service(nodeBuild: [commands: (1..9).collect { "npm run step-$it ${'x' * 480}".toString() }], versionCatalogs: (1..10).collect { "${'d' * 250}/$it".toString() }) || ['services[0].nodeBuild.commands', 'services[0].versionCatalogs']
         'Flutter builds no Node.js'  | fullFlutterService(nodeBuild: [enabled: true, directory: 'web'])                         || ['services[0].nodeBuild.enabled']
         'one Node.js home'           | service(nodeBuild: [enabled: true, installationName: 'NodeJS-20', nodePath: '/opt/node-20']) || ['services[0].nodeBuild.nodePath']
+    }
+
+    def "a Flutter service sent with its SonarScanner version under flutter, as clients before the move send it, keeps it: #shape"() {
+        given:
+        def code = uniqueCode()
+        def service = fullFlutterService(sonar: sonar, flutter: fullFlutterService().flutter + flutter)
+
+        when:
+        def created = api.post('/api/products', product(code: code, name: "Product $code", services: [service]))
+        def pipeline = pipelineFor(created.json.services[0].id as long)
+        def config = api.get("/api/dso/config/$pipeline.activeKey.value?format=json").json
+
+        then:
+        created.status == 201
+        created.json.services[0].sonar.sonarScannerVersion == version
+        created.json.services[0].flutter.sonarScannerVersion == version
+        created.json.services[0].flutter.modules == ['app']
+        api.get("/api/products/$created.json.id").json.services[0].sonar.sonarScannerVersion == version
+        config.projects['ledger-mobile'].tools.sonar.sonarScannerVersion == version
+        (config.projects['ledger-mobile'].tools.sonar.keySet() as List).with { it.indexOf('sonarScannerVersion') == it.indexOf('dartAnalyzeCommand') + 1 }
+
+        where:
+        shape                         | sonar                                 | flutter                                || version
+        'the old place only'          | null                                  | [sonarScannerVersion: '4.8.0.2856']   || '4.8.0.2856'
+        'both places, the new wins'   | [sonarScannerVersion: '5.0.1.3006']   | [sonarScannerVersion: '4.8.0.2856']   || '5.0.1.3006'
+        'the new place only'          | [sonarScannerVersion: '5.0.1.3006']   | [:]                                    || '5.0.1.3006'
+    }
+
+    def "a client of the earlier API that saves a Flutter service as it read it, with the version under flutter only, keeps the version"() {
+        given:
+        def code = uniqueCode()
+        def created = createProduct(product(code: code, name: "Product $code", services: [fullFlutterService()]))
+        Map read = api.get("/api/products/$created.id").json.services[0] as Map
+        def without = { Map section, String field -> section.findAll { it.key != field } }
+
+        when: 'it sends the fields it knows: the version in its Flutter field, no step and no version under sonar'
+        def sent = read + [build  : without(read.build as Map, 'liquibase'), unitTests: without(read.unitTests as Map, 'liquibase'),
+                           appScan: without(read.appScan as Map, 'liquibaseCompileCommand'),
+                           sonar  : without(read.sonar as Map, 'sonarScannerVersion')]
+        def saved = api.put("/api/products/$created.id", product(code: code, name: "Product $code",
+                version: created.version, services: [sent]))
+        def pipeline = pipelineFor(created.services[0].id as long)
+
+        then:
+        read.flutter.sonarScannerVersion == '5.0.1.3006'
+        saved.status == 200
+        saved.json.services[0].sonar.sonarScannerVersion == '5.0.1.3006'
+        saved.json.services[0].flutter.sonarScannerVersion == '5.0.1.3006'
+        api.get("/api/dso/config/$pipeline.activeKey.value?format=json").json
+                .projects['ledger-mobile'].tools.sonar.sonarScannerVersion == '5.0.1.3006'
+    }
+
+    def "a Maven service stores its Liquibase steps and SonarScanner version, and the config runs them where the library reads them"() {
+        given:
+        def code = uniqueCode()
+        def service = fullMavenService(metrics: fullMavenService().metrics + [influxProject: "$code-ledger".toString()],
+                sonar: fullMavenService().sonar + [projectKey: "$code-ledger".toString(), sonarScannerVersion: '5.0.1.3006'])
+
+        when:
+        def created = api.post('/api/products', product(code: code, name: "Product $code", services: [service]))
+        def pipeline = pipelineFor(created.json.services[0].id as long)
+        def ledger = api.get("/api/dso/config/$pipeline.activeKey.value?format=json").json.projects.ledger
+
+        then:
+        created.status == 201
+        created.json.services[0].build.liquibase == service.build.liquibase
+        created.json.services[0].unitTests.liquibase == service.unitTests.liquibase
+        created.json.services[0].appScan.liquibaseCompileCommand == service.appScan.liquibaseCompileCommand
+        created.json.services[0].sonar.sonarScannerVersion == '5.0.1.3006'
+        ledger.build.liquibase == [commands: ['validate'], flags: ['--changelog-file=db/changelog.xml'], dir: 'ledger',
+                                   label   : 'Ledger changelog']
+        ledger.tests.unitTests.liquibase == [commands: ['status'], flags: ['--changelog-file=db/changelog.xml', '--url=offline:oracle']]
+        ledger.asoc.liquibase == [commands: ['updateSQL'], flags: ['--changelog-file=db/changelog.xml', '--url=offline:oracle'],
+                                  env     : [LIQUIBASE_OUTPUT_FILE: 'target/sast/ledger.sql']]
+        ledger.tools.sonar.sonarScannerVersion == '5.0.1.3006'
+    }
+
+    def "a Liquibase step that the library would not run is refused field by field (#rule)"() {
+        given:
+        def code = uniqueCode()
+
+        when:
+        def response = api.post('/api/products', product(code: code, name: "Product $code", services: [submitted]))
+
+        then:
+        response.status == 400
+        response.json.errors.collect { [it.field, it.message] } == errors
+        api.get("/api/products?search=$code").json == []
+
+        where:
+        rule                          | submitted                                                                                                     || errors
+        'Flutter runs no step'        | fullFlutterService(build: fullFlutterService().build + [liquibase: command(['validate'], [])])               || [['services[0].build.liquibase.tasks', 'must be empty for Flutter: the library runs a Liquibase step only after a Gradle, Android, Maven or .NET build']]
+        'a step needs commands'       | service(unitTests: [command: command(['test'], []), liquibase: command([], []) + [label: 'Status']])         || [['services[0].unitTests.liquibase.tasks', 'add Liquibase commands or flags: without them the library skips the step']]
+        'a step reads no Maven home'  | mavenService(build: mavenService().build + [liquibase: command(['validate'], []) + [mavenHome: '/opt/maven']]) || [['services[0].build.liquibase.mavenHome', 'must be empty: the Liquibase step runs the liquibase command, not Maven']]
+        'no step after .NET compiles' | service(build: build(tool: 'DOTNET', javaPath: null, command: command([], [])), appScan: appScan(liquibaseCompileCommand: command(['updateSQL'], []))) || [['services[0].appScan.liquibaseCompileCommand.tasks', 'must be empty for C# / .NET: the library runs a Liquibase step of the scan only after the Gradle or Maven compile']]
+        'no SonarScanner for .NET'    | service(build: build(tool: 'MSBUILD', javaPath: null, command: command([], [])), sonar: [sonarScannerVersion: '5.0.1.3006']) || [['services[0].sonar.sonarScannerVersion', 'must be empty for .NET: the library analyses a .NET service with the SonarScanner for .NET, which does not read it']]
     }
 
     def "test job parameters are stored one NAME=value per line as they were entered"() {

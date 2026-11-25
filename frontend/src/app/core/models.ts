@@ -79,6 +79,27 @@ export function commandParts(
 export const databaseTool = (tool: BuildTool | null | undefined): boolean =>
   tool === 'LIQUIBASE' || tool === 'SQL';
 
+/**
+ * Build tools after whose build and unit tests the library runs a Liquibase step of the service (build.liquibase,
+ * tests.unitTests.liquibase): Gradle, Android and Maven, and C# / .NET and MSBuild.
+ */
+export const liquibaseStep = (tool: BuildTool | null | undefined): boolean =>
+  tool === 'GRADLE' || tool === 'MAVEN' || tool === 'ANDROID' || dotnetTool(tool);
+
+/**
+ * Build tools after whose AppScan compile the library runs a Liquibase step (asoc.liquibase, else build.liquibase):
+ * the Gradle and Maven compile on a Linux or macOS agent. The compile of an Android service stops before it, and the
+ * .NET compile runs none.
+ */
+export const liquibaseCompileStep = (tool: BuildTool | null | undefined): boolean =>
+  tool === 'GRADLE' || tool === 'MAVEN';
+
+/**
+ * Build tools whose SonarScanner version (tools.sonar.sonarScannerVersion) the library reads: every tool but C# / .NET
+ * and MSBuild, which the library analyses with the SonarScanner for .NET.
+ */
+export const scannerVersion = (tool: BuildTool | null | undefined): boolean => !dotnetTool(tool);
+
 /** A setting the auto-discovery or the library filled in, with the value and why. */
 export interface ResolvedParameter {
   field: string;
@@ -182,6 +203,7 @@ export interface BuildSettings {
   autoSetup: boolean;
   buildPath: string | null;
   command: ToolCommand;
+  liquibase: ToolCommand;
 }
 
 export interface NodeBuildSettings {
@@ -207,6 +229,7 @@ export interface UnitTestSettings {
   cypressEnabled: boolean;
   cypressCommand: string | null;
   cypressReportsDir: string | null;
+  liquibase: ToolCommand;
 }
 
 export interface TestSettings {
@@ -366,6 +389,7 @@ export interface AppScanSettings {
   insecureTls: boolean;
   clientPath: string | null;
   compileCommand: ToolCommand;
+  liquibaseCompileCommand: ToolCommand;
   dastEnabled: boolean;
   dastTargetUrl: string | null;
   dastPresenceId: string | null;
@@ -383,6 +407,7 @@ export interface SonarSettings {
   fullBadges: boolean;
   command: ToolCommand;
   serverUrl: string | null;
+  sonarScannerVersion: string | null;
 }
 
 export interface NexusIqSettings {
@@ -458,7 +483,6 @@ export interface FlutterSettings {
   sonarTests: string | null;
   sonarFlutterPlugin: boolean;
   dartAnalyzeCommand: string | null;
-  sonarScannerVersion: string | null;
 }
 
 export interface VersionCatalogRepo {

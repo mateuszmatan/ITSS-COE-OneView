@@ -84,6 +84,27 @@ final class ServiceConfigReader {
             + " ID of the Jenkins credentials";
     static final String TOOLS_IN_DEFAULTS = "not imported: the portal sets the tools of Liquibase database changes for"
             + " every service in the Library defaults";
+    static final String NO_LIQUIBASE_DELIVERY = "not imported: no stage of the library reads delivery.liquibase; a"
+            + " Liquibase service with database changes delivers its package to Nexus with database.package, and any"
+            + " other Liquibase service delivers what its Deployment section sets: its image on OpenShift, nothing on"
+            + " virtual machines";
+    static final String NO_LIQUIBASE_COMPILE_STEP = "not imported: the library runs asoc.liquibase only after the"
+            + " Gradle or Maven compile of the AppScan scan";
+    static final String NO_LIQUIBASE_SONAR = "not imported: the library adds tools.sonar.liquibase only to the SonarQube"
+            + " tasks or goals of a Gradle, Android or Maven service";
+    static final String LIQUIBASE_SONAR_WITHOUT_TASKS = "not imported: the library adds tools.sonar.liquibase only to"
+            + " the SonarQube tasks or goals of the service, and it has none, so the sonar-scanner CLI runs without it";
+    static final String LIQUIBASE_SONAR_KEYS = "not imported: for the SonarQube tasks or goals of a Gradle, Android or"
+            + " Maven service the library reads only the sources, inclusions, exclusions and flags of"
+            + " tools.sonar.liquibase";
+    static final String SKIPPED_LIQUIBASE_STEP = "not imported: without commands, tasks or flags the library skips the"
+            + " Liquibase step";
+    static final String LIQUIBASE_COMPILE_STEP_OFF = "not imported: without commands, tasks or flags this block keeps"
+            + " the AppScan compile from running build.liquibase, which the portal cannot do; after the import the"
+            + " compile on a Linux or macOS agent runs build.liquibase";
+    static final String SCANNER_FOR_DOTNET = "not imported: a .NET service is analysed with the SonarScanner for .NET,"
+            + " which does not read it; the library reads it only with tools.sonar.useGenericScanner, which the portal"
+            + " does not set";
     static final int MAX_PROJECTS = 50;
 
     private static final List<String> DOCUMENT_KEYS = List.of("pipeline", "platform", "defaults");
@@ -191,6 +212,11 @@ final class ServiceConfigReader {
             .filter(rule -> UNUSED_BY_DATABASE.stream().noneMatch(key -> (rule.key() + ".").startsWith(key + ".")))
             .toList();
     private static final String MAVEN_HOME = "build.maven.mvnPath";
+    private static final String LIQUIBASE_DELIVERY = "delivery.liquibase";
+    private static final String LIQUIBASE_SONAR = "tools.sonar.liquibase";
+    private static final String SCANNER_VERSION = "tools.sonar.sonarScannerVersion";
+    /** The keys of tools.sonar.liquibase that the library adds to the SonarQube flags of a Gradle or Maven analysis. */
+    private static final List<String> LIQUIBASE_SONAR_PROPERTIES = List.of("sources", "inclusions", "exclusions");
     private static final String DELIVERY = "delivery.nexusDeliveryEnabled";
     private static final String LEGACY_DELIVERY = "deploy.%s.rd.nexusDeliveryEnabled";
     /** The tools of the command blocks, such as build.gradle, that the import reads or leaves out with a note. */
@@ -332,6 +358,7 @@ final class ServiceConfigReader {
                 project.note("database", NOT_A_DATABASE);
             }
         }
+        readScannerVersion(project, tool, request);
         if ((tool == FLUTTER || database) && Boolean.TRUE.equals(request.get("nodeBuild.enabled"))) {
             request.set("nodeBuild.enabled", false);
             project.note("build.node.enabled", database ? NODE_WITH_DATABASE : NODE_WITH_FLUTTER);
@@ -373,10 +400,30 @@ final class ServiceConfigReader {
         if (request.get("database.mvnPath") == null) {
             read(project, List.of(rule(MAVEN_HOME, "database.mvnPath", TEXT)), request);
         }
+        noteLiquibaseDelivery(project);
         for (String key : UNUSED_BY_DATABASE) {
-            if (project.take(key) != null) {
+            if ((!"delivery".equals(key) || project.unread(key)) && project.take(key) != null) {
                 project.note(key, NOT_FOR_DATABASE);
             }
+        }
+    }
+
+    /** Notes delivery.liquibase with its own reason: no stage of the library reads it, whatever the build tool. */
+    private static void noteLiquibaseDelivery(ConfigInput project) {
+        if (project.unread(LIQUIBASE_DELIVERY) && project.take(LIQUIBASE_DELIVERY) != null) {
+            project.note(LIQUIBASE_DELIVERY, NO_LIQUIBASE_DELIVERY);
+        }
+    }
+
+    /**
+     * Reads the SonarScanner version, which picks the Jenkins tool of every sonar-scanner CLI run; a .NET service is
+     * analysed with the SonarScanner for .NET, so its version is left out with a note.
+     */
+    private static void readScannerVersion(ConfigInput project, BuildTool tool, ConfigTree request) {
+        if (!BuildTool.dotnet(tool)) {
+            read(project, List.of(rule(SCANNER_VERSION, "sonar.sonarScannerVersion", TEXT)), request);
+        } else if (project.take(SCANNER_VERSION) != null) {
+            project.note(SCANNER_VERSION, SCANNER_FOR_DOTNET);
         }
     }
 
@@ -385,14 +432,22 @@ final class ServiceConfigReader {
      * what it holds was read already, and so is a block that is not a map. Of the keys that hold the commands of a
      * Liquibase or .NET block, the one the library reads first is imported and a later one is noted. A .NET service,
      * C# / .NET or MSBuild, reads the block the library takes and writes it as the dotnet block, which the library
-     * reads for buildTool msbuild as well.
+     * reads for buildTool msbuild as well. The Liquibase block of a Gradle, Android, Maven or .NET service is the
+     * Liquibase step that the library runs after the build, after the unit tests and, for Gradle and Maven, after the
+     * compile of the AppScan scan; under tools.sonar it adds to the SonarQube flags of a Gradle, Android or Maven
+     * service.
      */
     private static void readCommands(ConfigInput project, BuildTool tool, List<Block> blocks, ConfigTree request) {
         for (Block block : blocks) {
             String taken = commandBlock(project, block.key(), tool);
+            String step = liquibaseStepField(block, tool);
             for (BuildTool blockTool : BLOCK_TOOLS) {
                 String key = block.key() + "." + blockTool.name().toLowerCase(ROOT);
-                if (key.equals(taken)) {
+                if (blockTool == LIQUIBASE && step != null && !key.equals(taken)) {
+                    readLiquibaseStep(project, key, step, request);
+                } else if (blockTool == LIQUIBASE && LIQUIBASE_SONAR.equals(key) && BuildTool.needsTasks(tool)) {
+                    readLiquibaseSonarFlags(project, request);
+                } else if (key.equals(taken)) {
                     if (!project.holdsMap(key) && project.take(key) != null) {
                         project.note(key, "not imported: expected a map");
                         continue;
@@ -405,7 +460,9 @@ final class ServiceConfigReader {
                         project.note(key, DOTNET_BLOCK.formatted(block.key(), block.key()));
                     }
                 } else if (project.unread(key) && project.take(key) != null) {
-                    project.note(key, !BuildTool.dotnet(tool) || !BuildTool.dotnet(blockTool)
+                    project.note(key, blockTool == LIQUIBASE && BuildTool.liquibaseStep(tool)
+                            ? "asoc".equals(block.key()) ? NO_LIQUIBASE_COMPILE_STEP : NO_LIQUIBASE_SONAR
+                            : !BuildTool.dotnet(tool) || !BuildTool.dotnet(blockTool)
                             ? "not imported: the service builds with " + tool.name().toLowerCase(ROOT)
                             : project.holdsMap(key) ? "not imported: " + taken + " wins over it"
                             : "not imported: expected a map");
@@ -433,6 +490,118 @@ final class ServiceConfigReader {
         String msbuild = path + "." + MSBUILD.name().toLowerCase(ROOT);
         List<String> order = tool == MSBUILD ? List.of(msbuild, own) : List.of(own, msbuild);
         return order.stream().filter(project::holdsMap).findFirst().orElse(own);
+    }
+
+    /**
+     * The request field of the Liquibase step that the library runs in the block for the service's build tool: after
+     * the build and after the unit tests of a Gradle, Android, Maven or .NET service, and after the AppScan compile of
+     * a Gradle or Maven service; none for any other block or tool.
+     */
+    private static String liquibaseStepField(Block block, BuildTool tool) {
+        return switch (block.key()) {
+            case "build" -> BuildTool.liquibaseStep(tool) ? "build.liquibase" : null;
+            case "tests.unitTests" -> BuildTool.liquibaseStep(tool) ? "unitTests.liquibase" : null;
+            case "asoc" -> BuildTool.liquibaseCompileStep(tool) ? "appScan.liquibaseCompileCommand" : null;
+            default -> null;
+        };
+    }
+
+    /**
+     * Reads a Liquibase step of a Gradle, Android, Maven or .NET service, such as build.liquibase, as
+     * LiquibaseBuildRunner runs it: its commands, else its tasks, and its flags, folder, variables, label and output
+     * switch. A step that is not a map, or one without commands, tasks and flags, is skipped by the library and left
+     * out with a note. An asoc.liquibase map of a Gradle or Maven service without commands, tasks and flags, also one
+     * whose values are all empty, keeps the AppScan compile from running build.liquibase, which the portal cannot do,
+     * so while build.liquibase runs and the compile is on, its note says that the compile runs build.liquibase after
+     * the import.
+     */
+    private static void readLiquibaseStep(ConfigInput project, String key, String field, ConfigTree request) {
+        boolean given = project.unread(key);
+        boolean runs = given && project.holdsMap(key) && Stream.concat(COMMAND_KEYS.get(LIQUIBASE).stream(),
+                Stream.of("flags")).anyMatch(name -> project.unread(key + "." + name));
+        if (runs) {
+            readFirst(project, COMMAND_KEYS.get(LIQUIBASE).stream().map(name -> key + "." + name).toList(),
+                    field + ".tasks", WORDS, request);
+            read(project, prefixed(key + ".", field + ".", COMMANDS.get(LIQUIBASE)), request);
+        } else if (stopsBuildStep(project, key, field, request)) {
+            project.note(key, LIQUIBASE_COMPILE_STEP_OFF);
+        } else if (given) {
+            project.take(key);
+            project.note(key, project.holdsMap(key) ? SKIPPED_LIQUIBASE_STEP : "not imported: expected a map");
+        }
+    }
+
+    /**
+     * Whether asoc.liquibase keeps the AppScan compile from running build.liquibase: the library takes asoc.liquibase,
+     * else build.liquibase (AppScanService.generateIrx), so a map with keys wins even when its values are all empty,
+     * and the compile then runs no Liquibase step, while the imported service, which has no such block, would run
+     * build.liquibase there. The build block and asoc.doCompile are read before the asoc block.
+     */
+    private static boolean stopsBuildStep(ConfigInput project, String key, String field, ConfigTree request) {
+        return "appScan.liquibaseCompileCommand".equals(field) && project.holdsMap(key) && project.take(key) != null
+                && !Boolean.FALSE.equals(request.get("appScan.compile"))
+                && (request.get("build.liquibase.tasks") != null || request.get("build.liquibase.flags") != null);
+    }
+
+    /**
+     * Adds tools.sonar.liquibase to the SonarQube flags of a Gradle, Android or Maven service, as the library does for
+     * its SonarQube tasks or goals (SonarService.effectiveSonarCfg): the sources, inclusions and exclusions as -Dsonar.*
+     * flags, then the flags of the block, each unless a flag of the same name is set already. Without SonarQube tasks
+     * or goals the sonar-scanner CLI runs and reads none of it, and the other keys of the block are not read either.
+     */
+    private static void readLiquibaseSonarFlags(ConfigInput project, ConfigTree request) {
+        if (!project.unread(LIQUIBASE_SONAR)) {
+            return;
+        }
+        Object block = project.take(LIQUIBASE_SONAR);
+        if (!(block instanceof Map<?, ?> values)) {
+            project.note(LIQUIBASE_SONAR, "not imported: expected a map");
+            return;
+        }
+        if (!(request.get("sonar.command.tasks") instanceof List<?> tasks) || tasks.isEmpty()) {
+            project.note(LIQUIBASE_SONAR, LIQUIBASE_SONAR_WITHOUT_TASKS);
+            return;
+        }
+        List<String> extra = new ArrayList<>();
+        for (String property : LIQUIBASE_SONAR_PROPERTIES) {
+            String key = LIQUIBASE_SONAR + "." + property;
+            try {
+                Object value = project.take(key);
+                String joined = value == null ? "" : String.join(",", items(value, ","));
+                if (!joined.isBlank()) {
+                    extra.add("-Dsonar." + property + "=" + joined);
+                }
+            } catch (NotImported e) {
+                project.note(key, e.getMessage());
+            }
+        }
+        try {
+            Object flags = project.take(LIQUIBASE_SONAR + ".flags");
+            if (flags != null) {
+                items(flags, "\\s+").stream().filter(flag -> !flag.isBlank()).forEach(extra::add);
+            }
+        } catch (NotImported e) {
+            project.note(LIQUIBASE_SONAR + ".flags", e.getMessage());
+        }
+        List<String> flags = new ArrayList<>(request.get("sonar.command.flags") instanceof List<?> list
+                ? list.stream().map(String::valueOf).toList() : List.of());
+        for (String flag : extra) {
+            String name = flag.contains("=") ? flag.substring(0, flag.indexOf('=') + 1) : flag;
+            if (flags.stream().noneMatch(kept -> kept.startsWith(name))) {
+                flags.add(flag);
+            }
+        }
+        if (!flags.isEmpty()) {
+            request.set("sonar.command.flags", List.copyOf(flags));
+        }
+        values.forEach((name, value) -> {
+            boolean merged = LIQUIBASE_SONAR_PROPERTIES.contains(String.valueOf(name)) || "flags".equals(name);
+            if (!merged && !(value == null || value instanceof String text && text.isBlank()
+                    || value instanceof Collection<?> list && list.isEmpty()
+                    || value instanceof Map<?, ?> map && map.isEmpty())) {
+                project.note(LIQUIBASE_SONAR + "." + name, LIQUIBASE_SONAR_KEYS);
+            }
+        });
     }
 
     /**
@@ -540,7 +709,8 @@ final class ServiceConfigReader {
                         : "not imported: the service deploys to " + target.name().toLowerCase(ROOT));
             }
         }
-        for (BuildTool blockTool : List.of(GRADLE, MAVEN, LIQUIBASE, DOTNET)) {
+        noteLiquibaseDelivery(project);
+        for (BuildTool blockTool : List.of(GRADLE, MAVEN, DOTNET)) {
             String key = "delivery." + blockTool.name().toLowerCase(ROOT);
             boolean own = blockTool == tool || blockTool == DOTNET && tool == MSBUILD;
             if ((!own || tool == GRADLE) && project.unread(key) && project.take(key) != null) {
@@ -819,7 +989,6 @@ final class ServiceConfigReader {
                 rule("tools.sonar.sources", "flutter.sonarSources", TEXT),
                 rule("tools.sonar.tests", "flutter.sonarTests", TEXT),
                 rule("tools.sonar.dartAnalyzeCommand", "flutter.dartAnalyzeCommand", TEXT),
-                rule("tools.sonar.sonarScannerVersion", "flutter.sonarScannerVersion", TEXT),
                 rule("tools.sonar.flutterPlugin", "flutter.sonarFlutterPlugin", FLAG)));
         rules.addAll(prefixed("", "deployment.", same(TEXT, "appName", "artifactName", "baseArtifactName")));
         rules.addAll(prefixed("build.node.", "nodeBuild.", concat(same(FLAG, "enabled", "nexusIqScan"),

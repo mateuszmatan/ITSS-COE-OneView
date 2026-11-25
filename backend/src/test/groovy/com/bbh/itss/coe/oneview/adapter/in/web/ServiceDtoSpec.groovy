@@ -16,6 +16,7 @@ import com.bbh.itss.coe.oneview.domain.catalog.SonarSettings
 import com.bbh.itss.coe.oneview.domain.catalog.SshTarget
 import com.bbh.itss.coe.oneview.domain.catalog.TestJob
 import com.bbh.itss.coe.oneview.domain.catalog.TestSettings
+import com.bbh.itss.coe.oneview.domain.catalog.ToolCommand
 import com.bbh.itss.coe.oneview.domain.catalog.UnitTestSettings
 import com.bbh.itss.coe.oneview.domain.catalog.UrbanCodeApplicationSettings
 import com.bbh.itss.coe.oneview.domain.catalog.UrbanCodeComponent
@@ -193,6 +194,100 @@ class ServiceDtoSpec extends Specification {
         'a glob of catalog folders'   | [versionCatalogs: ['**/']]                                    || 'versionCatalogs[0].<list element>'              | REPOSITORY_FILE_MESSAGE
         'an empty version catalog'    | [versionCatalogs: ['']]                                       || 'versionCatalogs[0].<list element>'              | 'size must be between 1 and 300'
         'more than 20 catalogs'       | [versionCatalogs: names(21)]                                  || 'versionCatalogs'                                | 'size must be between 0 and 20'
+        'a Liquibase step of 31 commands' | [build: buildJson(liquibase: [tasks: names(31)])]         || 'build.liquibase.tasks'                          | 'size must be between 0 and 30'
+        'a step variable without value' | [unitTests: [liquibase: [environment: ['LIQUIBASE_LOG_LEVEL']]]] || 'unitTests.liquibase.environment[0].<list element>' | 'write each variable as NAME=value'
+        'a long label of a scan step' | [appScan: [applicationId: APP_ID, liquibaseCompileCommand: [label: 'l' * 201]]] || 'appScan.liquibaseCompileCommand.label' | 'size must be between 0 and 200'
+        'a SonarScanner version with a space' | [sonar: [sonarScannerVersion: '5.0 beta']]           || 'sonar.sonarScannerVersion'                      | ServiceDto.SCANNER_VERSION_MESSAGE
+        'a 51-character SonarScanner version' | [sonar: [sonarScannerVersion: '5' * 51]]             || 'sonar.sonarScannerVersion'                      | 'size must be between 0 and 50'
+        'an old Flutter version with a /' | [build: buildJson(tool: 'FLUTTER', javaPath: null, command: null), flutter: [sonarScannerVersion: '../5.0']] || 'sonar.sonarScannerVersion' | ServiceDto.SCANNER_VERSION_MESSAGE
+    }
+
+    def "a Flutter service sent with its SonarScanner version in the old place, under flutter, keeps it under sonar and there: #description"() {
+        when:
+        def dto = request(toJson(serviceJson([build  : buildJson(tool: 'FLUTTER', javaPath: null, command: null),
+                                               flutter: [platform: 'WEB', modules: ['app'], sonarScannerVersion: old]]
+                + (sonar == null ? [:] : [sonar: sonar]))))
+
+        then:
+        validator.validate(dto).isEmpty()
+        dto.sonar()?.sonarScannerVersion() == expected
+        dto.sonar()?.projectKey() == sonar?.projectKey
+        dto.flutter().sonarScannerVersion() == expected
+        dto.flutter().modules() == ['app']
+        dto.toDraft().settings().sonar().sonarScannerVersion() == expected
+
+        where:
+        description                       | old            | sonar                                                  || expected
+        'only the old place'              | '5.0.1.3006'   | null                                                   || '5.0.1.3006'
+        'the old place and a project key' | ' 5.0.1.3006 ' | [projectKey: 'cert-app']                               || '5.0.1.3006'
+        'both places, the new one wins'   | '4.8.0.2856'   | [projectKey: 'cert-app', sonarScannerVersion: '5.0.1.3006'] || '5.0.1.3006'
+        'a blank new place'               | '4.8.0.2856'   | [sonarScannerVersion: ' ']                             || '4.8.0.2856'
+        'only the new place'              | null           | [sonarScannerVersion: '5.0.1.3006']                    || '5.0.1.3006'
+        'a blank old place'               | ' '            | null                                                   || null
+    }
+
+    def "a #tool service sent with a SonarScanner version under flutter ignores it, as the portal always did, and keeps its own"() {
+        when:
+        def dto = request(toJson(serviceJson(build: buildJson(tool: tool), flutter: [sonarScannerVersion: '4.8.0.2856'],
+                sonar: [projectKey: 'cert', command: [tasks: ['sonar']], sonarScannerVersion: own])))
+
+        then:
+        dto.sonar().sonarScannerVersion() == own
+        dto.flutter().sonarScannerVersion() == null
+        dto.toDraft().settings().sonar().sonarScannerVersion() == own
+
+        where:
+        tool     | own
+        'GRADLE' | null
+        'MAVEN'  | '5.0.1.3006'
+        'DOTNET' | null
+    }
+
+    def "a response of a Maven service carries the SonarScanner version under sonar only, and the Liquibase steps in their sections"() {
+        when:
+        Map body = json.readValue(json.writeValueAsString(ServiceDto.from(new Service(7L, 'gui', null, 0, fullSettings()))),
+                Map)
+
+        then:
+        body.sonar.sonarScannerVersion == '5.0.1.3006'
+        (body.flutter as Map).containsKey('sonarScannerVersion')
+        body.flutter.sonarScannerVersion == null
+        body.build.liquibase.tasks == ['validate']
+        body.unitTests.liquibase.flags == ['--url=offline:oracle']
+        body.appScan.liquibaseCompileCommand.tasks == ['updateSQL']
+    }
+
+    def "a response of a Flutter service carries its SonarScanner version under flutter as well, where clients of the earlier API read it"() {
+        given:
+        def settings = request(toJson(serviceJson(build: buildJson(tool: 'FLUTTER', javaPath: null, command: null),
+                flutter: [platform: 'WEB', modules: ['app']], sonar: [sonarScannerVersion: '5.0.1.3006']))).toDraft().settings()
+
+        when:
+        Map body = json.readValue(json.writeValueAsString(ServiceDto.from(new Service(7L, 'mobile', null, 0, settings))),
+                Map)
+
+        then:
+        body.sonar.sonarScannerVersion == '5.0.1.3006'
+        body.flutter.sonarScannerVersion == '5.0.1.3006'
+        body.flutter.modules == ['app']
+
+        when: 'a client of the earlier API sends it back as it read it, without a version under sonar'
+        def sent = request(toJson(body + [sonar: (body.sonar as Map).findAll { it.key != 'sonarScannerVersion' }]))
+
+        then:
+        sent.sonar().sonarScannerVersion() == '5.0.1.3006'
+        sent.toDraft().settings().sonar().sonarScannerVersion() == '5.0.1.3006'
+    }
+
+    def "a service sent without Liquibase steps gets none, as before"() {
+        when:
+        def settings = request(toJson(serviceJson())).toDraft().settings()
+
+        then:
+        settings.build().liquibase() == ToolCommand.NONE
+        settings.unitTests().liquibase() == ToolCommand.NONE
+        settings.appScan().liquibaseCompileCommand() == ToolCommand.NONE
+        settings.sonar().sonarScannerVersion() == null
     }
 
     def "bean validation rejects the database setting #description and says what it expects"() {
@@ -292,11 +387,12 @@ class ServiceDtoSpec extends Specification {
 
     static ServiceSettings fullSettings() {
         ServiceSettings.builder()
-                .build(build(tool: MAVEN, buildPath: 'target/gui.war'))
+                .build(build(tool: MAVEN, buildPath: 'target/gui.war',
+                        liquibase: command(['validate'], ['--changelog-file=db/changelog.xml'])))
                 .nodeBuild(new NodeBuildSettings(true, 'frontend', ['npm ci', 'npm run build'], 'NodeJS-20', null,
                         ['CI=true'], 'https://nexus.bbh.com/repository/npm-group/', 'npmrc-file', 30, false))
                 .unitTests(UnitTestSettings.builder().command(command(['test'])).resultPattern('**/TEST-*.xml')
-                        .allowEmptyResults(true).build())
+                        .allowEmptyResults(true).liquibase(command(['status'], ['--url=offline:oracle'])).build())
                 .tests(TestSettings.builder().maxParallel(5).smokeMaxParallel(1).regressionMaxParallel(2)
                         .performanceMaxParallel(3).smokeRequired(true).regressionRequired(true)
                         .performanceRequired(true).build())
@@ -312,9 +408,10 @@ class ServiceDtoSpec extends Specification {
                 .openShiftTargets([(QC): OpenShiftTarget.builder().dockerRepoPull('pull/cert')
                         .projectDeployment('cert-qc').skipConfigDeploy(true).build()])
                 .appScan(appScan(dastEnabled: true, dastTargetUrl: 'https://rdl1.testbbh.com',
-                        compileCommand: command(['compile']), scanName: 'cert-gui-sast'))
+                        compileCommand: command(['compile']), scanName: 'cert-gui-sast',
+                        liquibaseCompileCommand: command(['updateSQL'], ['--url=offline:oracle'])))
                 .sonar(SonarSettings.builder().projectName('Cert').projectKey('cert-gui').command(command(['sonar:sonar']))
-                        .badgeCredentialsId('sonar-badge').build())
+                        .badgeCredentialsId('sonar-badge').sonarScannerVersion('5.0.1.3006').build())
                 .nexusIq(new NexusIqSettings('https://iq.bbh.com', 'iq-creds'))
                 .nexusIqApplications([NexusIqApplication.of('cert', ['**/*.war'])])
                 .scm(ScmSettings.builder().repositoryUrl('https://bitbucket.bbh.com/scm/ta/cert.git')

@@ -136,6 +136,42 @@ class ProductPersistenceAdapterSpec extends Specification {
                 serviceId)*.REGION == ['QC', 'RD']
     }
 
+    def "the Liquibase steps and the SonarScanner version of a service are stored in columns of their own"() {
+        when:
+        def saved = adapter.save(Product.create(details(), [new ServiceDraft(null, 'gui', null, fullSettings('gui'))],
+                adapter))
+        def serviceId = saved.services()[0].id()
+
+        then:
+        jdbc.queryForMap('''SELECT BUILD_LIQUIBASE_TASKS, BUILD_LIQUIBASE_FLAGS, BUILD_LIQUIBASE_DIRECTORY,
+                BUILD_LIQUIBASE_MAVEN_HOME, BUILD_LIQUIBASE_ENVIRONMENT, BUILD_LIQUIBASE_LABEL, BUILD_LIQUIBASE_RETURN_STDOUT,
+                UNIT_TEST_LIQUIBASE_TASKS, UNIT_TEST_LIQUIBASE_DIRECTORY, UNIT_TEST_LIQUIBASE_ENVIRONMENT,
+                UNIT_TEST_LIQUIBASE_RETURN_STDOUT, APPSCAN_COMPILE_LIQUIBASE_TASKS, APPSCAN_COMPILE_LIQUIBASE_LABEL,
+                APPSCAN_COMPILE_LIQUIBASE_RETURN_STDOUT, SONAR_SCANNER_VERSION FROM DSO_SERVICE WHERE ID = ?''', serviceId) ==
+                [BUILD_LIQUIBASE_TASKS            : 'validate\nupdateSQL',
+                 BUILD_LIQUIBASE_FLAGS            : '--changelog-file=db/changelog.xml\n--url=offline:oracle',
+                 BUILD_LIQUIBASE_DIRECTORY        : 'build-db', BUILD_LIQUIBASE_MAVEN_HOME: null,
+                 BUILD_LIQUIBASE_ENVIRONMENT      : 'LIQUIBASE_BUILD=1', BUILD_LIQUIBASE_LABEL: 'Build Liquibase step',
+                 BUILD_LIQUIBASE_RETURN_STDOUT    : 0, UNIT_TEST_LIQUIBASE_TASKS: 'validate\nstatus',
+                 UNIT_TEST_LIQUIBASE_DIRECTORY    : 'test-db', UNIT_TEST_LIQUIBASE_ENVIRONMENT: 'LIQUIBASE_TEST=1',
+                 UNIT_TEST_LIQUIBASE_RETURN_STDOUT: 0, APPSCAN_COMPILE_LIQUIBASE_TASKS: 'validate\nupdateSQL',
+                 APPSCAN_COMPILE_LIQUIBASE_LABEL  : 'Compile Liquibase step', APPSCAN_COMPILE_LIQUIBASE_RETURN_STDOUT: 1,
+                 SONAR_SCANNER_VERSION            : '5.0']
+        jdbc.queryForObject('SELECT FLUTTER_SONAR_SCANNER_VERSION FROM DSO_SERVICE WHERE ID = ?', String, serviceId) == null
+    }
+
+    def "a service saved without Liquibase steps reads them back empty"() {
+        when:
+        def saved = adapter.save(Product.create(details(), [new ServiceDraft(null, 'api', null, settings())], adapter))
+        entities.clear()
+        def loaded = adapter.load(saved.id()).get().services()[0].settings()
+
+        then:
+        [loaded.build().liquibase(), loaded.unitTests().liquibase(), loaded.appScan().liquibaseCompileCommand()]
+                .every { it == ToolCommand.NONE }
+        loaded.sonar().sonarScannerVersion() == null
+    }
+
     def "a Node.js build that is switched off keeps its values and leaves the Nexus IQ scan to the library"() {
         given:
         def nodeBuild = new NodeBuildSettings(false, 'web', ['npm ci'], 'NodeJS-20', '/opt/node-20', [], null, null, 30,

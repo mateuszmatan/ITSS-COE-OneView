@@ -27,6 +27,15 @@
           "environment": [],
           "label": null,
           "returnStdout": false
+        },
+        "liquibase": {
+          "tasks": [],
+          "flags": [],
+          "directory": null,
+          "mavenHome": null,
+          "environment": [],
+          "label": null,
+          "returnStdout": false
         }
       },
       "nodeBuild": {
@@ -58,7 +67,16 @@
         "coverageReportPath": null,
         "cypressEnabled": false,
         "cypressCommand": null,
-        "cypressReportsDir": null
+        "cypressReportsDir": null,
+        "liquibase": {
+          "tasks": [],
+          "flags": [],
+          "directory": null,
+          "mavenHome": null,
+          "environment": [],
+          "label": null,
+          "returnStdout": false
+        }
       },
       "tests": {
         "maxParallel": null,
@@ -149,6 +167,15 @@
           "label": null,
           "returnStdout": false
         },
+        "liquibaseCompileCommand": {
+          "tasks": [],
+          "flags": [],
+          "directory": null,
+          "mavenHome": null,
+          "environment": [],
+          "label": null,
+          "returnStdout": false
+        },
         "dastEnabled": false,
         "dastTargetUrl": null,
         "dastPresenceId": null
@@ -172,7 +199,8 @@
           "label": null,
           "returnStdout": false
         },
-        "serverUrl": null
+        "serverUrl": null,
+        "sonarScannerVersion": null
       },
       "nexusIq": {
         "serverUrl": null,

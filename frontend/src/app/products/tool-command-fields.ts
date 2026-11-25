@@ -52,6 +52,65 @@ function scriptedFields(tool: BuildTool, path: string): Field[] {
   return fields.filter((field) => parts.includes(field.key));
 }
 
+/** The three places of a Liquibase step of a Gradle, Android, Maven or .NET service, by the start of their keys. */
+export type StepPath = 'build' | 'tests.unitTests' | 'asoc';
+
+/** The name the library gives a Liquibase step without a label of its own, followed by its commands. */
+const STEP_NAMES: Record<StepPath, string> = {
+  build: 'Liquibase',
+  'tests.unitTests': 'Liquibase test',
+  asoc: 'Liquibase SAST',
+};
+
+const STEP_COMMANDS: Record<StepPath, string> = {
+  build:
+    'The commands the step passes to liquibase after the build, for example validate or updateSQL. Left empty while Flags are set, it runs validate. A failure of the step fails the build.',
+  'tests.unitTests':
+    'The commands the step passes to liquibase after the unit tests, for example validate or status. Left empty while Flags are set, it runs validate. A failure of the step does not stop the pipeline: the Unit tests stage turns orange and the build unstable.',
+  asoc: 'The commands the step passes to liquibase after the Gradle or Maven compile of the SAST scan, for example validate or updateSQL. Left empty while Flags are set, it runs validate. With the whole step left empty, the scan runs the Liquibase step of the build, if the service has one.',
+};
+
+/**
+ * The fields of the Liquibase step that the library runs after the build, after the unit tests or after the AppScan
+ * compile of a Gradle, Android, Maven or .NET service: the liquibase command with its flags and commands, under
+ * build.liquibase, tests.unitTests.liquibase or asoc.liquibase. The step runs no Maven, so it has no Maven home, and
+ * its labels name Liquibase, so that they differ from those of the command of the build tool next to them.
+ */
+export function liquibaseStepFields(path: StepPath): Field[] {
+  const key = `${path}.liquibase`;
+  return [
+    mono('tasks', 'Liquibase commands', `${key}.commands`, 6, {
+      placeholder: path === 'asoc' ? 'updateSQL' : 'validate',
+      hint: 'separated by spaces',
+      help: STEP_COMMANDS[path],
+    }),
+    mono('directory', 'Liquibase directory', `${key}.dir`, 6, {
+      placeholder: '.',
+      hint: 'the paths of the Flags start in this folder',
+      help: 'The folder of the workspace in which liquibase runs; a relative --changelog-file of the Flags starts there. Left empty: the workspace root.',
+    }),
+    area('flags', 'Liquibase flags', `${key}.flags`, 6, {
+      mono: true,
+      placeholder: '--changelog-file=db/changelog.xml\n--url=offline:oracle',
+      hint: 'one per line',
+      help: 'Liquibase options added before the commands, such as --changelog-file=..., --defaults-file=... or --url=offline:oracle.',
+    }),
+    area('environment', 'Liquibase environment variables', `${key}.env`, 6, {
+      mono: true,
+      placeholder: 'LIQUIBASE_LOG_LEVEL=INFO',
+      hint: 'one NAME=value per line',
+      help: 'Environment variables set for the liquibase command only.',
+    }),
+    line('label', 'Liquibase step label', `${key}.label`, 6, {
+      hint: 'the name Jenkins shows for the step',
+      help: `Left empty, the step is named ${STEP_NAMES[path]}: and its commands, for example ${STEP_NAMES[path]}: validate.`,
+    }),
+    check('returnStdout', 'Return the Liquibase output to the pipeline', `${key}.returnStdout`, 6, {
+      help: 'Captures the console output of liquibase instead of printing it to the build log; the pipeline does not use the captured output.',
+    }),
+  ];
+}
+
 /** The fields of a Gradle or Maven command whose devsecops_config.yaml keys start with path. */
 export function commandFields(
   tool: BuildTool,
@@ -71,7 +130,7 @@ export function commandFields(
   const sonar = path === 'tools.sonar';
   /** The library runs the automatic .NET unit tests only when the service writes a value under tests.unitTests. */
   const dotnetSkip =
-    ' The Unit tests stage runs them only when the service sets a value under tests.unitTests, such as Test results, or a Directory or Flags under Advanced settings; with none set, it skips the unit tests.';
+    ' The Unit tests stage runs them only when the service sets a value under tests.unitTests, such as Test results, a Directory or Flags under Advanced settings, or a Liquibase step after the unit tests; with none set, it skips the unit tests.';
   const toolName = dotnet ? 'dotnet' : liquibase ? 'liquibase' : maven ? 'maven' : 'gradle';
   const key = `${path}.${toolName}`;
   const taskKey = liquibase || dotnet ? 'commands' : maven ? 'goals' : 'tasks';
@@ -217,16 +276,20 @@ export class ToolCommandFields {
   readonly mavenExample = input('');
   readonly liquibaseExample = input('updateSQL');
   readonly part = input<'all' | 'tasks' | 'options' | 'flags'>('all');
+  /** Whether the group is the Liquibase step after the command of the path, rather than that command. */
+  readonly step = input(false);
 
   protected fields(): Field[] {
     const part = this.part();
-    const fields = commandFields(
-      this.tool(),
-      this.path(),
-      this.gradleExample(),
-      this.mavenExample(),
-      this.liquibaseExample(),
-    );
+    const fields = this.step()
+      ? liquibaseStepFields(this.path() as StepPath)
+      : commandFields(
+          this.tool(),
+          this.path(),
+          this.gradleExample(),
+          this.mavenExample(),
+          this.liquibaseExample(),
+        );
     if (part === 'flags') {
       return fields.filter((field) => field.key === 'flags' || field.key === 'environment');
     }

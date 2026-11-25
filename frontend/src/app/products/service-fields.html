@@ -88,6 +88,22 @@
                 path="build"
                 part="options"
               />
+              @if (liquibaseStep()) {
+                <h4 class="sub-heading span-12">
+                  Liquibase step after the build <code>build.liquibase</code>
+                </h4>
+                <p class="note span-12">
+                  The Build artifact stage runs liquibase with these flags and commands once the
+                  build has passed, for example to validate the changelog of a module. A failure of
+                  the step fails the build. Left empty, no step runs.
+                </p>
+                <ov-tool-command-fields
+                  [group]="f.controls.build.controls.liquibase"
+                  tool="LIQUIBASE"
+                  path="build"
+                  [step]="true"
+                />
+              }
               @if (buildsNode()) {
                 <h4 class="sub-heading span-12">Node.js build</h4>
                 <ov-fields [group]="node" [fields]="nodeOptions()" />
@@ -160,7 +176,7 @@
           }
           <ov-fields [group]="f.controls.unitTests" [fields]="unitTestFields()" />
           <ov-advanced-settings
-            summary="Folders, empty results and test command options"
+            [summary]="unitTestOptionsSummary()"
             [controls]="advanced().unitTests"
             [submitted]="submitted()"
           >
@@ -171,6 +187,29 @@
                 [tool]="tool()"
                 path="tests.unitTests"
                 part="options"
+              />
+            }
+            @if (liquibaseStep()) {
+              <h4 class="sub-heading span-12">
+                Liquibase step after the unit tests <code>tests.unitTests.liquibase</code>
+              </h4>
+              <p class="note span-12">
+                The Unit tests stage runs liquibase with these flags and commands after the unit
+                tests, for example validate or status. A failure of the step does not stop the
+                pipeline: the stage turns orange and the build unstable. Left empty, no step runs.
+                @if (dotnet()) {
+                  The step is a unit test setting, so the Unit tests stage no longer skips the .NET
+                  unit tests: it runs the .NET commands above, or the automatic tests while they are
+                  empty.
+                } @else {
+                  The step is a unit test setting, so it needs the test tasks or goals above.
+                }
+              </p>
+              <ov-tool-command-fields
+                [group]="f.controls.unitTests.controls.liquibase"
+                tool="LIQUIBASE"
+                path="tests.unitTests"
+                [step]="true"
               />
             }
           </ov-advanced-settings>
@@ -353,6 +392,22 @@
                 mavenExample="compile"
                 liquibaseExample="updateSQL"
               />
+              @if (liquibaseCompileStep()) {
+                <h4 class="sub-heading span-12">
+                  Liquibase step after the compile <code>asoc.liquibase</code>
+                </h4>
+                <p class="note span-12">
+                  On a Linux or macOS agent the SAST compile runs liquibase with these flags and
+                  commands after the Gradle or Maven compile. Left empty, it runs the Liquibase step
+                  of the build, if the service has one; a Windows agent runs no step.
+                </p>
+                <ov-tool-command-fields
+                  [group]="scan.controls.liquibaseCompileCommand"
+                  tool="LIQUIBASE"
+                  path="asoc"
+                  [step]="true"
+                />
+              }
             }
           </ov-advanced-settings>
         </div>
@@ -379,7 +434,7 @@
             />
           }
           <ov-advanced-settings
-            summary="Tokens, scanner credentials, server, badges and analysis command options"
+            [summary]="sonarOptionsSummary()"
             [controls]="advanced().sonar"
             [submitted]="submitted()"
           >

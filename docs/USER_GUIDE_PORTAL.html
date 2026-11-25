@@ -899,7 +899,7 @@ Provide <strong>either</strong> direct badge token OR Jenkins credentials ID. Do
 <h3 id="how-the-analysis-runs">How the Analysis Runs:</h3>
 <ul>
 <li><strong>Gradle, Android and Maven with analysis commands of their own</strong> (<code>tools.sonar.gradle.tasks</code>, for Android as well, or <code>tools.sonar.maven.goals</code>) run them with the plugin of the build.</li>
-<li><strong>Every other Gradle, Android and Maven service, and every npm, pip and iOS service</strong> is analysed with the <code>sonar-scanner</code> CLI: the Jenkins tool <code>sonar-scanner-cli-&lt;version&gt;</code> named in <code>tools.sonar.sonarScannerVersion</code>, otherwise <code>sonar-scanner</code> on the <code>PATH</code> of the agent. It gets <code>tools.sonar.&lt;tool&gt;.flags</code> (of a Gradle, Android or Maven block only the arguments that start with <code>-Dsonar.</code>), the sources of the service and the coverage report of pip (<code>coverage.xml</code>) and npm (<code>coverage/lcov.info</code>). An argument of the service wins over the one the library would add.</li>
+<li><strong>Every other Gradle, Android and Maven service, and every npm, pip and iOS service</strong> is analysed with the <code>sonar-scanner</code> CLI: the Jenkins tool <code>sonar-scanner-cli-&lt;version&gt;</code> named in <code>tools.sonar.sonarScannerVersion</code>, otherwise <code>sonar-scanner</code> on the <code>PATH</code> of the agent. The Portal sets the version in <em>SonarScanner version</em> under the <em>Advanced settings</em> of SonarQube, for every build tool but C# / .NET and MSBuild; Flutter, Liquibase and SQL / PL/SQL services use it as well. It gets <code>tools.sonar.&lt;tool&gt;.flags</code> (of a Gradle, Android or Maven block only the arguments that start with <code>-Dsonar.</code>), the sources of the service and the coverage report of pip (<code>coverage.xml</code>) and npm (<code>coverage/lcov.info</code>). An argument of the service wins over the one the library would add.</li>
 <li><strong>Branch and retry:</strong> the branch of the build is passed as <code>-Dsonar.branch.name</code>. A server that refuses the branch name, as the Community Edition does, fails that attempt; the library logs a <code>[SONAR]</code> line and runs the analysis once more without the branch, and the stage fails only when the second attempt fails as well. <code>tools.sonar.branchAnalysis: false</code> skips the first attempt.</li>
 </ul>
 <hr />
@@ -1034,10 +1034,24 @@ Provide <strong>either</strong> direct badge token OR Jenkins credentials ID. Do
 <td style="text-align: center;"><span class="badge badge-required">YES</span></td>
 </tr>
 <tr>
+<td><strong>Liquibase Step After the Build</strong></td>
+<td>Gradle, Android, Maven and .NET: <code>liquibase</code> with its flags and commands once the build has passed (<code>build.liquibase</code>, <em>Advanced settings</em> of Build); a failure fails the build</td>
+<td>Commands <code>validate</code>, flags <code>--changelog-file=db/changelog.xml</code> and <code>--url=offline:oracle</code></td>
+<td>Changelog of the module</td>
+<td style="text-align: center;"><span class="badge badge-optional">OPTIONAL</span></td>
+</tr>
+<tr>
 <td><strong>Unit Test Tasks</strong></td>
 <td>Test execution command</td>
 <td><code>test</code> or <code>test jacocoTestReport</code></td>
 <td>Build tool test task</td>
+<td style="text-align: center;"><span class="badge badge-optional">OPTIONAL</span></td>
+</tr>
+<tr>
+<td><strong>Liquibase Step After the Unit Tests</strong></td>
+<td>Gradle, Android, Maven and .NET: <code>liquibase</code> after the unit tests (<code>tests.unitTests.liquibase</code>, <em>Advanced settings</em> of Unit tests); a failure makes the build unstable</td>
+<td>Commands <code>status</code>, flags <code>--changelog-file=db/changelog.xml</code> and <code>--url=offline:oracle</code></td>
+<td>Changelog of the module</td>
 <td style="text-align: center;"><span class="badge badge-optional">OPTIONAL</span></td>
 </tr>
 <tr>
@@ -1083,6 +1097,13 @@ Provide <strong>either</strong> direct badge token OR Jenkins credentials ID. Do
 <td style="text-align: center;"><span class="badge badge-optional">OPTIONAL</span></td>
 </tr>
 <tr>
+<td><strong>Liquibase Step After the Compile</strong></td>
+<td>Gradle and Maven on a Linux or macOS agent: <code>liquibase</code> after the SAST compile (<code>asoc.liquibase</code>, <em>Advanced settings</em> of AppScan); left empty, the Liquibase step after the build runs there</td>
+<td>Commands <code>validate</code>, flags <code>--changelog-file=db/changelog.xml</code> and <code>--url=offline:oracle</code></td>
+<td>Changelog of the module</td>
+<td style="text-align: center;"><span class="badge badge-optional">OPTIONAL</span></td>
+</tr>
+<tr>
 <td><strong>Sonar Installation</strong></td>
 <td>SonarQube server in Jenkins</td>
 <td><code>BBH-SonarQube</code></td>
@@ -1109,6 +1130,13 @@ Provide <strong>either</strong> direct badge token OR Jenkins credentials ID. Do
 <td><code>sonar-badge-credentials-id</code></td>
 <td>Jenkins Credentials store</td>
 <td style="text-align: center;"><span class="badge badge-optional">1 OF 2</span></td>
+</tr>
+<tr>
+<td><strong>SonarScanner Version</strong></td>
+<td>Jenkins tool <code>sonar-scanner-cli-&lt;version&gt;</code> of every analysis with the <code>sonar-scanner</code> CLI (<code>tools.sonar.sonarScannerVersion</code>, <em>Advanced settings</em> of SonarQube); every build tool but C# / .NET and MSBuild</td>
+<td><code>5.0.1.3006</code></td>
+<td>Jenkins Global Tool Configuration</td>
+<td style="text-align: center;"><span class="badge badge-optional">OPTIONAL</span></td>
 </tr>
 <tr>
 <td><strong>Nexus IQ Application ID</strong></td>

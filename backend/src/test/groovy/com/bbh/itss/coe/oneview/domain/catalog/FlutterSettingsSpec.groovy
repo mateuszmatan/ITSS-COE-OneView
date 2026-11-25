@@ -16,30 +16,39 @@ class FlutterSettingsSpec extends Specification {
 
     static final FlutterSettings FULL = new FlutterSettings(APPBUNDLE, ['app', 'core'], ['app'], ['core'], ['plugin_a'],
             'flutter-signing', 'flutter-prod-license', 'flutter-test-license', 'com.bbh.cert', 'cert-app',
-            'com.bbh:flutter-delivery:1.0', 'lib', 'test', true, 'dart analyze --fatal-infos', '5.0.1.3006')
+            'com.bbh:flutter-delivery:1.0', 'lib', 'test', true, 'dart analyze --fatal-infos')
 
     def "Flutter settings trim their values, keep each module once and write nothing when they set nothing"() {
         expect:
-        new FlutterSettings(null, [' app ', 'app', ''], null, [' core '], [' '], *([' '] * 8), null, ' ', ' ') ==
-                new FlutterSettings(null, ['app'], [], ['core'], [], *([null] * 8), false, null, null)
-        NONE == new FlutterSettings(*([null] * 16))
-        written(NONE) == [:]
+        new FlutterSettings(null, [' app ', 'app', ''], null, [' core '], [' '], *([' '] * 8), null, ' ') ==
+                new FlutterSettings(null, ['app'], [], ['core'], [], *([null] * 8), false, null)
+        NONE == new FlutterSettings(*([null] * 15))
+        written { NONE.writeTo(it, null) } == [:]
     }
 
-    def "every Flutter setting is written under the key the library reads"() {
-        expect:
-        written(FULL) == [flutter : [platform: 'appbundle'],
-                          tools   : [flutter: [flutterModules: ['app', 'core']],
-                                     sonar  : [sources            : 'lib', tests: 'test', dartAnalyzeCommand: 'dart analyze --fatal-infos',
-                                               sonarScannerVersion: '5.0.1.3006', flutterPlugin: true]],
-                          tests   : [modules: ['app'], submodules: ['core'], subplugins: ['plugin_a']],
-                          build   : [credentialsId: ['flutter-signing', 'flutter-prod-license', 'flutter-test-license']],
-                          delivery: [group: 'com.bbh.cert', artifact: 'cert-app', plugin: 'com.bbh:flutter-delivery:1.0']]
+    def "every Flutter setting is written under the key the library reads, the SonarScanner version among them"() {
+        when:
+        def config = written { FULL.writeTo(it, '5.0.1.3006') }
+
+        then:
+        config == [flutter : [platform: 'appbundle'],
+                   tools   : [flutter: [flutterModules: ['app', 'core']],
+                              sonar  : [sources            : 'lib', tests: 'test', dartAnalyzeCommand: 'dart analyze --fatal-infos',
+                                        sonarScannerVersion: '5.0.1.3006', flutterPlugin: true]],
+                   tests   : [modules: ['app'], submodules: ['core'], subplugins: ['plugin_a']],
+                   build   : [credentialsId: ['flutter-signing', 'flutter-prod-license', 'flutter-test-license']],
+                   delivery: [group: 'com.bbh.cert', artifact: 'cert-app', plugin: 'com.bbh:flutter-delivery:1.0']]
+
+        and: 'the version of the SonarQube settings keeps the place it had among the Flutter keys'
+        config.tools.sonar.keySet() as List == ['sources', 'tests', 'dartAnalyzeCommand', 'sonarScannerVersion',
+                                                'flutterPlugin']
+        written { FULL.writeTo(it, null) }.tools.sonar.keySet() as List == ['sources', 'tests', 'dartAnalyzeCommand',
+                                                                           'flutterPlugin']
     }
 
     def "the build credentials are written only when all three are set: #signing, #prod, #test"() {
         expect:
-        written(credentials(signing, prod, test)).build?.credentialsId == expected
+        written { credentials(signing, prod, test).writeTo(it, null) }.build?.credentialsId == expected
 
         where:
         signing | prod   | test   || expected
@@ -52,7 +61,7 @@ class FlutterSettingsSpec extends Specification {
 
     def "the SonarQube Flutter plugin is written only when it is used"() {
         expect:
-        written(FlutterSettings.builder().platform(APK).sonarSources('lib').build()) ==
+        written { FlutterSettings.builder().platform(APK).sonarSources('lib').build().writeTo(it, null) } ==
                 [flutter: [platform: 'apk'], tools: [sonar: [sources: 'lib']]]
     }
 
