@@ -26,7 +26,7 @@
   }
 
   @if (loadError(); as error) {
-    <ov-load-error what="The library defaults" [error]="error" (retry)="load()" />
+    <ov-load-error what="The Library defaults" [error]="error" (retry)="load()" />
   } @else if (settings()) {
     @if (conflict()) {
       <div class="banner danger conflict" role="alert">

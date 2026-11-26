@@ -27,7 +27,7 @@ export const ACTION_OPTIONS: Option<string>[] = [
   { value: 'RENAME_DEPARTMENT', label: 'Rename business service' },
   { value: 'DELETE_DEPARTMENT', label: 'Delete business service' },
   { value: 'UPDATE_SERVICE_TEMPLATE', label: 'Update service template' },
-  { value: 'UPDATE_GLOBAL_SETTINGS', label: 'Update library defaults' },
+  { value: 'UPDATE_GLOBAL_SETTINGS', label: 'Update Library defaults' },
   { value: 'UPDATE_QA_DEFAULTS', label: 'Update BBH quality targets' },
   { value: 'UPDATE_QA_APPLICATION', label: 'Update QM Metric Tool application' },
   { value: 'UPDATE_AGILE_APPLICATION', label: 'Update agile team' },

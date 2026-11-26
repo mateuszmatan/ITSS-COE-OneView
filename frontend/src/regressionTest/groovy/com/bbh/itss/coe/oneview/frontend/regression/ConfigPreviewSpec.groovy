@@ -90,7 +90,7 @@ class ConfigPreviewSpec extends ProductPageSpecification {
         ownErrors().isEmpty()
     }
 
-    def "the Jenkinsfile of a pipeline loads the shared library of the global settings with the pipeline's key"() {
+    def "the Jenkinsfile of a pipeline loads the shared library named in the Library defaults with the pipeline's key"() {
         given:
         def settings = fixture('settings.json') as Map
         settings.platform.jenkinsLibrary = 'BbhDevSecOps@2.4'

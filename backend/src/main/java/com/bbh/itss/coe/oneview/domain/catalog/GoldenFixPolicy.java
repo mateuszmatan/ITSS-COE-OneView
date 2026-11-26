@@ -71,7 +71,7 @@ public record GoldenFixPolicy(@With(PRIVATE) Boolean enabled, Integer minThreatL
     }
 
     public void validateComplete(ValidationProblems problems) {
-        String message = "is required in the global settings";
+        String message = "is required in the Library defaults";
         problems.require("minThreatLevel", minThreatLevel, message)
                 .require("verifyMaxAttempts", verifyMaxAttempts, message)
                 .require("verifyTimeoutMinutes", verifyTimeoutMinutes, message)

@@ -9,7 +9,7 @@ import {
 } from './jenkinsfile';
 
 describe('jenkinsfile', () => {
-  it('loads the library the global settings name and passes the active key', () => {
+  it('loads the library named in the Library defaults and passes the active key', () => {
     expect(jenkinsfile([pipeline({ entryPoint: 'devSecOpsSecurityPipeline' })], 'BBHLibrary')).toBe(
       "@Library('BBHLibrary') _\n\n" +
         "devSecOpsSecurityPipeline(pipelineKey: '6f1c2d3e-0000-4abc-9def-123456789abc')\n",

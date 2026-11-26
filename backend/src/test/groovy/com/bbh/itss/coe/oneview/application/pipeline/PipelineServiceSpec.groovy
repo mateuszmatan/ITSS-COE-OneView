@@ -569,7 +569,7 @@ class PipelineServiceSpec extends Specification {
         builder.build()
     }
 
-    /** The service under a Global Settings stub with these Library defaults (Liquibase database changes). */
+    /** The service under a stub of the Library defaults with these values of Liquibase database changes. */
     private PipelineService withDefaults(DatabaseDefaults defaults) {
         ManageGlobalSettingsUseCase library = Stub() {
             current() >> storedSettings { copy(it, database: defaults) }

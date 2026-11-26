@@ -97,7 +97,7 @@ class OneViewSmokeSpec extends Specification {
         }
     }
 
-    def "the global pipeline settings and the configuration they make can be read"() {
+    def "the Library defaults and the configuration they make can be read"() {
         when:
         def settings = api.get('/api/settings')
         def config = api.get('/api/settings/config')

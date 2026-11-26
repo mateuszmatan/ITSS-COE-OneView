@@ -12,7 +12,7 @@ class GoldenFixPolicySpec extends Specification {
             ['recommended-non-breaking', 'next-no-violations'], ['docs', 'examples'], 3, 30, 'mvn -B verify',
             './gradlew build', 'npm test', 'pytest', 'flutter test', 'dotnet build', 'GoldenFix', 'goldenfix@bbh.com', 'Europe/Warsaw')
 
-    def "an inherited policy leaves every value, also whether GoldenFix runs, to the global settings"() {
+    def "an inherited policy leaves every value, also whether GoldenFix runs, to the Library defaults"() {
         expect:
         INHERITED == GoldenFixPolicy.inherit(null)
         INHERITED == new GoldenFixPolicy(*([null] * 2), [], [], [], *([null] * 11))
@@ -50,14 +50,14 @@ class GoldenFixPolicySpec extends Specification {
                 [goldenFix: [enabled: true, verify: [commands: [gradle: './gradlew check']]]]
     }
 
-    def "the global settings must set every value the library needs, but not the commands, folders and time zone"() {
+    def "the Library defaults must set every value the library needs, but not the commands, folders and time zone"() {
         when:
         def problems = complete(INHERITED)
 
         then:
         problems*.field == ['minThreatLevel', 'verifyMaxAttempts',
                             'verifyTimeoutMinutes', 'commitAuthorName', 'commitAuthorEmail', 'ecosystems', 'goldenVersionTypes']
-        problems*.message == ['is required in the global settings'] * 5 +
+        problems*.message == ['is required in the Library defaults'] * 5 +
                 ['select at least one ecosystem', 'add at least one remediation type']
         complete(COMPLETE) == []
         complete(GoldenFixPolicy.builder().enabled(true).minThreatLevel(1)

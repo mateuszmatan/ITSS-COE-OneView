@@ -654,7 +654,7 @@ export function globalSettings(overrides: Partial<GlobalSettings> = {}): GlobalS
   };
 }
 
-/** The Library defaults of Liquibase database changes, as the regression Global Settings hold them. */
+/** The Library defaults of Liquibase database changes, as the regression tests save them. */
 export function databaseDefaults(overrides: Partial<DatabaseDefaults> = {}): DatabaseDefaults {
   return {
     liquibaseHome: '/opt/liquibase/4.33.0',

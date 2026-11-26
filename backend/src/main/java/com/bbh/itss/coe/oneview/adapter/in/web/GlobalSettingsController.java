@@ -27,6 +27,6 @@ public class GlobalSettingsController {
     public GlobalSettingsDto update(@Valid @RequestBody GlobalSettingsDto request) {
         return actions.record(ActionRecord.of("UPDATE_GLOBAL_SETTINGS", "SETTINGS", "Library defaults", null),
                 () -> GlobalSettingsDto.from(settings.update(request.version(), request.toValues())),
-                "Updated the library defaults");
+                "Updated the Library defaults");
     }
 }

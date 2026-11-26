@@ -30,9 +30,9 @@ import static org.apache.commons.lang3.ObjectUtils.getIfNull;
 public class ProductCatalogService implements ProductsUseCase {
 
     static final String NO_ALLOWED_TARGETS = "is set, but the Library defaults allow no database yet: the pipelines"
-            + " deploy only to the databases the DevSecOps team allows in the Global Settings";
+            + " deploy only to the databases the DevSecOps team allows in the Library defaults";
     static final String NOT_ALLOWED = "names a database that the Library defaults do not allow: ask the DevSecOps"
-            + " team to add the test, RD or QC database to the Global Settings";
+            + " team to add the test, RD or QC database to the Library defaults";
 
     private final ProductRepositoryPort products;
     private final PipelineCountsPort pipelineCounts;

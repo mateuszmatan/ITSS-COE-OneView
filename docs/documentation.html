@@ -65,7 +65,7 @@ hr { border: none; border-top: 1px solid #e2e8f0; margin: 18px 0; }
 <li><a href="#10-import-a-devsecops_configyaml-and-copy-a-service">10. Import a devsecops_config.yaml and copy a service</a></li>
 <li><a href="#11-goldenfix">11. GoldenFix</a></li>
 <li><a href="#12-the-service-template">12. The service template</a></li>
-<li><a href="#13-library-defaults-global-settings">13. Library defaults (Global Settings)</a></li>
+<li><a href="#13-library-defaults">13. Library defaults</a></li>
 <li><a href="#14-pipeline-monitoring-and-dora">14. Pipeline Monitoring and DORA</a></li>
 <li><a href="#15-owasp-samm-software-assurance-maturity-model">15. OWASP SAMM Software Assurance Maturity Model</a></li>
 <li><a href="#16-repo-auto-discovery-and-smart-wizard">16. Repo Auto-Discovery and Smart Wizard</a></li>
@@ -105,7 +105,7 @@ hr { border: none; border-top: 1px solid #e2e8f0; margin: 18px 0; }
 <tr><td>Pipeline key</td><td>The secret code that the Jenkins job of a pipeline uses to fetch its settings from the portal.</td></tr>
 <tr><td>Jenkinsfile</td><td>The file in the repository of the service that tells Jenkins to run the pipeline. It holds the pipeline key or, without a key, the services and the Jenkins agents of the run; see <a href="#a-jenkinsfile-without-a-key">A Jenkinsfile without a key</a>.</td></tr>
 <tr><td>devsecops_config.yaml</td><td>The settings document that the library reads. The portal renders it from its database each time a pipeline with a key starts. A Jenkinsfile without a key makes the library read it from the root of the repository instead, or <code>config.yaml</code>, its former name, when there is none.</td></tr>
-<tr><td>Library defaults</td><td>The values on the Library defaults page (Admin, Library defaults), also called the Global Settings. They apply to every service that leaves a field empty.</td></tr>
+<tr><td>Library defaults</td><td>The values on the Library defaults page (Admin, Library defaults). They apply to every service that leaves a field empty. A Jenkinsfile without a key reads the copy that the library release bundles instead, the library defaults in <code>resources/com/bbh/devsecops/defaults.yaml</code>.</td></tr>
 <tr><td>Service template</td><td>The values a new service starts with, such as its build tasks and the name of its Nexus IQ application.</td></tr>
 <tr><td>GoldenFix</td><td>The part of the library that opens pull requests that raise vulnerable dependencies to safe versions.</td></tr>
 </tbody>
@@ -1132,7 +1132,7 @@ devSecOpsPipeline(<span class="k">projectNames</span>: <span class="s">'gateway'
 <ul>
 <li><code>projectNames</code> names the services of the repository. The downloaded file holds every service of the product; without <code>projectNames</code> the library would build all of them from this repository.</li>
 <li><code>agentNames</code> lists the Jenkins agents the pipeline may run on. It is required without a key.</li>
-<li>Such a pipeline does not ask the portal for its settings. A change in the portal reaches it only when you download and commit the file again. The Library defaults written under <code>defaults</code>, such as the security limits, the GoldenFix policy and the Node.js build defaults, reach it through the copy kept in the library, with the next library version; that copy leaves out the order of the static scans. The values written to <code>platform</code>, such as the AppScan, proxy, Nexus snapshot repository and iOS build agent values, never reach it; see <a href="#13-library-defaults-global-settings">chapter 13</a>.</li>
+<li>Such a pipeline does not ask the portal for its settings. A change in the portal reaches it only when you download and commit the file again. The Library defaults written under <code>defaults</code>, such as the security limits, the GoldenFix policy and the Node.js build defaults, reach it through the copy kept in the library, with the next library version; that copy leaves out the order of the static scans. The values written to <code>platform</code>, such as the AppScan, proxy, Nexus snapshot repository and iOS build agent values, never reach it; see <a href="#13-library-defaults">chapter 13</a>.</li>
 <li>A security pipeline that should start its extended pipeline needs <code>jenkins.pipeline.extendedPipeline</code> under its service in the file. The product download leaves it out, because the portal keeps it with the security pipeline.</li>
 <li>The pipeline report says &quot;No pipeline key: settings from devsecops_config.yaml in the repository&quot;.</li>
 <li>The Jenkins administrators can require a key for every pipeline; such a Jenkinsfile then stops at its start.</li>
@@ -1184,7 +1184,7 @@ devSecOpsPipeline(<span class="k">projectNames</span>: <span class="s">'gateway'
 <tr><td><code>database.rd.password</code>, or a <code>username</code> or <code>user</code> of a database</td><td>&quot;not imported: the portal keeps no secrets, only the IDs of Jenkins credentials&quot;</td></tr>
 <tr><td>A JDBC URL with a user or a password, such as <code>jdbc:oracle:thin:scott/tiger@//qc-db.bbh.com:1521/ORDERS_QC</code></td><td>&quot;not imported: the URL holds a user or a password; the portal keeps only the ID of the Jenkins credentials&quot;</td></tr>
 <tr><td><code>database.prod</code>, <code>database.production</code>, <code>database.prd</code> or <code>database.live</code></td><td>&quot;not imported: the pipelines never deploy to production&quot;</td></tr>
-<tr><td><code>database.allowedTargets</code> under a project</td><td>&quot;not imported: a global setting, the same for every service&quot;</td></tr>
+<tr><td><code>database.allowedTargets</code> under a project</td><td>&quot;not imported: a Library default, the same for every service&quot;</td></tr>
 <tr><td><code>tools.liquibase</code>, <code>tools.oracleJdbc</code> or <code>tools.utplsql</code> under a project</td><td>&quot;not imported: the portal sets the tools of Liquibase database changes for every service in the Library defaults&quot;</td></tr>
 <tr><td><code>database</code> under a Gradle, Maven or Flutter project, or under a Liquibase project without <code>database.changelogFile</code></td><td>&quot;not imported: only a Liquibase service with a database.changelogFile has database settings&quot;</td></tr>
 <tr><td><code>deployTarget</code>, <code>appName</code>, <code>artifactName</code>, <code>baseArtifactName</code>, <code>deploy</code> or <code>delivery</code> of a project with <code>database.changelogFile</code></td><td>&quot;not imported: a Liquibase service with database changes has no deployment of its own&quot;</td></tr>
@@ -1282,8 +1282,8 @@ devSecOpsPipeline(<span class="k">projectNames</span>: <span class="s">'gateway'
 <p>The template has no Liquibase fields. A new Liquibase service starts with the build command <code>updateSQL</code>, no artifact path and a Nexus IQ application without a scan pattern; see <a href="#a-liquibase-service-without-database-changes">chapter 7</a>.</p>
 </div>
 
-<div class="section" id="13-library-defaults-global-settings">
-<h2><span class="num">13</span> Library defaults (Global Settings)</h2>
+<div class="section" id="13-library-defaults">
+<h2><span class="num">13</span> Library defaults</h2>
 <p>Admin, Library defaults holds the values every pipeline shares. A service that leaves a field empty takes the value from here. These values change only when a tool moves; the DevSecOps team then enters the new value. The page has eight sections.</p>
 <table>
 <thead>
@@ -1695,7 +1695,7 @@ devSecOpsPipeline(<span class="k">pipelineKey</span>: <span class="s">'&lt;key f
 <div class="section" id="19-action-history">
 <h2><span class="num">19</span> Action history</h2>
 <p>The Action history records every change made in the portal: who did it, when, what was done, on which resource and with which result. Search by user, resource or details, and filter by action, resource and status.</p>
-<p>The recorded actions are: create, update and delete a product; create, update and delete a pipeline; issue a new key; invalidate a key; create, rename and delete a business service; update the service template; update the library defaults; update the BBH quality targets; set up or change an application of the QM Metric Tool; set up or change an agile team; record and delete an agile assessment; initialize the portal. An import of a devsecops_config.yaml or config.yaml stores nothing and is not recorded.</p>
+<p>The recorded actions are: create, update and delete a product; create, update and delete a pipeline; issue a new key; invalidate a key; create, rename and delete a business service; update the service template; update the Library defaults; update the BBH quality targets; set up or change an application of the QM Metric Tool; set up or change an agile team; record and delete an agile assessment; initialize the portal. An import of a devsecops_config.yaml or config.yaml stores nothing and is not recorded.</p>
 <p>The Action history shows the actions of the business service or the application chosen in the bar above it. Every action keeps the business service and the application it was on. Actions recorded before changeset 048 kept only the name of their business service: they are shown for the business service of that name, and not for one application.</p>
 <p>The portal has no sign-in yet. Every action is recorded as the default administrator until BBH single sign-on is added.</p>
 </div>
@@ -2545,7 +2545,7 @@ devSecOpsPipeline(<span class="k">pipelineKey</span>: <span class="s">'&lt;key f
 <h3 id="service-service-delivers-its-database-package-to-nexus-in-the-type-pipeline-but-has-no-item"><code>Service &lt;service&gt; delivers its database package to Nexus in the &lt;type&gt; pipeline but has no &lt;item&gt;</code></h3>
 <p>The item is the group ID, the snapshot repository ID or URL, or the release repository ID or URL. The Full and Extended pipelines need all five, the Security pipeline the group ID and the snapshot repository; see <a href="#what-the-pipelines-do-with-a-liquibase-service">chapter 7</a>. Set the group ID under Database changes, &quot;Package and Nexus delivery&quot;. Set a repository there, or ask the DevSecOps team to set it in the Library defaults, section &quot;Liquibase database changes&quot;. When the package need not reach Nexus, untick &quot;Deliver the package to Nexus&quot;.</p>
 <h3 id="is-set-but-the-library-defaults-allow-no-database-yet">&quot;is set, but the Library defaults allow no database yet&quot;</h3>
-<p>The message goes on: &quot;the pipelines deploy only to the databases the DevSecOps team allows in the Global Settings&quot;. The list &quot;Allowed databases&quot; of the Library defaults is empty, so no JDBC URL can be saved. Ask the DevSecOps team to add the hosts of the test, RD and QC databases. Until then, leave the JDBC URLs empty: the service can be saved, and its deployment stages are not required.</p>
+<p>The message goes on: &quot;the pipelines deploy only to the databases the DevSecOps team allows in the Library defaults&quot;. The list &quot;Allowed databases&quot; of the Library defaults is empty, so no JDBC URL can be saved. Ask the DevSecOps team to add the hosts of the test, RD and QC databases. Until then, leave the JDBC URLs empty: the service can be saved, and its deployment stages are not required.</p>
 <h3 id="names-a-database-that-the-library-defaults-do-not-allow">&quot;names a database that the Library defaults do not allow&quot;</h3>
 <p>The JDBC URL names a host or a service that no line of &quot;Allowed databases&quot; matches. Check the URL for a typing error; every host of a URL with several hosts must be allowed. When the database is right, ask the DevSecOps team to add it. The library refuses the same URL when a pipeline starts, also when the line was removed after the service was saved.</p>
 <h3 id="must-not-contain-a-user-or-a-password-keep-them-in-the-jenkins-credentials-of-the-credentials-id">&quot;must not contain a user or a password: keep them in the Jenkins credentials of the credentials ID&quot;</h3>

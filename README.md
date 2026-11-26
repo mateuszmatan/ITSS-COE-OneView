@@ -98,7 +98,7 @@ On a BBH laptop the portal runs as a plain Java application on an embedded H2 da
 
 or `java -jar backend/build/libs/oneview-0.1.0-SNAPSHOT.jar` after `bootJar`. The database is the file
 `~/bbh-itss-coe/oneview/oneview.mv.db` (`ONEVIEW_DATA_DIR` moves the folder); Liquibase creates it on the first
-start with the five BBH Business Services and the BBH library defaults, and keeps the data between starts. Logs go to
+start with the five BBH Business Services and the BBH Library defaults, and keeps the data between starts. Logs go to
 the console and to `logs/oneview.log` (10 MB per file, 30 days, 2 GB in all; `LOG_PATH` moves the folder).
 
 For GUI work, run the service with `-PskipGui` and `npm start` in `frontend/`: the Angular development server on
@@ -170,8 +170,8 @@ AppScan application ID, and an imported `asoc.keyId` or `asoc.token` gets a note
 service scans one Nexus IQ application. A service whose build is not delivered to Nexus renders
 `deploy.<vm|openshift>.rd.nexusDeliveryEnabled: false`, and the forms then ask for none of the delivery settings. A
 service may run a Node.js build as stage 0, before its Gradle or Maven build: `build.node` is rendered only while it is
-enabled, which Flutter refuses, and the Global Settings may give every service a Node.js installation, npm registry and
-`.npmrc` credentials ID under `defaults.build.node`. The Global Settings also name the Gradle and Maven plugin
+enabled, which Flutter refuses, and the Library defaults may give every service a Node.js installation, npm registry and
+`.npmrc` credentials ID under `defaults.build.node`. The Library defaults also name the Gradle and Maven plugin
 repositories of the BBH Nexus under `defaults.pluginRepositories`, which the library uses when a step misses a plugin.
 `goldenFix.versionCatalogs` lists the shared version catalogs GoldenFix raises once for every service of a repository;
 it is the service's own list, outside the inherited GoldenFix policy. A product saved with `agentLabels` runs the pipelines that save creates on those Jenkins agents instead of the
@@ -179,7 +179,7 @@ service template's. A Liquibase service (`buildTool: liquibase`) renders its com
 `tests.unitTests.liquibase`, `tools.sonar.liquibase` and `asoc.liquibase`. With a `database.changelogFile` it also
 changes a database: its `database` block is rendered after `build`, it renders no deployment (`deployTarget`,
 `appName`, `artifactName`, `baseArtifactName`, `deploy`, `delivery`), and its Nexus IQ GoldenFix pipeline is refused.
-The Global Settings give every such service its tools, its allowed databases and its Nexus repositories under
+The Library defaults give every such service its tools, its allowed databases and its Nexus repositories under
 `defaults.tools.liquibase`, `defaults.tools.oracleJdbc`, `defaults.tools.utplsql` and `defaults.database`, rendered
 only while they are set. Chapter 7 of the guide describes both kinds of Liquibase service. A service of SQL and
 PL/SQL files without a changelog (`buildTool: sql`) always changes a database: it renders the same `database` block
@@ -202,12 +202,13 @@ Every service but a .NET one renders its SonarScanner version as `tools.sonar.so
 
 `POST /api/service-configs/import` reads a `devsecops_config.yaml` or `config.yaml`, a configuration the portal
 rendered, or its JSON form, and returns one service form per project with notes on what it did not take over: settings
-the portal has no field for, global and pipeline settings, and secrets such as `asoc.keySecret`, `influx.token` or a
-test job's `token`, which are never echoed. A value equal to the global settings or to a Library default the service
-inherits (`tests.maxParallel`, the GoldenFix policy, the Node.js installation and npm settings) comes back empty, so
-the service keeps inheriting it; so do the library's own Node.js defaults (`npm ci` then `npm run build`, 30 minutes,
-the Nexus IQ scan of `package-lock.json`). `build.node` without `enabled: true`, or in a Flutter project, comes back
-switched off with its values. `nexusDeliveryEnabled` is read only from the section of the service's own deploy target.
+the portal has no field for, Library defaults and pipeline settings, and secrets such as `asoc.keySecret`,
+`influx.token` or a test job's `token`, which are never echoed. A value equal to what the portal writes into every
+service from the Library defaults, or to a Library default the service inherits (`tests.maxParallel`, the GoldenFix
+policy, the Node.js installation and npm settings), comes back empty, so the service keeps inheriting it; so do the
+library's own Node.js defaults (`npm ci` then `npm run build`, 30 minutes, the Nexus IQ scan of `package-lock.json`).
+`build.node` without `enabled: true`, or in a Flutter project, comes back switched off with its values.
+`nexusDeliveryEnabled` is read only from the section of the service's own deploy target.
 The file may hold at most 262,144 characters and 50 projects. A malformed file is refused with the line and column of
 the problem, never with its text; so is a file that names no project setting (a `docker-compose.yml`, for example) or
 holds an alias inside the value it refers to. A `liquibase` project imports its `database` block; database passwords,
@@ -299,7 +300,7 @@ with who, what, when and the result, and shown under Action history.
 - Changeset 037 adds the database changes of Liquibase services: the `DB_` columns of `DSO_SERVICE` and
   `DSO_GLOBAL_SETTINGS`, the table `DSO_SERVICE_DATABASE_TARGET` and the build tool `LIQUIBASE` in
   `CK_DSO_SERVICE_BUILD_TOOL` and `CK_DSO_GLOBAL_BUILD_TOOL`, which before 037 refused every Liquibase service, with
-  or without database changes. Every service keeps its build tool and renders as before. The Global Settings of
+  or without database changes. Every service keeps its build tool and renders as before. The Library defaults of
   Liquibase database changes start empty, so set the allowed databases and the Nexus repositories of the database
   packages before the first service with database changes is saved; the Full, Security and Extended pipelines of a
   service that delivers its package need a group ID and those repositories. A rollback stops at the build tool checks

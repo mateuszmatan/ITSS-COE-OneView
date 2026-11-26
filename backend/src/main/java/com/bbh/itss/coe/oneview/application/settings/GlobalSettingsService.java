@@ -34,6 +34,6 @@ public class GlobalSettingsService implements ManageGlobalSettingsUseCase {
 
     private GlobalSettings load() {
         return repository.load().orElseThrow(() -> new IllegalArgumentException(
-                "The global settings are missing; the portal creates them at start-up"));
+                "The Library defaults are missing; the portal creates them at start-up"));
     }
 }

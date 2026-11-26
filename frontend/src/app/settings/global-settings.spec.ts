@@ -178,7 +178,7 @@ describe('GlobalSettingsPage', () => {
     expect(page().querySelector('form')).toBeNull();
 
     expect(text(page().querySelector('.banner .banner-text'))).toBe(
-      'The library defaults could not be loaded. Database unavailable',
+      'The Library defaults could not be loaded. Database unavailable',
     );
     buttonOf(page().querySelector('.banner')!, 'Try again').click();
     await load();
@@ -524,7 +524,7 @@ describe('GlobalSettingsPage', () => {
       title: 'Shared settings sent to Jenkins (devsecops_config.yaml format)',
       subtitle:
         'The part of the settings every pipeline with a key receives along with the settings of its own ' +
-        'service, built from the saved library defaults. A Jenkinsfile without a key receives only the ' +
+        'service, built from the saved Library defaults. A Jenkinsfile without a key receives only the ' +
         'defaults part, from the copy kept in the DevSecOps library; it never receives the platform part. ' +
         'That copy leaves out staticAnalysis.parallel and dynamicAnalysis.parallel, which are true by default.',
       code: 'platform:\n  jenkinsLibrary: DevSecOpsJenkinsLibrary\n',

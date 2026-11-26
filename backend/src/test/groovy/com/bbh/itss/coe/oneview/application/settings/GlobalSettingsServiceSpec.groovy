@@ -41,7 +41,7 @@ class GlobalSettingsServiceSpec extends Specification {
 
         then:
         def e = thrown(IllegalArgumentException)
-        e.message == 'The global settings are missing; the portal creates them at start-up'
+        e.message == 'The Library defaults are missing; the portal creates them at start-up'
     }
 
     def "a change is checked against the stored settings and saved"() {

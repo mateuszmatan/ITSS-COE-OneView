@@ -88,7 +88,7 @@ class GlobalSettingsValuesSpec extends Specification {
         expect:
         problems(values) == [new FieldProblem('limits.NEXUS_IQ', 'set the limits of every scanner'),
                              new FieldProblem('limits.DAST', 'set the limits of every scanner')] +
-                required.collect { new FieldProblem("goldenFix.$it".toString(), 'is required in the global settings') } +
+                required.collect { new FieldProblem("goldenFix.$it".toString(), 'is required in the Library defaults') } +
                 [new FieldProblem('goldenFix.ecosystems', 'select at least one ecosystem'),
                  new FieldProblem('goldenFix.goldenVersionTypes', 'add at least one remediation type')]
     }
@@ -128,7 +128,7 @@ class GlobalSettingsValuesSpec extends Specification {
     static final FieldProblem EXCLUDED = new FieldProblem('goldenFix.excludeDirs',
             'is too long: all entries together may take at most 2000 bytes')
 
-    def "the library defaults are rendered in the shape and key order of its defaults.yaml"() {
+    def "the Library defaults are rendered in the shape and key order of the defaults.yaml of the library"() {
         when:
         def defaults = BBH.defaultsConfig()
         def zero = [maxCritical: 0, maxHigh: 0, maxMedium: 0]

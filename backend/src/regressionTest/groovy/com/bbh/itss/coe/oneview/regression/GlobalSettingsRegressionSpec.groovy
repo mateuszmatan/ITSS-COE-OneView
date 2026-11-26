@@ -25,7 +25,7 @@ class GlobalSettingsRegressionSpec extends OneViewSpecification {
         }
     }
 
-    def "the global settings start as the defaults DSOEnhanced ships with"() {
+    def "the Library defaults start as the defaults DSOEnhanced ships with"() {
         expect:
         with(original) {
             version >= 0

@@ -113,7 +113,7 @@ describe('Library defaults of a new service', () => {
     });
   });
 
-  it('fills nothing without the global settings', () => {
+  it('fills nothing without the Library defaults', () => {
     const form = createServiceForm();
     applyLibraryDefaults(form, null);
 

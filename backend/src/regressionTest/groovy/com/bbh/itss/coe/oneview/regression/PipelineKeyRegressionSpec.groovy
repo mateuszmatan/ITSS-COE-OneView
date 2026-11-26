@@ -75,7 +75,7 @@ class PipelineKeyRegressionSpec extends OneViewSpecification {
                 .resourceName == 'gui \u00b7 SAST scanning'
     }
 
-    def "a pipeline links its Jenkins job given as a URL; a path needs the Jenkins URL of the global settings"() {
+    def "a pipeline links its Jenkins job given as a URL; a path needs the Jenkins URL of the Library defaults"() {
         when:
         def byUrl = pipelineFor(gui, pipeline(jenkinsJob: 'https://jenkins.bbh.com/job/DevSecOps/job/gui-full/',
                 description: 'Nightly full pipeline'))

@@ -293,7 +293,7 @@ class ProductCatalogServiceSpec extends Specification {
         message = allowed ? ProductCatalogService.NOT_ALLOWED : ProductCatalogService.NO_ALLOWED_TARGETS
     }
 
-    def "allowed database URLs are saved, and a product without a database service does not read the Global Settings"() {
+    def "allowed database URLs are saved, and a product without a database service does not read the Library defaults"() {
         when:
         catalog.create(command(services: [service(name: 'gui')]))
 

@@ -36,14 +36,14 @@ product page, or from `api/pipeline-key.sh`.
 ## Jenkinsfiles
 
 Each file is the whole Jenkinsfile of one Jenkins job, in the form the Self-service wizard and the product page
-generate: the `@Library` line loads the shared library named in the library defaults (`platform.jenkinsLibrary`,
+generate: the `@Library` line loads the shared library named in the Library defaults (`platform.jenkinsLibrary`,
 `DevSecOpsJenkinsLibrary` by default), and the entry point of the pipeline type receives the pipeline key as a string.
 Nothing else is in the file: no `devsecops_config.yaml`, no credentials ID and no tool server. The library reads
 everything else from OneView by the key, at the address in the Jenkins variable `ONEVIEW_URL` (for example
 `https://oneview.apps.bbh.com`), as described in
 [How DSOEnhanced reads its configuration](../README.md#how-dsoenhanced-reads-its-configuration). A Jenkins that
 still sets `DSO_PORTAL_URL`, the former name of the variable, runs these files unchanged. During the cutover,
-pin the version of the library with the portal in the `@Library` line and in the library defaults, for example
+pin the version of the library with the portal in the `@Library` line and in the Library defaults, for example
 `DevSecOpsJenkinsLibrary@main`.
 
 Save a file as `Jenkinsfile` in the top folder of the service's Bitbucket repository and point a Pipeline job (Pipeline
@@ -174,14 +174,14 @@ examples/api/import-config.sh examples/config/payhub-gateway-full.yaml \
 ```
 
 The document has four parts: `pipeline` (type, entry point, product, the service in `projectNames` and the agent
-labels), `platform` and `defaults` (from the library defaults) and `projects.gateway` (the service's build, scans, tests,
+labels), `platform` and `defaults` (from the Library defaults) and `projects.gateway` (the service's build, scans, tests,
 OpenShift targets, Bitbucket repository and InfluxDB tags). It names Jenkins credentials IDs, never their secrets.
-`defaults.build.node` holds the Node.js installation and npm registry of the library defaults. `gateway` builds its
+`defaults.build.node` holds the Node.js installation and npm registry of the Library defaults. `gateway` builds its
 `console` frontend with Node.js first (`build.node`, rendered only while it is switched on), names its AppScan scan
 (`sast.scanName`) and the credential of its SonarQube badges (`tools.sonar.badgeCredentialsId`), and lists the shared
 BOM `bom/pom.xml` in `goldenFix.versionCatalogs`. Its build is delivered to Nexus, so the document has no
 `deploy.openshift.rd.nexusDeliveryEnabled`; a service that is not delivered renders it as `false`.
-`platform.jenkinsUrl` is the Jenkins URL of the library defaults. Run `api/dso-config.sh` to see the configuration
+`platform.jenkinsUrl` is the Jenkins URL of the Library defaults. Run `api/dso-config.sh` to see the configuration
 of the OneView you run. The [user and administrator guide](../docs/documentation.md#22-field-reference-from-the-portal-to-devsecops_configyaml)
 lists every key with the field that sets it.
 

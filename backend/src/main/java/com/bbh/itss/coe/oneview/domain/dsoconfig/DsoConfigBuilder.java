@@ -25,7 +25,7 @@ public final class DsoConfigBuilder {
     private final GlobalSettingsValues global;
 
     public DsoConfigBuilder(GlobalSettingsValues global) {
-        this.global = requireNonNull(global, "the configuration is built on the global settings");
+        this.global = requireNonNull(global, "the configuration is built on the Library defaults");
     }
 
     public Map<String, Object> productConfig(Product product) {

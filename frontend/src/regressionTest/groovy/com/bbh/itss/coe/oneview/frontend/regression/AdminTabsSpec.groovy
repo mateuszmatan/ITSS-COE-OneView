@@ -36,7 +36,7 @@ class AdminTabsSpec extends OvSpecification {
         ownErrors().isEmpty()
     }
 
-    def "the tabs switch between the departments, the products and the library defaults, and Back returns"() {
+    def "the tabs switch between the departments, the products and the Library defaults, and Back returns"() {
         given:
         open('/admin/products')
 

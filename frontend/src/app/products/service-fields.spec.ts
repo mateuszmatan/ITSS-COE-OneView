@@ -195,7 +195,7 @@ describe('ServiceFields', () => {
       45_000,
     );
 
-    it('works without the global settings and reveals the first section with a problem', async () => {
+    it('works without the Library defaults and reveals the first section with a problem', async () => {
       await render(service(), null);
       for (const label of railLabels()) {
         await open(label);
@@ -1402,7 +1402,7 @@ describe('ServiceFields', () => {
       20_000,
     );
 
-    it('hints at nothing without the global settings', async () => {
+    it('hints at nothing without the Library defaults', async () => {
       await render(service(), null);
       await open('SonarQube');
 
@@ -1795,7 +1795,7 @@ describe('ServiceFields', () => {
       expect(form.controls.goldenFix.controls.inherit.value).toBe(false);
     });
 
-    it('works without the global settings', async () => {
+    it('works without the Library defaults', async () => {
       await render(service(), null);
       await open('GoldenFix');
 

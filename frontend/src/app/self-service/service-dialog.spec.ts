@@ -260,7 +260,7 @@ describe('ServiceDialog', () => {
     expect(Object.keys(c.appScan.controls)).not.toContain('keyId');
   });
 
-  it('starts without Library defaults while the global settings are not loaded', async () => {
+  it('starts without Library defaults while they are not loaded', async () => {
     await open();
 
     expect(form().controls.sonar.controls.installationName.value).toBe('');

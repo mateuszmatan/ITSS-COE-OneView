@@ -561,7 +561,7 @@ const DELIVERY_ITEMS: Record<RepositoryKey, string> = {
 
 /**
  * Adds the rules the pipelines of the types set for a Liquibase service with database changes: what delivering its
- * package to Nexus needs, unless the Library defaults give it, and, once the Global Settings are known, the databases
+ * package to Nexus needs, unless the Library defaults give it, and, once they are known, the databases
  * they allow. The rules apply only while the controls are enabled, that is once the changelog file is set and with the
  * delivery ticked.
  */
@@ -739,9 +739,9 @@ const URL_PROBLEMS = {
   FORM: 'Must be an Oracle thin URL: jdbc:oracle:thin:@//host:1521/SERVICE, @host:1521:SID, @tcps://host:2484/SERVICE?ssl_server_dn_match=true or @(DESCRIPTION=...)',
 };
 export const NO_ALLOWED_DATABASES =
-  'Is set, but the Library defaults allow no database yet: the pipelines deploy only to the databases the DevSecOps team allows in the Global Settings';
+  'Is set, but the Library defaults allow no database yet: the pipelines deploy only to the databases the DevSecOps team allows in the Library defaults';
 export const NOT_ALLOWED_DATABASE =
-  'Names a database that the Library defaults do not allow: ask the DevSecOps team to add the test, RD or QC database to the Global Settings';
+  'Names a database that the Library defaults do not allow: ask the DevSecOps team to add the test, RD or QC database to the Library defaults';
 export const OWN_TEST_DATABASE =
   'Is also the URL of the RD or QC database: the test database receives the test packages and must be a database of its own';
 export const QC_GETS_TESTS =

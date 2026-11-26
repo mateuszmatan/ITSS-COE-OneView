@@ -59,7 +59,7 @@ class DsoConfigBuilderSpec extends Specification {
         projects['backend-api'].build == [maven: [goals: ['clean', 'verify']]]
     }
 
-    def "every service names the BBH tool servers of the global settings next to its own values"() {
+    def "every service names the BBH tool servers of the Library defaults next to its own values"() {
         when:
         Map entry = builder.productConfig(certScanner).projects.gui
 
@@ -149,7 +149,7 @@ class DsoConfigBuilderSpec extends Specification {
                 DsoConfigBuilder.KEY_ORDER.indexOf('delivery') + 1) == ['build', 'database', 'delivery']
     }
 
-    def "the global deployment defaults fill in what a VM deployment leaves out"() {
+    def "the deployment values of the Library defaults fill in what a VM deployment leaves out"() {
         given:
         certScanner = product(services: [GUI, API, [id: 12L, name: 'batch',
                 sshTargets: [(RD): SshTarget.builder().user('batchadm').deployDir('/opt/batch').build()],
@@ -228,7 +228,7 @@ class DsoConfigBuilderSpec extends Specification {
         config.defaults.goldenFix.verify.maxAttempts != null
     }
 
-    def "the global configuration holds the platform and the library defaults"() {
+    def "the global configuration holds the platform and the Library defaults"() {
         when:
         def config = builder.globalConfig()
 

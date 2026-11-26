@@ -757,7 +757,7 @@ class ProductCatalogRegressionSpec extends OneViewSpecification {
         def orders = { Map settings -> product(code: code, name: "Product $code", services: [databaseService(database: settings)]) }
         def database = databaseService().database
         def nowhere = 'is set, but the Library defaults allow no database yet: the pipelines deploy only to the' +
-                ' databases the DevSecOps team allows in the Global Settings'
+                ' databases the DevSecOps team allows in the Library defaults'
 
         when:
         def none = api.post('/api/products', orders(database))
@@ -777,7 +777,7 @@ class ProductCatalogRegressionSpec extends OneViewSpecification {
         notAllowed.status == 400
         notAllowed.json.errors.collect { [it.field, it.message] } == [['services[0].databaseTargets[RD].url',
                 'names a database that the Library defaults do not allow: ask the DevSecOps team to add the test, RD or' +
-                        ' QC database to the Global Settings']]
+                        ' QC database to the Library defaults']]
 
         when:
         saveDatabaseDefaults(databaseDefaults())

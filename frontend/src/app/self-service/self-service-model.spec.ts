@@ -419,7 +419,7 @@ describe('self-service model', () => {
     expect(request.build).toEqual(stored.build);
   });
 
-  it('builds a new service, and one that gets another build tool, from the source folder of the library defaults', () => {
+  it('builds a new service, and one that gets another build tool, from the source folder of the Library defaults', () => {
     const defaults = globalSettings().serviceDefaults;
     const stored = service();
     const created = serviceRequest(added(), 'SECURITY', TEMPLATE, undefined, defaults);

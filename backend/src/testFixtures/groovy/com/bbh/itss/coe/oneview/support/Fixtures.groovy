@@ -166,7 +166,7 @@ final class Fixtures {
                  .credentialsId('orders-db-qc').parameters(['app_role=orders_qc_role']).build()]
     }
 
-    /** The Library defaults (Liquibase database changes) of the regression Global Settings. */
+    /** The Library defaults of Liquibase database changes, as the regression tests save them. */
     static DatabaseDefaults databaseDefaults() {
         DatabaseDefaults.builder().liquibaseHome('/opt/liquibase/4.33.0').oracleJdbcPath('/opt/oracle/ojdbc11.jar')
                 .utplsqlUrl(UTPLSQL_URL)

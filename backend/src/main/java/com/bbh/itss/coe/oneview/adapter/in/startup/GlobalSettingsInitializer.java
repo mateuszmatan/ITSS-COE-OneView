@@ -20,8 +20,8 @@ public class GlobalSettingsInitializer implements ApplicationRunner {
 
     @Override
     public void run(ApplicationArguments args) {
-        log.info("Checking and initializing global OneView settings...");
+        log.info("Checking and initializing the Library defaults of OneView...");
         settings.ensureExists();
-        log.info("OneView global settings ready");
+        log.info("Library defaults of OneView ready");
     }
 }

@@ -116,7 +116,7 @@ A Service represents an independently deployable component (e.g., backend API, w
   - The button is disabled whenever any required field is invalid or missing.
   - Displays a real-time counter of missing fields with one-click direct navigation to each unconfigured section.
 - **Library Defaults Presentation:**
-  - Fields with global defaults defined in *Library Defaults* (Global Settings) are automatically pre-filled.
+  - Fields with a default in the Library defaults (Admin, Library defaults) are automatically pre-filled.
   - Helper hints display the source value (e.g., *Library default: mvn clean package*).
 - **Contextual Tooltips:**
   - Every field includes an intuitive tooltip explaining its purpose, requirements, and expected input format.
@@ -163,8 +163,8 @@ The pipeline supports all standard BBH languages and build tools. In the Portal 
 | **C# / F# / VB.NET (.NET Framework)** | *C# / .NET Framework (MSBuild)* (`buildTool: msbuild`): always `MSBuild.exe` + `NuGet.exe` | `NuGet.exe restore` + `MSBuild.exe /t:Build`, tests with `vstest.console.exe` once a unit test setting such as *Test results* is set (without one the unit tests are skipped) | Classic .NET Framework 4.x services (`packages.config`, projects without an `Sdk` attribute) on Windows agents |
 
 ### Plugins from the BBH Nexus:
-- When a Gradle or Maven step (build, unit tests, SonarQube, SAST compile) fails because a plugin is not in the repositories of the build, the step runs once more with the plugin repository of the BBH Nexus: *Gradle plugin repository* and *Maven plugin repository* of the Global Settings (`pluginRepositories`). The console says which plugins came from it and where to add the repository; unticking *Retry a Gradle or Maven step with these repositories when a plugin is missing* switches the retry off.
-- A value of the wrong kind that reaches the library (text for a number, a word for `true`/`false`, a map for a list) falls back to the value of the Global Settings with an `[INIT] [WARN]` line.
+- When a Gradle or Maven step (build, unit tests, SonarQube, SAST compile) fails because a plugin is not in the repositories of the build, the step runs once more with the plugin repository of the BBH Nexus: *Gradle plugin repository* and *Maven plugin repository* of the Library defaults of OneView (`pluginRepositories`). The console says which plugins came from it and where to add the repository; unticking *Retry a Gradle or Maven step with these repositories when a plugin is missing* switches the retry off.
+- A value of the wrong kind that reaches the library (text for a number, a word for `true`/`false`, a map for a list) falls back to the Library default of OneView with an `[INIT] [WARN]` line.
 
 ### SQL and PL/SQL with a database block:
 - A Liquibase service with `database.changelogFile` gets the database block: the Build artifact stage validates and packages the changes offline, Unit tests deploys them to a test database and runs utPLSQL with coverage, and the zip is delivered to Nexus and deployed to RD and QC with Jenkins credentials and a compile check. See [chapter 14 of the library documentation](../documentation.html#ch14).
@@ -215,7 +215,7 @@ Static security analysis inspects application source code for security vulnerabi
   - Unit tests, Nexus IQ, SAST and SonarQube run **in parallel** in the stage *Static analysis*; SAST compiles and queues its scans in a copy of the workspace, and SonarQube starts once the unit tests have written the coverage. On a Windows agent the unit tests, Nexus IQ and SonarQube also take turns on the workspace, because a .NET build there locks the files Nexus IQ scans; `DSO_STATIC_ANALYSIS_PARALLEL=false` in the node properties of an agent keeps that agent one after another.
   - The full and extended pipelines also run the regression, smoke and performance tests and DAST in parallel (*Dynamic analysis*).
   - The report ends with the table **Manual Actions vs DevSecOps**: every step of the run with its own time, the time by hand, the time with DevSecOps (of the steps that run in parallel only the longest), the time gained in percent and a summary in seconds, minutes and percent; with more than one service, every step lists all configured services with their times.
-  - Both are on by default. Unticking **Run unit tests, Nexus IQ, SAST and SonarQube at the same time** or **Run the regression, smoke and performance tests and DAST at the same time** in the Global Settings (`staticAnalysis.parallel`, `dynamicAnalysis.parallel`) runs the stages one after another again; without a key, `false` in `devsecops_config.yaml` does the same.
+  - Both are on by default. Unticking **Run unit tests, Nexus IQ, SAST and SonarQube at the same time** or **Run the regression, smoke and performance tests and DAST at the same time** in OneView under Admin, Library defaults (`staticAnalysis.parallel`, `dynamicAnalysis.parallel`) runs the stages one after another again; without a key, `false` in `devsecops_config.yaml` does the same.
 - **Streamlined Configuration:**
   - The **main SAST section** holds only the AppScan application ID (`appId`) of the service.
   - `sast.scanName` is available in **Advanced Settings** for custom scan naming.
@@ -276,13 +276,13 @@ Nexus IQ identifies known open-source vulnerabilities (CVEs) and license complia
 
 ### Decoupled Pipeline Execution Order:
 1. **Stage 1: Build Artifact (without tests):** The pipeline builds deployable artifacts without executing unit tests. If the optional Node.js build is enabled (`build.node.enabled: true`), npm commands run as step 0 at the start of this stage before compiling backend code.
-2. **Stage 2: Static analysis at the same time (Unit Tests + Nexus IQ + SAST + SonarQube):** by default the four run as parallel branches of the Jenkins stage *Static analysis* (unticking *Run unit tests, Nexus IQ, SAST and SonarQube at the same time* in the Global Settings runs them one after another).
+2. **Stage 2: Static analysis at the same time (Unit Tests + Nexus IQ + SAST + SonarQube):** by default the four run as parallel branches of the Jenkins stage *Static analysis* (unticking *Run unit tests, Nexus IQ, SAST and SonarQube at the same time* in the Library defaults of OneView runs them one after another).
    - **Unit Tests:** Runs automated unit tests (including Node.js & Cypress tests) and aggregates JaCoCo & LCOV code coverage.
    - **Nexus IQ:** Evaluates open-source dependencies against security policies and prepares GoldenFix remediation.
    - **SAST (HCL AppScan):** Compiles and queues the scan of every service in a copy of the workspace (`<WORKSPACE_TMP>/dso-sast-workspace`, on a Windows agent `<WORKSPACE_TMP>\dso-sast`), so its compile never touches the files the other branches read, then waits for the results and the reports.
    - **SonarQube:** Starts a service once the unit tests of every service in the same source folder have written their coverage, ingests the test execution results and the JaCoCo/LCOV/Cypress coverage reports and enforces the SonarQube Quality Gate.
 3. **Stage 3: Results:** A failing branch turns its stage red while the other branches finish. The console and the report show how long the four stages would take one after another and how long they took at the same time.
-   - The full and extended pipelines run the regression, smoke and performance tests and DAST at the same time in the same way (*Dynamic analysis*, *Run the regression, smoke and performance tests and DAST at the same time* in the Global Settings).
+   - The full and extended pipelines run the regression, smoke and performance tests and DAST at the same time in the same way (*Dynamic analysis*, *Run the regression, smoke and performance tests and DAST at the same time* in the Library defaults of OneView).
 
 ---
 

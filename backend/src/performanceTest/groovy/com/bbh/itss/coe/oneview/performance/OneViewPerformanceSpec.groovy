@@ -132,12 +132,12 @@ class OneViewPerformanceSpec extends OneViewSpecification {
         within(stats, 500)
     }
 
-    def "a global settings change is saved and the next read of every pipeline sees it"() {
+    def "a change of the Library defaults is saved and the next read of every pipeline sees it"() {
         given:
         Map original = api.get('/api/settings').json as Map
 
         when:
-        def stats = measure("Change global settings, ${pipelines.size()} pipelines", calls: 3,
+        def stats = measure("Change the Library defaults, ${pipelines.size()} pipelines", calls: 3,
                 warmUp: false) { int i ->
             def current = api.get('/api/settings').json
             api.put('/api/settings', original + [version: current.version,

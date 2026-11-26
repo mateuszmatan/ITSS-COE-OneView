@@ -135,7 +135,7 @@ describe('createServiceForm', () => {
     });
   });
 
-  it('starts a new service from the service defaults of the global settings', () => {
+  it('starts a new service from the service defaults of the Library defaults', () => {
     const value = createServiceForm(undefined, DEFAULTS).getRawValue();
 
     expect(value.build.tool).toBe('MAVEN');

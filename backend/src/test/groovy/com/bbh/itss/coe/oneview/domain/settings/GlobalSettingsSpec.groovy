@@ -88,9 +88,9 @@ class GlobalSettingsSpec extends Specification {
         invalid << [copy(BBH, limits: BBH.limits().findAll { it.key != DAST },
                          goldenFix: copy(BBH.goldenFix(), commitAuthorName: null)),
                     copy(BBH, goldenFix: copy(BBH.goldenFix(), commitAuthorEmail: null))]
-        message << ['2 fields are invalid', 'is required in the global settings']
+        message << ['2 fields are invalid', 'is required in the Library defaults']
         problems << [[new FieldProblem('limits.DAST', 'set the limits of every scanner'),
-                      new FieldProblem('goldenFix.commitAuthorName', 'is required in the global settings')],
-                     [new FieldProblem('goldenFix.commitAuthorEmail', 'is required in the global settings')]]
+                      new FieldProblem('goldenFix.commitAuthorName', 'is required in the Library defaults')],
+                     [new FieldProblem('goldenFix.commitAuthorEmail', 'is required in the Library defaults')]]
     }
 }

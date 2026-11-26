@@ -123,7 +123,7 @@ const NOTES: Record<ServiceSectionId, string> = {
   deployment: 'Where the service runs: on virtual machines or on OpenShift.',
   urbanCode:
     'How the Full pipeline deploys the service to the lower test region (RD) with UrbanCode Deploy. A Full pipeline of a service on virtual machines needs at least one application for the UrbanCode Deploy environment DV.',
-  ssh: 'The virtual machines the service is deployed to over SSH, per test region. A blank value takes the library default.',
+  ssh: 'The virtual machines the service is deployed to over SSH, per test region. A blank value takes the Library default.',
   openShift:
     'The OpenShift projects the service is built and deployed in, per test region. The QC region is optional; once one of its fields is set, the fields its deployment needs are required.',
   appScan:

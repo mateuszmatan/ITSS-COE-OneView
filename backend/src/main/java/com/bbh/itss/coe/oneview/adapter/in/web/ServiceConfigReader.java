@@ -59,14 +59,14 @@ import static org.apache.commons.lang3.StringUtils.isBlank;
 /**
  * Reads a devsecops_config.yaml or config.yaml, a rendered product or pipeline config, or their JSON form into new
  * service forms: the inverse of the services' writeTo, as a table from config keys to request fields. A value the
- * portal writes into every project from the global settings, or one equal to the Library default the project inherits
+ * portal writes into every project from the Library defaults, or one equal to the Library default the project inherits
  * (tests.maxParallel, GoldenFix, the Node.js installation and npm settings) or to the library's own default of a
  * Node.js build setting, comes back unset, so the service keeps inheriting it. A value the portal cannot hold becomes a
  * note, not an error, so a partial import still fills the form.
  */
 final class ServiceConfigReader {
 
-    static final String GLOBAL = "not imported: a global setting, the same for every service";
+    static final String GLOBAL = "not imported: a Library default, the same for every service";
     static final String PIPELINE = "not imported: a pipeline setting, chosen when the pipeline is created";
     static final String APPSCAN_KEY = "not imported: the AppScan on Cloud API key of the functional user is set once in the defaults of the library";
     static final String RUN_TIME = "check: a run that builds the image replaces it";

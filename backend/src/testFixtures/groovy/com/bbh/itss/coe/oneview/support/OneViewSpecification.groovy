@@ -71,7 +71,7 @@ abstract class OneViewSpecification extends Specification {
         response.json as Map
     }
 
-    /** Saves the Library defaults (Liquibase database changes) of the Global Settings; an empty map clears them. */
+    /** Saves the Library defaults of Liquibase database changes; an empty map clears them. */
     Map saveDatabaseDefaults(Map database) {
         def current = api.get('/api/settings').json as Map
         def response = api.put('/api/settings', current + [database: database])
