@@ -60,6 +60,12 @@ the Markdown renders to, or when a link names a heading or a file that does not 
 and commit both files. The Vitest spec `frontend/src/app/documentation.spec.ts` fails when a field shows a
 `devsecops_config.yaml` key chip that the guide does not name, so a new field needs a line in chapter 22 of the guide.
 
+The front end is formatted with Prettier, with the settings of `.prettierrc` and the version of
+`frontend/package-lock.json`: `npx prettier --check .` in `frontend` lists the files that differ, and
+`npx prettier --write <file>` formats one. `frontend/.prettierignore` leaves out the test data of the GUI suites, the
+answers of the stub API and the requests they expect, which stay as they are, and the build output. The build does
+not run this check.
+
 ### Continuous integration (`ci/`)
 
 `ci/Jenkinsfile` is the CI build of OneView. A multibranch job of the BBH Jenkins (Bitbucket Server branch source,

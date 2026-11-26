@@ -212,10 +212,16 @@ export const SETTINGS_PAGE: SettingsSection[] = [
               help: 'The dashboard embedded on the monitoring page of a Security, SAST scanning or Nexus IQ GoldenFix pipeline. Left empty, those pages show the pipeline dashboard.',
             },
           ),
-          mono('grafana2Name', 'Second Grafana instance name', 'oneview.grafana.instances[1].name', 4, {
-            placeholder: 'Grafana prod',
-            help: 'The title of the dashboards of a second Grafana instance, shown after those of the first. Left empty: Grafana.',
-          }),
+          mono(
+            'grafana2Name',
+            'Second Grafana instance name',
+            'oneview.grafana.instances[1].name',
+            4,
+            {
+              placeholder: 'Grafana prod',
+              help: 'The title of the dashboards of a second Grafana instance, shown after those of the first. Left empty: Grafana.',
+            },
+          ),
           mono(
             'grafana2DashboardUrl',
             'Second Grafana pipeline dashboard URL',
@@ -506,11 +512,17 @@ export const SETTINGS_PAGE: SettingsSection[] = [
               help: 'Ticked, the pipeline asks Gradle or Maven which plugins it misses and runs the failed step again with the repository below: Gradle with an init script that puts it first for the plugins and every buildscript, Maven with a copy of the user settings of the agent that adds it in an active profile. The console names the plugins and where to add the repository. Unticked, a failed step fails at once, as before.',
             },
           ),
-          mono('gradlePluginRepository', 'Gradle plugin repository', 'pluginRepositories.gradle', 6, {
-            placeholder: 'https://tools.bbh.com/nexus/repository/gradle-plugins/',
-            help: 'The Nexus repository that proxies the Gradle Plugin Portal. Empty: the repository of the library defaults.',
-            error: SHELL_SAFE_URL_ERROR,
-          }),
+          mono(
+            'gradlePluginRepository',
+            'Gradle plugin repository',
+            'pluginRepositories.gradle',
+            6,
+            {
+              placeholder: 'https://tools.bbh.com/nexus/repository/gradle-plugins/',
+              help: 'The Nexus repository that proxies the Gradle Plugin Portal. Empty: the repository of the library defaults.',
+              error: SHELL_SAFE_URL_ERROR,
+            },
+          ),
           mono('mavenPluginRepository', 'Maven plugin repository', 'pluginRepositories.maven', 6, {
             placeholder: 'https://tools.bbh.com/nexus/repository/maven-public/',
             help: 'The Nexus repository with the Maven plugins, such as a group of Maven Central and the BBH releases. Empty: the repository of the library defaults.',

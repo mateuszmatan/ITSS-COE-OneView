@@ -1347,7 +1347,9 @@ describe('toServiceRequest', () => {
     const request = toServiceRequest(form);
 
     expect(form.controls.delivery.controls.tasks.enabled).toBe(false);
-    expect(request.delivery).toEqual(command({ flags: ['--info'], environment: ['GRADLE_OPTS=-Xmx1g'] }));
+    expect(request.delivery).toEqual(
+      command({ flags: ['--info'], environment: ['GRADLE_OPTS=-Xmx1g'] }),
+    );
     expect(request.nexusDelivery).toEqual({
       artifacts: ['build/libs/*.jar', 'build/docs.zip docs'],
       group: 'com.bbh.cert',
@@ -1526,9 +1528,17 @@ describe('toServiceRequest', () => {
     const gradle = createServiceForm(service());
     const nexus = gradle.controls.nexusDelivery.controls;
 
-    expect([nexus.group.valid, nexus.artifact.valid, nexus.repositoryUrl.valid]).toEqual([true, true, true]);
+    expect([nexus.group.valid, nexus.artifact.valid, nexus.repositoryUrl.valid]).toEqual([
+      true,
+      true,
+      true,
+    ]);
     nexus.artifacts.setValue('build/libs/*.jar');
-    expect([nexus.group.valid, nexus.artifact.valid, nexus.repositoryUrl.valid]).toEqual([false, false, false]);
+    expect([nexus.group.valid, nexus.artifact.valid, nexus.repositoryUrl.valid]).toEqual([
+      false,
+      false,
+      false,
+    ]);
 
     const maven = createServiceForm(service({ build: { ...service().build, tool: 'MAVEN' } }));
     const download = maven.controls.nexusDelivery.controls;
@@ -1541,7 +1551,9 @@ describe('toServiceRequest', () => {
   });
 
   it('sends no Nexus delivery for a service on OpenShift', () => {
-    const form = createServiceForm(service({ deployment: { ...service().deployment, target: 'OPENSHIFT' } }));
+    const form = createServiceForm(
+      service({ deployment: { ...service().deployment, target: 'OPENSHIFT' } }),
+    );
 
     expect(toServiceRequest(form).nexusDelivery).toEqual(NO_NEXUS_DELIVERY);
   });
@@ -1684,27 +1696,41 @@ describe('values unique within a product', () => {
 
   it('flags duplicate scan IDs across services with different Bitbucket repositories, but permits them for the same repository', () => {
     const { form, first, second } = twoServices();
-    first.controls.scm.controls.repositoryUrl.setValue('https://bitbucket.bbh.com/projects/PROJ/repos/repo-a');
+    first.controls.scm.controls.repositoryUrl.setValue(
+      'https://bitbucket.bbh.com/projects/PROJ/repos/repo-a',
+    );
     first.controls.scm.controls.credentialsId.setValue('cred');
-    second.controls.scm.controls.repositoryUrl.setValue('https://bitbucket.bbh.com/projects/PROJ/repos/repo-b');
+    second.controls.scm.controls.repositoryUrl.setValue(
+      'https://bitbucket.bbh.com/projects/PROJ/repos/repo-b',
+    );
     second.controls.scm.controls.credentialsId.setValue('cred');
 
-    second.controls.appScan.controls.applicationId.setValue(first.controls.appScan.controls.applicationId.value);
+    second.controls.appScan.controls.applicationId.setValue(
+      first.controls.appScan.controls.applicationId.value,
+    );
     expect(second.controls.appScan.controls.applicationId.errors).toEqual({
       rule: 'services in different Bitbucket repositories cannot share the same AppScan application ID',
     });
 
-    second.controls.scm.controls.repositoryUrl.setValue('https://bitbucket.bbh.com/projects/PROJ/repos/repo-a');
+    second.controls.scm.controls.repositoryUrl.setValue(
+      'https://bitbucket.bbh.com/projects/PROJ/repos/repo-a',
+    );
     expect(second.controls.appScan.controls.applicationId.valid).toBe(true);
 
-    second.controls.scm.controls.repositoryUrl.setValue('https://bitbucket.bbh.com/projects/PROJ/repos/repo-b');
+    second.controls.scm.controls.repositoryUrl.setValue(
+      'https://bitbucket.bbh.com/projects/PROJ/repos/repo-b',
+    );
     second.controls.appScan.controls.applicationId.setValue('3a1b2c3d-9999-4a5b-8c9d-0e1f2a3b4c5d');
-    second.controls.sonar.controls.projectKey.setValue(first.controls.sonar.controls.projectKey.value);
+    second.controls.sonar.controls.projectKey.setValue(
+      first.controls.sonar.controls.projectKey.value,
+    );
     expect(second.controls.sonar.controls.projectKey.errors).toEqual({
       rule: 'services in different Bitbucket repositories cannot share the same SonarQube project key',
     });
 
-    second.controls.scm.controls.repositoryUrl.setValue('https://bitbucket.bbh.com/projects/PROJ/repos/repo-a.git');
+    second.controls.scm.controls.repositoryUrl.setValue(
+      'https://bitbucket.bbh.com/projects/PROJ/repos/repo-a.git',
+    );
     expect(second.controls.sonar.controls.projectKey.valid).toBe(true);
   });
 
@@ -2081,7 +2107,9 @@ describe('followToolDefaults', () => {
       expect(request.build.command).toEqual(
         command(tool === 'NPM' ? {} : { tasks: ['run', 'it'] }),
       );
-      expect(request.unitTests.command).toEqual(command({ tasks: ['run', 'it'], directory: 'app' }));
+      expect(request.unitTests.command).toEqual(
+        command({ tasks: ['run', 'it'], directory: 'app' }),
+      );
       expect(request.sonar.command).toEqual(command({ flags: ['-Dsonar.sources=src'] }));
       expect(request.appScan.compileCommand).toEqual(command());
 
@@ -2095,7 +2123,9 @@ describe('followToolDefaults', () => {
 
   it('takes the Node.js build of an npm service as its build, without the stage 0 switch', () => {
     const form = createServiceForm(
-      service({ nodeBuild: nodeBuild({ directory: 'web', commands: ['npm ci', 'npm run build:prod'] }) }),
+      service({
+        nodeBuild: nodeBuild({ directory: 'web', commands: ['npm ci', 'npm run build:prod'] }),
+      }),
     );
     const node = form.controls.nodeBuild.controls;
     expect(node.commands.enabled).toBe(false);
@@ -2112,7 +2142,9 @@ describe('followToolDefaults', () => {
 
   it('builds an Android service with Gradle tasks and a JDK', () => {
     const form = createServiceForm(
-      service({ build: { ...service().build, autoSetup: false, javaPath: null, command: command() } }),
+      service({
+        build: { ...service().build, autoSetup: false, javaPath: null, command: command() },
+      }),
     );
     const { tool, javaPath } = form.controls.build.controls;
 

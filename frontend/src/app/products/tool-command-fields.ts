@@ -27,16 +27,24 @@ const SCRIPTED_TEST: Partial<Record<BuildTool, string>> = {
  */
 function scriptedFields(tool: BuildTool, path: string): Field[] {
   const name = SCRIPTED_NAMES[tool];
-  const parts = path ? (commandParts(tool, path as CommandPath) ?? []) : ['tasks', 'directory', 'flags'];
+  const parts = path
+    ? (commandParts(tool, path as CommandPath) ?? [])
+    : ['tasks', 'directory', 'flags'];
   const tests = path === 'tests.unitTests';
   const fields: Field[] = [
-    mono('tasks', tests ? 'Test command' : 'Build command', tests ? `${path}.commands` : `build.${name}.commands`, 6, {
-      placeholder: (tests ? SCRIPTED_TEST : SCRIPTED_BUILD)[tool] ?? '',
-      hint: `one command line; chain several with &&${tests ? `; left empty: ${SCRIPTED_TEST[tool] ?? 'no tests'}` : ''}`,
-      help: tests
-        ? 'The whole command line the Unit tests stage runs, with sh on Linux agents and bat on Windows agents. Write its options in the line itself.'
-        : 'The whole command line the Build artifact stage runs in the source folder of the service, with sh on Linux agents and bat on Windows agents. Left empty, the stage builds nothing.',
-    }),
+    mono(
+      'tasks',
+      tests ? 'Test command' : 'Build command',
+      tests ? `${path}.commands` : `build.${name}.commands`,
+      6,
+      {
+        placeholder: (tests ? SCRIPTED_TEST : SCRIPTED_BUILD)[tool] ?? '',
+        hint: `one command line; chain several with &&${tests ? `; left empty: ${SCRIPTED_TEST[tool] ?? 'no tests'}` : ''}`,
+        help: tests
+          ? 'The whole command line the Unit tests stage runs, with sh on Linux agents and bat on Windows agents. Write its options in the line itself.'
+          : 'The whole command line the Build artifact stage runs in the source folder of the service, with sh on Linux agents and bat on Windows agents. Left empty, the stage builds nothing.',
+      },
+    ),
     mono('directory', 'Directory', `${path}.dir`, 6, {
       placeholder: '.',
       hint: 'for a service in a subfolder: that folder',
@@ -164,17 +172,17 @@ export function commandFields(
         ? 'Optional full commands that replace the automatic .NET unit tests. Left empty, the library runs the tests of the mode it detects from the repository (dotnet test, vstest.console.exe or both, Cake or NUKE) with coverage.' +
           dotnetSkip
         : 'Optional full commands that replace the automatic .NET step. Left empty, the library detects the mode from the repository (dotnet SDK CLI, classic MSBuild + NuGet, hybrid, Cake or NUKE) and runs restore and build, or the SonarScanner for .NET begin/build/end.'
-    : liquibase
-    ? path === 'tools.sonar'
-      ? 'SonarScanner runs automatically for SQL and PL/SQL files; set Flags under Advanced settings when overriding -Dsonar.sources, -Dsonar.inclusions, or -Dsonar.plsql.file.suffixes.'
-      : path === 'tests.unitTests'
-        ? 'The Liquibase command run during the Unit tests stage (for example validate or status). Line coverage and JUnit XML checks are skipped automatically when empty.'
-        : path === 'asoc'
-          ? 'The Liquibase command run before AppScan SAST packaging (for example updateSQL or validate) so rendered SQL and changelog scripts are scanned together with PL/SQL sources.'
-          : 'The commands passed to liquibase, for example updateSQL, validate, or status. When left empty, the library runs updateSQL, with --changelog-file= and the changelog it finds at the repository root (else src/main/resources/changelog.xml) when Flags is empty too; for a service with database changes it runs validate when Flags is set, else nothing. A new service is prefilled with updateSQL.'
-    : maven
-      ? 'The goals the step passes to Maven: the mvn of the Maven home, otherwise ./mvnw when the repository has it, otherwise the mvn of the agent.'
-      : 'The tasks the step passes to the Gradle wrapper (./gradlew) of the repository.';
+      : liquibase
+        ? path === 'tools.sonar'
+          ? 'SonarScanner runs automatically for SQL and PL/SQL files; set Flags under Advanced settings when overriding -Dsonar.sources, -Dsonar.inclusions, or -Dsonar.plsql.file.suffixes.'
+          : path === 'tests.unitTests'
+            ? 'The Liquibase command run during the Unit tests stage (for example validate or status). Line coverage and JUnit XML checks are skipped automatically when empty.'
+            : path === 'asoc'
+              ? 'The Liquibase command run before AppScan SAST packaging (for example updateSQL or validate) so rendered SQL and changelog scripts are scanned together with PL/SQL sources.'
+              : 'The commands passed to liquibase, for example updateSQL, validate, or status. When left empty, the library runs updateSQL, with --changelog-file= and the changelog it finds at the repository root (else src/main/resources/changelog.xml) when Flags is empty too; for a service with database changes it runs validate when Flags is set, else nothing. A new service is prefilled with updateSQL.'
+        : maven
+          ? 'The goals the step passes to Maven: the mvn of the Maven home, otherwise ./mvnw when the repository has it, otherwise the mvn of the agent.'
+          : 'The tasks the step passes to the Gradle wrapper (./gradlew) of the repository.';
   /** The library adds the flags of a .NET step to its automatic commands only, never to given .NET commands. */
   const dotnetFlagsHelp = sonar
     ? `Added to the begin step of the SonarScanner for .NET, such as /d:sonar.exclusions=**/Migrations/**. While neither the SonarQube nor the build .NET commands are given, the library also adds them to the build of the analysis (${msbuild ? 'MSBuild.exe' : 'MSBuild.exe or dotnet build'}), in place of the Flags of the build; to pass /d: properties to the begin step only, write the build of the analysis in the .NET commands of SonarQube.`
@@ -184,17 +192,11 @@ export function commandFields(
         ? `Options added to the automatic ${msbuild ? 'MSBuild.exe' : '.NET'} build before the SAST scan, such as /m; left empty, the Flags of the build apply. Not used when the AppScan or the build .NET commands are given.`
         : `Options added to the automatic ${msbuild ? 'MSBuild.exe' : 'MSBuild.exe, dotnet build, Cake or NUKE'} command, such as /m; not used when .NET commands are given, which run as they are written.`;
   return [
-    mono(
-      'tasks',
-      taskLabel,
-      `${key}.${taskKey}`,
-      6,
-      {
-        placeholder: taskPlaceholder,
-        hint: 'separated by spaces',
-        help: taskHelp,
-      },
-    ),
+    mono('tasks', taskLabel, `${key}.${taskKey}`, 6, {
+      placeholder: taskPlaceholder,
+      hint: 'separated by spaces',
+      help: taskHelp,
+    }),
     mono('directory', 'Directory', `${key}.dir`, maven ? 3 : 6, {
       placeholder: '.',
       hint: 'for a service in a subfolder: that folder',

@@ -57,9 +57,7 @@
               "node_modules/@angular/cdk/a11y-prebuilt.css",
               "src/common/styles.scss"
             ],
-            "allowedCommonJsDependencies": [
-              "highcharts/js/highcharts"
-            ]
+            "allowedCommonJsDependencies": ["highcharts/js/highcharts"]
           },
           "configurations": {
             "production": {
@@ -105,11 +103,7 @@
           "builder": "@angular/build:unit-test",
           "options": {
             "tsConfig": "tsconfig.spec.json",
-            "coverageReporters": [
-              "text-summary",
-              "html",
-              "lcov"
-            ],
+            "coverageReporters": ["text-summary", "html", "lcov"],
             "coverageExclude": [
               "src/**/*.spec.ts",
               "src/**/*.d.ts",
@@ -121,10 +115,7 @@
               "statements": 60,
               "lines": 60
             },
-            "coverageInclude": [
-              "src/app/**",
-              "src/common/**"
-            ],
+            "coverageInclude": ["src/app/**", "src/common/**"],
             "buildTarget": "frontend:build:development",
             "providersFile": "src/common/test-providers.ts"
           }

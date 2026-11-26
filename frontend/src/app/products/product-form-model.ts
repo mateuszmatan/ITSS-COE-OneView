@@ -1357,11 +1357,7 @@ export function createServiceForm(s?: Partial<ServiceRequest>, defaults?: Servic
   const deliveryDisabled = deployment.controls.nexusDeliveryDisabled;
   const openShift = () => target.value === 'OPENSHIFT';
   const vm = () => target.value === 'VM';
-  requireWhile(
-    build.controls.command.controls.tasks,
-    () => !autoCommands(tool.value),
-    tool,
-  );
+  requireWhile(build.controls.command.controls.tasks, () => !autoCommands(tool.value), tool);
   requireOnceUsed(form.controls.openShiftTargets.controls.QC);
   revalidateOnChange(sonar.controls.badgeToken, sonar.controls.badgeCredentialsId);
   revalidateOnChange(sonar.controls.badgeCredentialsId, sonar.controls.badgeToken);
@@ -1498,7 +1494,11 @@ export type ServiceForm = ReturnType<typeof createServiceForm>;
  * lines (npm, pip, iOS): Gradle tasks are no command line, and a command line is no list of tasks. The library then
  * runs its default for the new tool.
  */
-export function dropForeignCommands(service: ServiceForm, previous: BuildTool, next: BuildTool): void {
+export function dropForeignCommands(
+  service: ServiceForm,
+  previous: BuildTool,
+  next: BuildTool,
+): void {
   if (scripted(previous) !== scripted(next)) {
     service.controls.unitTests.controls.command.controls.tasks.setValue('');
   }
@@ -1740,7 +1740,8 @@ function syncApplicability(form: ServiceForm): void {
   }
   setEnabled(node, !flutter && !database);
   Object.entries(node.controls).forEach(
-    ([key, control]) => key === 'enabled' || setEnabled(control, npm || node.controls.enabled.value),
+    ([key, control]) =>
+      key === 'enabled' || setEnabled(control, npm || node.controls.enabled.value),
   );
   setEnabled(form.controls.unitTests.controls.command, !flutter && !sql);
   setEnabled(form.controls.sonar.controls.command, !flutter);
@@ -1926,7 +1927,9 @@ const valueAt = (item: AbstractControl, key: string) =>
     .toLowerCase() || null;
 
 const normalizeRepoUrl = (url: unknown) => {
-  const raw = String(url ?? '').trim().toLowerCase();
+  const raw = String(url ?? '')
+    .trim()
+    .toLowerCase();
   if (!raw) return '';
   let u = raw.endsWith('.git') ? raw.slice(0, -4) : raw;
   while (u.endsWith('/')) u = u.slice(0, -1);
@@ -2109,7 +2112,11 @@ export function toServiceRequest(form: ServiceForm): ServiceRequest {
   const flutter = tool === 'FLUTTER';
   const vm = v.deployment.target === 'VM';
   const command = (group: ToolCommandForm, applies: boolean, path?: CommandPath) =>
-    applies ? (path ? toToolCommandOf(group, tool, path) : toToolCommand(group)) : { ...NO_COMMAND };
+    applies
+      ? path
+        ? toToolCommandOf(group, tool, path)
+        : toToolCommand(group)
+      : { ...NO_COMMAND };
   return {
     id: v.id,
     name: v.name.trim(),
@@ -2313,7 +2320,13 @@ export const SERVICE_SECTIONS: ServiceSection[] = [
   section('database', 'Database changes', 'storage', ['database', 'databaseTargets'], onLiquibase),
   section('unitTests', 'Unit tests and coverage', 'fact_check', ['unitTests']),
   section('testJobs', 'Test jobs', 'science', ['tests', 'testJobs']),
-  section('deployment', 'Deployment', 'rocket_launch', ['deployment', 'delivery', 'nexusDelivery'], deploys),
+  section(
+    'deployment',
+    'Deployment',
+    'rocket_launch',
+    ['deployment', 'delivery', 'nexusDelivery'],
+    deploys,
+  ),
   section('urbanCode', 'UrbanCode Deploy', 'hub', ['urbanCode', 'urbanCodeApplications'], onVm),
   section('ssh', 'SSH targets', 'dns', ['sshTargets'], onVm),
   section('openShift', 'OpenShift targets', 'cloud', ['openShiftTargets'], onOpenShift),

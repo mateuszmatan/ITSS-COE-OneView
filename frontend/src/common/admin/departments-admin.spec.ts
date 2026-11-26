@@ -80,7 +80,9 @@ describe('DepartmentsAdmin', () => {
     await load();
 
     expect(text(page().querySelector('.list-header h2'))).toBe('Business Services');
-    expect(text(page().querySelector('.summary'))).toBe('2 business services with 1 product and 2 tasks');
+    expect(text(page().querySelector('.summary'))).toBe(
+      '2 business services with 1 product and 2 tasks',
+    );
     expect(text(page().querySelector('.departments .section-help'))).toBe(
       'Every product belongs to one business service, and people choose their business service to see its products and tasks. Only an empty business service can be deleted.',
     );
@@ -111,7 +113,9 @@ describe('DepartmentsAdmin', () => {
     expect(text(page().querySelector('.empty-state h3'))).toBe('No business services yet');
     expect(text(page().querySelector('.summary'))).toBe('0 business services with 0 products');
     expect(
-      [...page().querySelectorAll('button')].filter((button) => text(button) === 'Add business service'),
+      [...page().querySelectorAll('button')].filter(
+        (button) => text(button) === 'Add business service',
+      ),
     ).toEqual([buttonOf(page().querySelector('.empty-state')!, 'Add business service')]);
   });
 

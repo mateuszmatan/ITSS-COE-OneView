@@ -44,16 +44,15 @@
           } @else if (npm()) {
             <p class="note span-12">
               The build of an npm service is its Node.js build below: the Build artifact stage runs
-              its commands, npm ci and npm run build when none are given. The unit tests run
-              npm test unless the Unit tests section gives another command, and the SonarScanner
+              its commands, npm ci and npm run build when none are given. The unit tests run npm
+              test unless the Unit tests section gives another command, and the SonarScanner
               analyses the code.
             </p>
           } @else {
             @if (scripted()) {
               <p class="note span-12">
-                The Build artifact stage runs this command line in the source folder of the
-                service; left empty, the stage builds nothing. No JDK is set up for this build
-                tool.
+                The Build artifact stage runs this command line in the source folder of the service;
+                left empty, the stage builds nothing. No JDK is set up for this build tool.
               </p>
             }
             <ov-tool-command-fields
@@ -419,8 +418,8 @@
           <ov-fields [group]="f.controls.sonar" [fields]="sonarFields()" />
           @if (scripted()) {
             <p class="note span-12">
-              The library runs the SonarScanner for this build tool; further SonarScanner flags
-              are under the advanced settings.
+              The library runs the SonarScanner for this build tool; further SonarScanner flags are
+              under the advanced settings.
             </p>
           }
           @if (!flutter()) {
@@ -521,7 +520,10 @@
             <div class="auto-discover-content">
               <div>
                 <strong>Repo Auto-Discovery / Smart Wizard</strong>
-                <p class="muted">Detect Maven, Gradle, Kotlin, Node.js/Cypress, Liquibase, Flutter, and OpenShift from repository structure.</p>
+                <p class="muted">
+                  Detect Maven, Gradle, Kotlin, Node.js/Cypress, Liquibase, Flutter, and OpenShift
+                  from repository structure.
+                </p>
               </div>
               <button
                 type="button"
@@ -545,11 +547,23 @@
             @if (autoResolved().length) {
               <table class="auto-resolved" aria-label="Auto-resolved settings">
                 <thead>
-                  <tr><th>Setting</th><th>Auto-resolved value</th><th>Why</th></tr>
+                  <tr>
+                    <th>Setting</th>
+                    <th>Auto-resolved value</th>
+                    <th>Why</th>
+                  </tr>
                 </thead>
                 <tbody>
                   @for (p of autoResolved(); track p.field) {
-                    <tr><td><code>{{ p.field }}</code></td><td><code>{{ p.value }}</code></td><td>{{ p.reason }}</td></tr>
+                    <tr>
+                      <td>
+                        <code>{{ p.field }}</code>
+                      </td>
+                      <td>
+                        <code>{{ p.value }}</code>
+                      </td>
+                      <td>{{ p.reason }}</td>
+                    </tr>
                   }
                 </tbody>
               </table>

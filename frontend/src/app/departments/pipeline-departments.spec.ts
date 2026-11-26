@@ -50,7 +50,13 @@ describe('PipelineDepartments', () => {
     expect(text(page().querySelector('.departments .section-help'))).toBe(
       'Every product belongs to one business service, and people choose their business service to see its products and pipelines. Only an empty business service can be deleted.',
     );
-    expect(gridHeaders(page())).toEqual(['Business Service', 'Products', 'Services', 'Pipelines', '']);
+    expect(gridHeaders(page())).toEqual([
+      'Business Service',
+      'Products',
+      'Services',
+      'Pipelines',
+      '',
+    ]);
     expect(text(gridCell(row('Corporate Technology'), 'services'))).toBe('2');
     expect(text(gridCell(row('Corporate Technology'), 'pipelines'))).toBe('3, 1 key invalidated');
     expect(text(gridCell(row('Fund Services'), 'pipelines'))).toBe('None yet');

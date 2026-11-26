@@ -127,7 +127,7 @@ const NOTES: Record<ServiceSectionId, string> = {
   openShift:
     'The OpenShift projects the service is built and deployed in, per test region. The QC region is optional; once one of its fields is set, the fields its deployment needs are required.',
   appScan:
-    "The security scans of HCL AppScan: a static scan (SAST) of the source code and, when switched on, a dynamic scan (DAST) of the running application. Both sign in with the API key of the AppScan functional user, which the DevSecOps team keeps in the defaults of the library, so a service sets only its application ID.",
+    'The security scans of HCL AppScan: a static scan (SAST) of the source code and, when switched on, a dynamic scan (DAST) of the running application. Both sign in with the API key of the AppScan functional user, which the DevSecOps team keeps in the defaults of the library, so a service sets only its application ID.',
   sonar:
     'The code quality checks of SonarQube. Without a project key the analysis still runs, but the report has no dashboard link, issue counts or badges.',
   nexusIq:
@@ -185,8 +185,7 @@ const APP_SCAN: Field[] = [
   mono('applicationId', 'AppScan application ID', 'appId', 4, {
     placeholder: '109f44ac-cc06-4ca0-884e-d944904f7019',
     hint: "the service's application in AppScan on Cloud",
-    help:
-      'The static and dynamic scans of the service are uploaded to this application, where AppScan on Cloud keeps their results. When multiple services share the same application ID, the SAST scan is executed only once and its results are reused across them.',
+    help: 'The static and dynamic scans of the service are uploaded to this application, where AppScan on Cloud keeps their results. When multiple services share the same application ID, the SAST scan is executed only once and its results are reused across them.',
     error: 'Must be the application UUID from AppScan on Cloud',
   }),
 ];
@@ -317,7 +316,8 @@ const VERSION_CATALOG_REPO: Field[] = [
     placeholder: 'catalogs/libs.versions.toml',
     hint: 'path within the external repository',
     help: 'Relative path to the version catalog file or directory within the external repository.',
-    error: "A path relative to the repository root, without a '..' folder, with letters, digits and . _ / * + @ : = , ~ - only",
+    error:
+      "A path relative to the repository root, without a '..' folder, with letters, digits and . _ / * + @ : = , ~ - only",
   }),
 ];
 
@@ -794,8 +794,7 @@ export class ServiceFields {
         ];
         const target =
           shown.find(
-            (candidate) =>
-              candidate.querySelector('ov-label')?.textContent?.trim() === field.label,
+            (candidate) => candidate.querySelector('ov-label')?.textContent?.trim() === field.label,
           ) ?? shown[0];
         target?.querySelector<HTMLElement>('input, select, textarea')?.focus();
       },
@@ -1005,7 +1004,9 @@ export class ServiceFields {
     const liquibase = databaseTool(this.tool());
     const database = this.changesDatabase();
     const c = this.form().controls.build.controls;
-    const scriptedPath = { NPM: 'dist/**', PIP: 'dist/*.whl', IOS: 'build/*.ipa' }[this.tool() as string];
+    const scriptedPath = { NPM: 'dist/**', PIP: 'dist/*.whl', IOS: 'build/*.ipa' }[
+      this.tool() as string
+    ];
     if (scriptedPath) {
       return [
         mono('buildPath', 'Artifact path', 'build.buildPath', 6, {
@@ -1258,15 +1259,9 @@ export class ServiceFields {
         hint: 'usually left empty; one per line, *, ? and ** allowed',
         help: 'Usually left empty: the pipeline then finds every JaCoCo XML and LCOV report of the service by itself, in the folder of its unit tests (the Directory of the unit test command or of the build command, otherwise the Source folder), in the folder of its Node.js build, or else in the whole repository. On Windows agents it does not look for LCOV reports: it reads the usual JaCoCo report of the build tool, and when that is missing every jacoco.xml of the workspace, or total_lcov.info for Flutter, so name every report here for those agents. A JaCoCo report needs python3 on the agent. The line coverage of the service is the average of its reports. Fill it in only to choose the reports: then only the reports named here count, so name the report of the frontend too, and for Flutter the lcov.info of each package. Paths are relative to the repository root, for example **/build/reports/jacoco/test/*.xml. When none of them exists, the pipeline searches as if the field were empty.',
       }),
-      check(
-        'cypressEnabled',
-        'Enable Cypress unit tests',
-        'tests.unitTests.cypress.enabled',
-        12,
-        {
-          help: 'Runs Cypress unit/component tests for Node.js frontend during the unit tests stage and collects coverage from coverage/lcov.info.',
-        },
-      ),
+      check('cypressEnabled', 'Enable Cypress unit tests', 'tests.unitTests.cypress.enabled', 12, {
+        help: 'Runs Cypress unit/component tests for Node.js frontend during the unit tests stage and collects coverage from coverage/lcov.info.',
+      }),
       mono('cypressCommand', 'Cypress command', 'tests.unitTests.cypress.command', 6, {
         placeholder: 'npx cypress run --component',
         hint: 'left empty: npx cypress run --component',
@@ -1469,12 +1464,18 @@ export class ServiceFields {
   protected nexusDownloadFields(): Field[] {
     const maven = this.tool() === 'MAVEN';
     return [
-      area('pullArtifacts', 'Artifacts', `delivery.pull.${maven ? 'maven' : 'gradle'}.artifacts`, 6, {
-        mono: true,
-        placeholder: 'cert-gui.jar\ndocs.zip docs',
-        hint: 'one file name per line, optionally followed by a space and a classifier',
-        help: 'The files of the snapshot to download, each saved under its name. The classifier is the name without its extension unless the line names one, so list them as they were uploaded.',
-      }),
+      area(
+        'pullArtifacts',
+        'Artifacts',
+        `delivery.pull.${maven ? 'maven' : 'gradle'}.artifacts`,
+        6,
+        {
+          mono: true,
+          placeholder: 'cert-gui.jar\ndocs.zip docs',
+          hint: 'one file name per line, optionally followed by a space and a classifier',
+          help: 'The files of the snapshot to download, each saved under its name. The classifier is the name without its extension unless the line names one, so list them as they were uploaded.',
+        },
+      ),
       mono('pullOutputDirectory', 'Download folder', 'delivery.pull.outputDirectory', 6, {
         placeholder: 'downloaded-artifacts',
         help: 'The folder of the workspace the files are saved in. Left empty: downloaded-artifacts.',
@@ -1817,7 +1818,12 @@ export class ServiceFields {
     if (keepsMsbuild) {
       return `The service keeps the build tool ${TOOL_LABELS.MSBUILD}: the scan found C# / .NET code, and it cannot tell classic .NET Framework code from SDK-style code.`;
     }
-    if (!database || !stack.buildTool || stack.buildTool === 'LIQUIBASE' || stack.buildTool === 'SQL') {
+    if (
+      !database ||
+      !stack.buildTool ||
+      stack.buildTool === 'LIQUIBASE' ||
+      stack.buildTool === 'SQL'
+    ) {
       return null;
     }
     const found = tool ? TOOL_LABELS[tool] : stack.buildTool;

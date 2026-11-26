@@ -173,9 +173,7 @@ describe('ServiceFields', () => {
         expect(marked.length).toBeGreaterThan(5);
         for (const label of railLabels()) {
           await open(label);
-          const errors = [...pane().querySelectorAll('ov-error')].map((e) =>
-            e.textContent?.trim(),
-          );
+          const errors = [...pane().querySelectorAll('ov-error')].map((e) => e.textContent?.trim());
           expect(errors.every((error) => !!error)).toBe(true);
         }
       },
@@ -276,14 +274,22 @@ describe('ServiceFields', () => {
     });
 
     it.each([
-      ['NPM', ['Build tool', 'Artifact path', 'Node.js build', 'Folder with package.json', 'Commands']],
+      [
+        'NPM',
+        ['Build tool', 'Artifact path', 'Node.js build', 'Folder with package.json', 'Commands'],
+      ],
       ['PIP', ['Build tool', 'Build command', 'Artifact path', 'Node.js build (stage 0)']],
       ['IOS', ['Build tool', 'Build command', 'Artifact path', 'Node.js build (stage 0)']],
-      ['ANDROID', ['Build tool', 'Gradle tasks', 'Artifact path', 'Set up the build tool automatically']],
+      [
+        'ANDROID',
+        ['Build tool', 'Gradle tasks', 'Artifact path', 'Set up the build tool automatically'],
+      ],
     ] as const)(
       'shows for the build tool %s the fields the library reads for it',
       async (tool, labels) => {
-        await render(service({ build: { ...service().build, tool, autoSetup: true, javaPath: null } }));
+        await render(
+          service({ build: { ...service().build, tool, autoSetup: true, javaPath: null } }),
+        );
         await open('Build');
         const shown = [...pane().querySelectorAll('ov-form-field ov-label, ov-checkbox label, h4')]
           .filter((label) => !label.closest('ov-advanced-settings'))
@@ -532,9 +538,7 @@ describe('ServiceFields', () => {
       expect(scan()).toBeUndefined();
       expect(form.controls.nodeBuild.controls.nexusIqScan.value).toBe(true);
       expect(
-        helpOf(
-          checkboxOf(pane(), 'Build the frontend with Node.js first').closest('ov-checkbox')!,
-        ),
+        helpOf(checkboxOf(pane(), 'Build the frontend with Node.js first').closest('ov-checkbox')!),
       ).toContain(
         'In SAST scanning it runs only while Compile before preparing the IRX is on, and not on Windows agents.',
       );
@@ -1121,7 +1125,9 @@ describe('ServiceFields', () => {
       const reportsInput = inputOf(pane(), 'Cypress reports folder');
       reportsInput.value = 'cypress/coverage-reports';
       reportsInput.dispatchEvent(new Event('input'));
-      expect(form.controls.unitTests.controls.cypressReportsDir.value).toBe('cypress/coverage-reports');
+      expect(form.controls.unitTests.controls.cypressReportsDir.value).toBe(
+        'cypress/coverage-reports',
+      );
     });
   });
 
@@ -1184,7 +1190,8 @@ describe('ServiceFields', () => {
   });
 
   describe('Nexus delivery', () => {
-    const headings = () => [...pane().querySelectorAll('.block h4')].map((heading) => text(heading));
+    const headings = () =>
+      [...pane().querySelectorAll('.block h4')].map((heading) => text(heading));
 
     it('shows the upload and the download of a Gradle service with their keys and no Gradle tasks', async () => {
       await render(service());
@@ -1381,26 +1388,22 @@ describe('ServiceFields', () => {
   });
 
   describe('servers and credentials of the service', () => {
-    it(
-      'name the Library default, and whether the value still equals it',
-      async () => {
-        await render();
-        await open('SonarQube');
-        expect(hints()).toContain(
-          'Library default: https://tools.bbh.com/sonar · tools.sonar.serverUrl',
-        );
+    it('name the Library default, and whether the value still equals it', async () => {
+      await render();
+      await open('SonarQube');
+      expect(hints()).toContain(
+        'Library default: https://tools.bbh.com/sonar · tools.sonar.serverUrl',
+      );
 
-        form.controls.sonar.controls.installationName.setValue('SonarQube');
-        await fixture.whenStable();
+      form.controls.sonar.controls.installationName.setValue('SonarQube');
+      await fixture.whenStable();
 
-        expect(hints()).toContain('Library default · tools.sonar.installationName');
-        await open('Monitoring');
-        expect(hints()).toContain('Library default: influxdb-token · influx.credentialsId');
-        await open('SSH targets');
-        expect(hints()).toContain('Library default: taadmin · user');
-      },
-      20_000,
-    );
+      expect(hints()).toContain('Library default · tools.sonar.installationName');
+      await open('Monitoring');
+      expect(hints()).toContain('Library default: influxdb-token · influx.credentialsId');
+      await open('SSH targets');
+      expect(hints()).toContain('Library default: taadmin · user');
+    }, 20_000);
 
     it('hints at nothing without the Library defaults', async () => {
       await render(service(), null);

@@ -1,0 +1,8 @@
+# The test data of the GUI suites stays as it is: the answers of the stub API and the requests they expect.
+src/testFixtures/resources/
+src/regressionTest/resources/
+# Build output and caches.
+build/
+dist/
+coverage/
+.angular/

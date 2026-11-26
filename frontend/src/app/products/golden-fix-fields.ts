@@ -146,7 +146,10 @@ export class GoldenFixFields {
       }),
       count('verifyTimeoutMinutes', 'Timeout (minutes)', 'verify.timeoutMinutes', 4, {
         min: 1,
-        hint: this.explain('How long one verification build with its unit tests may take', 'verifyTimeoutMinutes'),
+        hint: this.explain(
+          'How long one verification build with its unit tests may take',
+          'verifyTimeoutMinutes',
+        ),
         help: 'The limit applies to each check separately: one for each folder a changed manifest or catalog is built in.',
       }),
     ];

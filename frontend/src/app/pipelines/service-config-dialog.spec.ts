@@ -93,10 +93,15 @@ describe('ServiceConfigDialog', () => {
     await save();
     http
       .expectOne({ method: 'PUT', url: '/api/products/1' })
-      .flush({ detail: 'The record was changed by someone else' }, { status: 409, statusText: 'Conflict' });
+      .flush(
+        { detail: 'The record was changed by someone else' },
+        { status: 409, statusText: 'Conflict' },
+      );
     await fixture.whenStable();
 
-    expect(text(page().querySelector('.banner'))).toContain('The record was changed by someone else');
+    expect(text(page().querySelector('.banner'))).toContain(
+      'The record was changed by someone else',
+    );
     expect(close).not.toHaveBeenCalled();
   });
 

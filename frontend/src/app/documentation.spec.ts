@@ -32,9 +32,7 @@ declare const process: {
 };
 
 /** The user guide, read from the frontend folder the unit tests run in. */
-const GUIDE = process
-  .getBuiltinModule('node:fs')
-  .readFileSync('../docs/documentation.md', 'utf8');
+const GUIDE = process.getBuiltinModule('node:fs').readFileSync('../docs/documentation.md', 'utf8');
 
 /** The codes the guide does not name as inline code, such as `build.node.enabled`. */
 const undocumented = (codes: Iterable<string>) =>
@@ -229,7 +227,9 @@ describe('docs/documentation.md', () => {
     }
     http.verify();
 
-    expect(codes).toEqual(expect.arrayContaining(['pipeline.agentNames', 'pipeline.securityPipeline']));
+    expect(codes).toEqual(
+      expect.arrayContaining(['pipeline.agentNames', 'pipeline.securityPipeline']),
+    );
     expect(undocumented(codes)).toEqual([]);
   });
 });
