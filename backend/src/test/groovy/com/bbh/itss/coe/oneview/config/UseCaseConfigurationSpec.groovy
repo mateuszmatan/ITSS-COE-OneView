@@ -12,7 +12,8 @@ import com.bbh.itss.coe.oneview.application.catalog.port.out.ProductRepositoryPo
 import com.bbh.itss.coe.oneview.application.monitoring.port.in.MonitorPipelinesUseCase
 import com.bbh.itss.coe.oneview.application.monitoring.port.out.DashboardLinksPort
 import com.bbh.itss.coe.oneview.application.monitoring.port.out.PipelineRunsPort
-import com.bbh.itss.coe.oneview.application.bitbucket.port.out.BitbucketPullRequestPort
+import com.bbh.itss.coe.oneview.application.bitbucket.port.in.PullRequestDecorationsUseCase
+import com.bbh.itss.coe.oneview.application.bitbucket.port.out.PullRequestDecorationPort
 import com.bbh.itss.coe.oneview.application.discovery.port.out.BitbucketRepositoryPort
 import com.bbh.itss.coe.oneview.application.pipeline.port.in.PipelinesUseCase
 import com.bbh.itss.coe.oneview.application.pipeline.port.out.PipelineRepositoryPort
@@ -21,6 +22,8 @@ import com.bbh.itss.coe.oneview.application.settings.port.in.ManageGlobalSetting
 import com.bbh.itss.coe.oneview.application.settings.port.in.ManageServiceTemplateUseCase
 import com.bbh.itss.coe.oneview.application.settings.port.out.GlobalSettingsRepositoryPort
 import com.bbh.itss.coe.oneview.application.settings.port.out.ServiceTemplateRepositoryPort
+import com.bbh.itss.coe.oneview.domain.bitbucket.PrDecorationRequest
+import com.bbh.itss.coe.oneview.domain.bitbucket.PullRequestDecoration
 import com.bbh.itss.coe.oneview.domain.monitoring.LatestRuns
 import com.bbh.itss.coe.oneview.domain.pipeline.KeyGenerator
 import com.bbh.itss.coe.oneview.domain.settings.GlobalSettings
@@ -73,7 +76,7 @@ class UseCaseConfigurationSpec extends Specification {
     ActionLogRepositoryPort actionLogs = Mock()
     PipelineReportPort reports = Mock()
     BitbucketRepositoryPort bitbucketRepository = Mock()
-    BitbucketPullRequestPort bitbucketPullRequest = Mock()
+    PullRequestDecorationPort decorations = Mock()
     QualityRepositoryPort quality = Mock()
     AgileRepositoryPort agile = Mock()
 
@@ -93,7 +96,7 @@ class UseCaseConfigurationSpec extends Specification {
             .withBean(ActionLogRepositoryPort, { actionLogs } as Supplier<ActionLogRepositoryPort>)
             .withBean(PipelineReportPort, { reports } as Supplier<PipelineReportPort>)
             .withBean(BitbucketRepositoryPort, { bitbucketRepository } as Supplier<BitbucketRepositoryPort>)
-            .withBean(BitbucketPullRequestPort, { bitbucketPullRequest } as Supplier<BitbucketPullRequestPort>)
+            .withBean(PullRequestDecorationPort, { decorations } as Supplier<PullRequestDecorationPort>)
             .withBean(QualityRepositoryPort, { quality } as Supplier<QualityRepositoryPort>)
             .withBean(AgileRepositoryPort, { agile } as Supplier<AgileRepositoryPort>)
             .withBean(KeyGenerator, { { -> 'key' } as KeyGenerator } as Supplier<KeyGenerator>)
@@ -107,7 +110,7 @@ class UseCaseConfigurationSpec extends Specification {
                                          'pipelineService', 'pipelineConfigService', 'pipelineMonitoringService',
                                          'monitoringTargetsService', 'serviceTemplateService', 'actionLogService',
                                          'pipelineReportService', 'sammMaturityService', 'inspectRepositoryService',
-                                         'bitbucketPrDecorationService', 'qualityManagementService',
+                                         'pullRequestDecorationService', 'qualityManagementService',
                                          'agileAssessmentService'] as Set
             useCases.values().each { useCase ->
                 assert isAopProxy(useCase)
@@ -219,6 +222,27 @@ class UseCaseConfigurationSpec extends Specification {
         1 * products.summaries() >> []
         1 * products.load(5L) >> Optional.of(Fixtures.product(id: 5L))
         1 * pipelines.findByProductId(5L) >> []
+    }
+
+    def "a reported pull request decoration is recorded read-write and the decorations of a pipeline are read read-only"() {
+        given:
+        def request = new PrDecorationRequest('https://bitbucket.bbh.com/projects/CERT/repos/gui', '12', null, null,
+                null, [], null, 'key', 'CERT/gui', 42L, null, null, null, 'BRANCH', null, null, null, 2, 1, null, null,
+                null)
+
+        when:
+        runner.run { ApplicationContext context ->
+            def useCase = context.getBean(PullRequestDecorationsUseCase)
+            useCase.record(request)
+            useCase.recent(20L, 20)
+        }
+
+        then:
+        transactions.log == ['begin read-write', 'commit', 'begin read-only', 'commit']
+        1 * reports.findPipelineOfRun('key', 'CERT/gui') >> Optional.of(20L)
+        1 * decorations.save({ it.pipelineId() == 20L }) >> { PullRequestDecoration decoration -> decoration }
+        1 * pipelines.load(20L) >> Optional.of(Fixtures.pipeline(id: 20L, productId: 5L, serviceId: 10L))
+        1 * decorations.findRecentByPipelineId(20L, 20) >> []
     }
 
     private static GlobalSettingsValues withoutLimit(Scanner scanner) {

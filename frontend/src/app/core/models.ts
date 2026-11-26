@@ -851,6 +851,51 @@ export interface AutoResolvedSetting extends ResolvedParameter {
   service: string;
 }
 
+/** The pull request a decoration was posted on: of the analysed branch, the static security one or the DAST one. */
+export type DecorationKind = 'BRANCH' | 'STATIC' | 'DAST';
+
+/** A finding the pipeline library posted on a pull request. */
+export interface DecorationFinding {
+  tool: string | null;
+  severity: string | null;
+  file: string | null;
+  line: number | null;
+  title: string | null;
+  description: string | null;
+  remediation: string | null;
+}
+
+/**
+ * A decoration of a pull request that the pipeline library reported after it commented on the pull request or opened
+ * it: what it posted and the findings of the decoration. `findings` holds the first ones sent, `findingsTotal` counts
+ * them all. A kind the portal does not know reads as `null`. It never holds a pipeline key.
+ */
+export interface PullRequestDecoration {
+  id: number;
+  pipelineId: number | null;
+  recordedAt: string;
+  job: string | null;
+  build: number | null;
+  branch: string | null;
+  commit: string | null;
+  service: string | null;
+  kind: DecorationKind | null;
+  repositoryUrl: string | null;
+  pullRequestId: string;
+  pullRequestUrl: string | null;
+  title: string | null;
+  sourceBranch: string | null;
+  targetBranch: string | null;
+  created: boolean;
+  lineComments: number;
+  generalComments: number;
+  limited: boolean;
+  maxComments: number | null;
+  findingsTotal: number;
+  summary: string | null;
+  findings: readonly DecorationFinding[];
+}
+
 export interface PipelineRun {
   time: string;
   result: RunResult;

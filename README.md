@@ -227,7 +227,8 @@ record it.
 ## Repo Auto-Discovery and Bitbucket PR Decoration
 
 - `POST /api/catalog/inspect-repo`: inspects the manifests at the root of a Bitbucket branch (Flutter `pubspec.yaml`, the iOS files, Maven `pom.xml`, Gradle build scripts with `AndroidManifest.xml` for Android, the .NET files, Liquibase `changelog.xml`, Python `requirements.txt`, Node.js `package.json`, in the order of the library, Dockerfiles and the names of the `openshift`, `k8s` and `helm` folders) to fill in the build tool, the build and unit test commands, the Node.js build, the deployment target and an empty SonarQube project key in the Smart Wizard. A service with database changes keeps all of them except the project key.
-- `POST /api/dso/bitbucket/pull-requests/decorate`: receives security scan findings (AppScan SAST line findings with `Noise` filtered out, SonarQube quality and security issues) and decorates Bitbucket Server / Cloud pull requests: a finding in a file the pull request changes is a comment under its line, the findings of a file it does not change are one pull request comment that names the file, and the remediation of a finding is shown as the recommended fix. Combines Nexus IQ GoldenFix and SAST/Sonar into a single consolidated Static Security PR, while isolating DAST findings into a dedicated Dynamic Security PR.
+- `POST /api/dso/bitbucket/pull-requests/decorate`: records a pull request decoration that the library reports after it has commented on or opened a Bitbucket Server / Cloud pull request itself: the run (pipeline key, job, build, branch, commit), the service, the kind of pull request (`BRANCH`, `STATIC` or `DAST`), the pull request, the comments added under a line and on the pull request, and the first 500 findings. OneView finds the pipeline by the active key, otherwise by the job, stores no pipeline key and never calls Bitbucket for it; the rules of where a comment goes are those of the library. A request of an older client stays valid, `credentialsId` is accepted and ignored, and a request without `repositoryUrl` or `pullRequestId` is answered `SKIPPED` and records nothing.
+- `GET /api/pipelines/{id}/pull-request-decorations?limit=<n>`: the newest decorations of a pipeline with their findings (20 by default, at most 100), shown on the pipeline page in **Pull request decorations**.
 - `/api/samm/*`: evaluates OWASP SAMM v2.0 software assurance maturity across 5 business functions and 11 practices, generating department overviews, distribution tiers, and per-pipeline scorecards.
 
 ## Architecture
@@ -346,6 +347,13 @@ with who, what, when and the result, and shown under Action history.
   Flutter service, which fills it while it is empty; a response of a Flutter service holds the version in both places,
   so a client of the earlier API keeps it when it saves the service. A request without the new fields saves a service
   without steps.
+- Changeset 052 adds the tables `DSO_PR_DECORATION` and `DSO_PR_DECORATION_FINDING` of the pull request decorations
+  the library reports, with the index `IX_DSO_PR_DECORATION_PIPELINE` for the newest decorations of a pipeline, in
+  three changesets of one statement each. They start empty; a rollback drops them with whatever they hold.
+  `POST /api/dso/bitbucket/pull-requests/decorate` no longer posts comments on Bitbucket: it records what the library
+  posted. A client that relied on OneView to comment gets an answer of the same shape, with the status `RECORDED`
+  instead of `SUCCESS`, and its pull request gets no comment from OneView; the library comments on the pull requests
+  itself.
 
 ## Known gaps
 

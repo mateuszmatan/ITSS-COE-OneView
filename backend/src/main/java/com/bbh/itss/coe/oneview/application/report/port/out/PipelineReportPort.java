@@ -5,7 +5,7 @@ import com.bbh.itss.coe.oneview.domain.report.PipelineReport;
 import java.util.List;
 import java.util.Optional;
 
-public interface PipelineReportPort {
+public interface PipelineReportPort extends PipelineLookupPort {
 
     PipelineReport save(PipelineReport report);
 
@@ -16,10 +16,6 @@ public interface PipelineReportPort {
     Optional<PipelineReport> findLatestByPipelineKey(String pipelineKey);
 
     Optional<PipelineReport> findLatestByJobName(String jobName);
-
-    Optional<Long> findPipelineIdByKey(String key);
-
-    Optional<Long> findPipelineIdByJobName(String jobName);
 
     List<PipelineReport> findRecentByPipelineId(Long pipelineId, int limit);
 }

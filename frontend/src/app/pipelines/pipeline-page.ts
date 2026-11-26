@@ -24,8 +24,10 @@ import { OvLoading } from '@common/ui/loading';
 import { MENU_AT_END } from '@common/ui/menu';
 import { PipelineActions } from './pipeline-actions';
 import { JENKINSFILE_HELP, KEY_MEANING, pipelineName } from './pipeline-texts';
+import { PullRequestDecorations } from './pull-request-decorations';
 
 const RECENT_RUNS = 5;
+const RECENT_DECORATIONS = 20;
 
 @Component({
   selector: 'ov-pipeline-page',
@@ -40,6 +42,7 @@ const RECENT_RUNS = 5;
     LoadError,
     MetricsBanner,
     CountedPipe,
+    PullRequestDecorations,
     RunGrid,
     StatusChip,
   ],
@@ -323,6 +326,34 @@ const RECENT_RUNS = 5;
             }
           }
         </section>
+
+        <section class="card decorations">
+          <header class="card-header"><h2>Pull request decorations</h2></header>
+          <p class="section-help">
+            The comments the pipeline library posted on pull requests in Bitbucket for this
+            pipeline, and the pull requests it opened, up to the newest {{ recentDecorations }},
+            each with its findings. {{ timeZoneNote }}
+          </p>
+          @if (decorations.error(); as error) {
+            <ov-load-error
+              what="The pull request decorations"
+              [error]="error"
+              (retry)="decorations.reload()"
+            />
+          } @else if (!decorations.hasValue()) {
+            <ov-loading />
+          } @else if (decorations.value().length === 0) {
+            <div class="empty-state small-empty">
+              <h3>No pull request decorations yet</h3>
+              <p>
+                They show here once the pipeline library comments on or opens a pull request for
+                this pipeline.
+              </p>
+            </div>
+          } @else {
+            <ov-pull-request-decorations [decorations]="decorations.value()" />
+          }
+        </section>
       }
     </div>
   `,
@@ -417,6 +448,7 @@ export class PipelinePage {
   protected readonly timeZoneNote = TIME_ZONE_NOTE;
   protected readonly dateTime = 'd MMM y, HH:mm';
   protected readonly recentRuns = RECENT_RUNS;
+  protected readonly recentDecorations = RECENT_DECORATIONS;
   protected readonly menuAtEnd = MENU_AT_END;
 
   private readonly pipelineId = computed(() => Number(this.id()));
@@ -427,6 +459,10 @@ export class PipelinePage {
   protected readonly monitoring = rxResource({
     params: () => this.pipelineId(),
     stream: ({ params }) => this.monitoringApi.pipeline(params, '30d'),
+  });
+  protected readonly decorations = rxResource({
+    params: () => this.pipelineId(),
+    stream: ({ params }) => this.api.pullRequestDecorations(params, RECENT_DECORATIONS),
   });
   private readonly library = toSignal(
     inject(SettingsApi)

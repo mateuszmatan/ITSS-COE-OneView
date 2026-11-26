@@ -5,6 +5,7 @@ import {
   DatabaseDefaults,
   DatabaseSettings,
   DatabaseTargetSettings,
+  DecorationFinding,
   Department,
   DoraSummary,
   GlobalSettings,
@@ -21,6 +22,7 @@ import {
   ProductMonitoring,
   Product,
   ProductSummary,
+  PullRequestDecoration,
   QualityApplication,
   QualityDefaults,
   Service,
@@ -694,6 +696,61 @@ export function pipelineRun(overrides: Partial<PipelineRun> = {}): PipelineRun {
     failed: 1,
     blocked: 0,
     skipped: 0,
+    ...overrides,
+  };
+}
+
+export function decorationFinding(overrides: Partial<DecorationFinding> = {}): DecorationFinding {
+  return {
+    tool: 'AppScan SAST',
+    severity: 'HIGH',
+    file: 'src/main/java/com/bbh/cert/Login.java',
+    line: 42,
+    title: 'SQL Injection',
+    description: 'User input reaches a database query.',
+    remediation: 'Use a prepared statement.',
+    ...overrides,
+  };
+}
+
+export function pullRequestDecoration(
+  overrides: Partial<PullRequestDecoration> = {},
+): PullRequestDecoration {
+  return {
+    id: 31,
+    pipelineId: 100,
+    recordedAt: '2026-11-26T09:30:00Z',
+    job: 'DevSecOps/CERT/gui-full',
+    build: 42,
+    branch: 'feature/login',
+    commit: 'b815d55',
+    service: 'gui',
+    kind: 'BRANCH',
+    repositoryUrl: 'https://bitbucket.bbh.com/projects/CERT/repos/gui',
+    pullRequestId: '12',
+    pullRequestUrl: 'https://bitbucket.bbh.com/projects/CERT/repos/gui/pull-requests/12',
+    title: 'Add the login page',
+    sourceBranch: 'feature/login',
+    targetBranch: 'main',
+    created: false,
+    lineComments: 3,
+    generalComments: 2,
+    limited: false,
+    maxComments: 25,
+    findingsTotal: 3,
+    summary: '## Security findings of gui',
+    findings: [
+      decorationFinding(),
+      decorationFinding({ line: 77, title: 'Cross-site scripting' }),
+      decorationFinding({
+        tool: 'Nexus IQ',
+        severity: null,
+        file: 'build.gradle',
+        line: null,
+        title: 'org.apache.logging.log4j:log4j-core 2.14.1',
+        remediation: 'Upgrade to 2.17.1',
+      }),
+    ],
     ...overrides,
   };
 }

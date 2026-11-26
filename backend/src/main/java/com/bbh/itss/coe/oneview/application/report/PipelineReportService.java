@@ -23,13 +23,7 @@ public class PipelineReportService implements ManagePipelineReportUseCase {
     public PipelineReport recordReport(RecordReportCommand command) {
         String key = trimToNull(command.pipelineKey());
         String job = trimToNull(command.jobName());
-        Long pipelineId = null;
-        if (key != null) {
-            pipelineId = reports.findPipelineIdByKey(key).orElse(null);
-        }
-        if (pipelineId == null && job != null) {
-            pipelineId = reports.findPipelineIdByJobName(job).orElse(null);
-        }
+        Long pipelineId = reports.findPipelineOfRun(key, job).orElse(null);
 
         Instant finished = command.finishedAt() != null ? command.finishedAt() : Instant.now();
         PipelineReport report = new PipelineReport(

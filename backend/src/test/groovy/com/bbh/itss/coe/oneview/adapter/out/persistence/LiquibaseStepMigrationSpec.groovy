@@ -166,14 +166,18 @@ class LiquibaseStepMigrationSpec extends MigrationSpecification {
         liquibase.update('')
     }
 
-    def "051 is the last changeset of the changelog, so that it runs after every earlier one"() {
+    def "051 runs after every earlier changeset and before every later one"() {
         when:
         liquibase.update('')
+        def ran = jdbc.queryForList('SELECT ID FROM DATABASECHANGELOG ORDER BY ORDEREXECUTED', String)
+        int first = ran.findIndexOf { it.startsWith('051-') }
 
         then: 'one statement each, so that a statement that fails leaves nothing of its changeset applied'
-        jdbc.queryForList('SELECT ID FROM DATABASECHANGELOG ORDER BY ORDEREXECUTED', String).takeRight(4) ==
+        ran.subList(first, first + 4) ==
                 ['051-service-liquibase-step', '051-service-liquibase-step-check', '051-service-sonar-scanner-version',
                  '051-service-sonar-scanner-version-copy']
+        ran.take(first).every { it.take(3) < '051' }
+        ran.drop(first + 4).every { it.take(3) > '051' }
     }
 
     private long service(long productId, String name, String buildTool, Map<String, ?> values = [:]) {

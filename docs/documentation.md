@@ -40,7 +40,7 @@ The portal does five things:
 1. It records the products, their services and the pipelines of each service.
 2. It issues a secret pipeline key for each pipeline. The key is the only thing a Jenkinsfile with a key holds.
 3. It renders the settings of a pipeline as a `devsecops_config.yaml` document when Jenkins asks for them with the key.
-4. It shows how the pipelines are doing: the latest runs and the delivery performance (DORA).
+4. It shows how the pipelines are doing: the latest runs, the delivery performance (DORA) and the comments the library posted on pull requests and the pull requests it opened.
 5. It records every change in the action history.
 
 ### Words used in this guide
@@ -112,7 +112,7 @@ The menu at the top shows the sections of the area of the current page. The area
 
 | Menu | What you do there |
 |------|-------------------|
-| Pipelines | See every pipeline of the business service or the application chosen above, or of the whole of BBH, with its key state, its Jenkins job and its last run. Open a pipeline to see its key, its settings, its Jenkinsfile and its latest runs. |
+| Pipelines | See every pipeline of the business service or the application chosen above, or of the whole of BBH, with its key state, its Jenkins job and its last run. Open a pipeline to see its key, its settings, its Jenkinsfile, its latest runs and its pull request decorations. |
 | Self-service | Set up the pipelines of a product, or change them, in five guided steps. See [chapter 4](#4-add-a-service-in-the-self-service-wizard). |
 | Pipeline Monitoring | See whether the latest runs passed and how often and how safely changes reach production. See [chapter 14](#14-pipeline-monitoring-and-dora). |
 | OWASP SAMM | Software Assurance Maturity Model (OWASP SAMM v2.0) posture across BBH applications and business services. Continuous maturity evaluation across 5 domains and 11 practices, scorecards, and improvement roadmaps. See [chapter 15](#15-owasp-samm-software-assurance-maturity-model). |
@@ -1544,7 +1544,7 @@ projects:
 
 Shift-left security is most effective when developers receive immediate, context-rich feedback inside their existing code review interface rather than logging into separate security dashboards.
 
-The portal provides an automated Pull Request decoration engine (`/api/dso/bitbucket/pull-requests/decorate`) supporting both Bitbucket Server (anchored diff comments) and Bitbucket Cloud (inline comments).
+The pipeline library decorates the pull requests itself, on Bitbucket Server (comments anchored in the diff) and Bitbucket Cloud (inline comments), with the Bitbucket credentials of the job. After it has commented on a pull request or opened one, it reports the decoration to OneView with `POST /api/dso/bitbucket/pull-requests/decorate`, with the pipeline key of the run (the `DSO_PIPELINE_KEY` or `PIPELINE_KEY` of the job when it sets one, else the key of the service) and the job, build, branch and commit of the run, and OneView records it for the pipeline of the run. OneView does not call Bitbucket for it.
 
 ### Pull Request Consolidation Strategy
 
@@ -1562,20 +1562,58 @@ To keep code review clean, uncluttered, and actionable, the pipeline divides sec
    - Findings from DAST (such as missing HTTP security headers, insecure cookie configurations, CORS misconfigurations, or SSL/TLS cipher suites) are operational and infrastructure concerns rather than source file flaws.
    - When DAST detects policy violations, a dedicated separate PR (`security-dast-<project>`) is created, keeping operational remediation cleanly isolated from application source code changes.
 
-### REST API of the pull request decoration
-
-- `POST /api/dso/bitbucket/pull-requests/decorate`: Receives `PrDecorationRequest` containing repository URL, pull request ID, credentials, target/source branches, overall markdown summary, and list of `PrFinding` entries (file path, line number, tool name, severity, message).
+The pull request of the analysed branch, in a pull request build or when the branch has an open pull request in Bitbucket, gets the comments of the SAST, Nexus IQ and SonarQube findings as well.
 
 ### Where a comment goes
 
-The portal reads the files the pull request changes (Bitbucket Server `changes`, Bitbucket Cloud `diffstat`) before it comments, the same rule as the library:
+The rules are those of the library, which reads the files the pull request changes (Bitbucket Server `changes`, Bitbucket Cloud `diffstat`) before it comments:
 
 - A finding with a line in a file the pull request changes is a comment under that line. When Bitbucket refuses the line, the finding becomes a pull request comment that starts with the file and the line.
 - The findings of a file the pull request does not change are one pull request comment that names the file and the line of each finding.
 - Findings without a file are one pull request comment.
 - When the changed files cannot be read, every finding with a line is tried under its line.
 
-The `remediation` of a `PrFinding` is shown as **Recommended fix**. The library fills it with the fix recommendation it reads from the AppScan API for a SAST finding and with the version Nexus IQ recommends for a dependency.
+The `remediation` of a finding is shown as **Recommended fix**. The library fills it with the fix recommendation it reads from the AppScan API for a SAST finding and with the version Nexus IQ recommends for a dependency.
+
+### What OneView records
+
+- **The pipeline.** OneView finds the pipeline of a decoration as it finds the pipeline of a report: by the active pipeline key sent with it, otherwise by its Jenkins job when exactly one pipeline has that job. A decoration for which neither finds a pipeline is still recorded, without a pipeline, and shows on no pipeline page.
+- **What it keeps.** The run (job, build, branch and commit), the service, the kind of pull request, the pull request (repository, number, address, title, the branch it merges and the branch it merges into, and whether the library opened it in this decoration: a new `security-dast-<service>` holds the DAST report in its description and has no comment), the comments the library added under a line and on the pull request, whether it stopped at its maximum of comments and that maximum, the summary, and the first 500 findings with the number of all the findings. The pipeline key is not stored with a decoration, and neither the answer of `POST /api/dso/bitbucket/pull-requests/decorate` nor `GET /api/pipelines/{id}/pull-request-decorations` holds it.
+- **Nothing is refused for its content.** A text longer than its column is cut and ends with `...`. A kind other than `BRANCH`, `STATIC` and `DAST` is recorded as no kind. An address of the pull request that is not `http` or `https`, or that is longer than its column (2000 bytes), is recorded as no address instead of being cut, so that the page never links a cut address, and the user name and password in an address are left out. A request without `repositoryUrl` or `pullRequestId` records nothing and is answered `SKIPPED`, as before.
+
+### Where OneView shows them
+
+The page of a pipeline shows **Pull request decorations** after **Latest runs**: the newest 20 decorations of the pipeline, newest first. Each row shows when OneView recorded the decoration, the build, the kind (*Pull request of the analysed branch*, *Static security pull request*, *DAST pull request*, or *Pull request* for a kind OneView does not know), the pull request by its title or number, with a link to Bitbucket, the branch it merges and the branch it merges into, the service, the comments added (under a line and on the pull request, and "limited to" the maximum when the library stopped there) and the number of findings per tool. **Show the findings** lists them with their tool, severity, file and line, title and recommended fix. Every text is shown as text, never as HTML.
+
+### REST API of the pull request decoration
+
+- `POST /api/dso/bitbucket/pull-requests/decorate`: records the decoration of a pull request that the library reports.
+- `GET /api/pipelines/{id}/pull-request-decorations?limit=<n>`: the newest decorations of a pipeline, newest first, each with its findings, 20 unless `limit` asks for another number and at most 100. A decoration holds every field of the request except the pipeline key and `credentialsId`, with its `id`, the `pipelineId` and `recordedAt`. A pipeline that does not exist is answered with 404 and `Pipeline <id> does not exist`, as by `GET /api/pipelines/{id}`.
+
+`POST /api/dso/bitbucket/pull-requests/decorate` keeps the path, the request and the answer it had when OneView posted the comments itself, so every request that was valid before still is. The fields after `summary` are new and optional:
+
+| Field | Meaning |
+|-------|---------|
+| `repositoryUrl`, `pullRequestId` | The repository and the number of the pull request. Without one of them nothing is recorded. |
+| `sourceBranch`, `targetBranch` | The branch the pull request merges and the branch it merges into. |
+| `findings` | The findings of the decoration, each with `tool`, `severity`, `file`, `line`, `title`, `description` and `remediation`. |
+| `summary` | The summary comment of the pull request, in Markdown. |
+| `credentialsId` | Accepted and ignored: OneView does not call Bitbucket. |
+| `pipelineKey`, `job`, `build`, `branch`, `commit` | The run that decorated the pull request: its pipeline key, Jenkins job, build number, branch and commit. |
+| `service`, `kind` | The service and the kind of pull request: `BRANCH` (the pull request of the analysed branch), `STATIC` (the static security pull request) or `DAST` (the DAST pull request). |
+| `pullRequestUrl`, `title`, `created` | The address and the title of the pull request, and `true` when the library opened the pull request in this decoration (`security-static-<service>`, `security-dast-<service>`), `false` for the pull request of the analysed branch and for the GoldenFix pull request. |
+| `lineComments`, `generalComments` | The comments added under a line of a changed file and on the pull request itself. |
+| `limited`, `maxComments` | `true` when the library stopped at its maximum of comments for one run (`pullRequestDecoration.maxComments`), and that maximum. |
+| `findingsTotal` | The number of all the findings, also those the library did not send. |
+
+The answer is `200` with the number of the pull request, `commentsAdded` (the `generalComments` of the request), `lineCommentsAdded` (its `lineComments`), both 0 when they are not sent, the status `RECORDED` (`SUCCESS` while OneView posted the comments) and a message:
+
+```json
+{"pullRequestId": "12", "commentsAdded": 2, "lineCommentsAdded": 3, "status": "RECORDED",
+ "message": "Recorded the decoration of pull request 12 for pipeline 7"}
+```
+
+Without a pipeline the message is `Recorded the decoration of pull request 12 without a pipeline: OneView finds no pipeline by the pipeline key or the job`. Without `repositoryUrl` or `pullRequestId` the status is `SKIPPED` and the message `Missing repositoryUrl or pullRequestId`.
 
 ## 18. Business Services
 

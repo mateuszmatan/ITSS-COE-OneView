@@ -5,7 +5,13 @@ import { EventEmitter } from '@angular/core';
 import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { Router, provideRouter } from '@angular/router';
 import { of } from 'rxjs';
-import { Pipeline, PipelineMonitoring, Product, ServicePipelines } from '../core/models';
+import {
+  Pipeline,
+  PipelineMonitoring,
+  Product,
+  PullRequestDecoration,
+  ServicePipelines,
+} from '../core/models';
 import { KeyHistoryDialog } from '../products/key-history-dialog';
 import { PipelineDialog } from '../products/pipeline-dialog';
 import { RevokeKeyDialog } from '../products/revoke-key-dialog';
@@ -14,11 +20,13 @@ import { ConfirmDialog } from '@common/shared/confirm-dialog';
 import { buttonOf, gridColumn, gridRows, text, toast } from '@common/testing/dom';
 import {
   anotherService,
+  decorationFinding,
   globalSettings,
   pipeline,
   pipelineMonitoring,
   pipelineRun,
   product,
+  pullRequestDecoration,
   revokedKey,
   service,
   servicePipelines,
@@ -26,6 +34,7 @@ import {
 import { PipelinePage } from './pipeline-page';
 
 const spyOnOpen = () => vi.spyOn(TestBed.inject(Dialog), 'open');
+const DECORATIONS = '/api/pipelines/100/pull-request-decorations?limit=20';
 
 describe('PipelinePage', () => {
   let fixture: ComponentFixture<PipelinePage>;
@@ -61,11 +70,13 @@ describe('PipelinePage', () => {
     monitoring: PipelineMonitoring = pipelineMonitoring(),
     services: ServicePipelines[] = [servicePipelines({ pipelines: [stored] })],
     owner: Product = product(),
+    decorations: PullRequestDecoration[] = [],
   ) {
     fixture.detectChanges();
     http.expectOne('/api/settings').flush(globalSettings());
     http.expectOne('/api/pipelines/100').flush(stored);
     http.expectOne('/api/monitoring/pipelines/100?range=30d').flush(monitoring);
+    http.expectOne(DECORATIONS).flush(decorations);
     await products(services, owner);
     await fixture.whenStable();
   }
@@ -267,6 +278,7 @@ describe('PipelinePage', () => {
     http
       .expectOne('/api/monitoring/pipelines/101?range=30d')
       .flush(pipelineMonitoring({ recentRuns: [], metricsError: 'InfluxDB timed out' }));
+    http.expectOne('/api/pipelines/101/pull-request-decorations?limit=20').flush([]);
     await products();
     await fixture.whenStable();
 
@@ -281,6 +293,7 @@ describe('PipelinePage', () => {
     fixture.detectChanges();
     http.expectOne('/api/settings').flush(globalSettings());
     http.expectOne('/api/pipelines/100').flush(pipeline());
+    http.expectOne(DECORATIONS).flush([]);
     await products();
     fixture.detectChanges();
 
@@ -303,6 +316,157 @@ describe('PipelinePage', () => {
 
     expect(page().querySelector('.runs .banner')).toBeNull();
     expect(gridColumn(page(), 'build')).toEqual(['#42', '#41']);
+  });
+
+  const decorations = () => page().querySelector('.decorations')!;
+  const decorationColumn = (column: string) =>
+    [...decorations().querySelectorAll(`tr.decoration td.${column}`)].map(text);
+  const pullRequests = () =>
+    [...decorations().querySelectorAll('tr.decoration td.pull-request')].map((cell) =>
+      [...cell.children].map(text),
+    );
+
+  it('lists the pull request decorations, newest first, and shows the findings of one', async () => {
+    await load(undefined, undefined, undefined, undefined, [
+      pullRequestDecoration(),
+      pullRequestDecoration({
+        id: 30,
+        recordedAt: '2026-11-25T16:05:00Z',
+        build: 0,
+        kind: 'STATIC',
+        title: null,
+        pullRequestId: '9',
+        pullRequestUrl: null,
+        sourceBranch: 'security-static-gui',
+        targetBranch: null,
+        created: true,
+        lineComments: 0,
+        generalComments: 1,
+        limited: true,
+        maxComments: 1,
+        findingsTotal: 0,
+        findings: [],
+      }),
+    ]);
+
+    expect(text(decorations().querySelector('h2'))).toBe('Pull request decorations');
+    expect(text(decorations().querySelector('.section-help'))).toMatch(
+      /^The comments the pipeline library posted on pull requests in Bitbucket for this pipeline, and the pull requests it opened, up to the newest 20, each with its findings\. Times are in your time zone, .+\.$/,
+    );
+    expect(decorationColumn('when')).toEqual([
+      expect.stringMatching(/^2[56] Nov 2026, \d\d:\d\d$/),
+      expect.stringMatching(/^2[56] Nov 2026, \d\d:\d\d$/),
+    ]);
+    expect(decorationColumn('build')).toEqual(['#42', '–']);
+    expect(decorationColumn('kind')).toEqual([
+      'Pull request of the analysed branch',
+      'Static security pull request',
+    ]);
+    expect(pullRequests()).toEqual([
+      ['Add the login page', 'feature/login → main'],
+      ['#9', 'from security-static-gui', 'Opened by this decoration'],
+    ]);
+    expect(decorationColumn('service')).toEqual(['gui', 'gui']);
+    expect(decorationColumn('comments')).toEqual([
+      '3 under a line, 2 on the pull request',
+      '0 under a line, 1 on the pull request, limited to 1',
+    ]);
+    expect(decorationColumn('findings')).toEqual([
+      '3 findings: 2 AppScan SAST and 1 Nexus IQ Show the findings',
+      'None',
+    ]);
+    const links = [...decorations().querySelectorAll<HTMLAnchorElement>('.pull-request a')];
+    expect(links.map((link) => [text(link), link.getAttribute('href')])).toEqual([
+      ['Add the login page', 'https://bitbucket.bbh.com/projects/CERT/repos/gui/pull-requests/12'],
+    ]);
+    expect(decorations().querySelector('.finding-list')).toBeNull();
+
+    const show = buttonOf(decorations(), 'Show the findings');
+    expect(show.getAttribute('aria-expanded')).toBe('false');
+    show.click();
+    await fixture.whenStable();
+
+    const hide = buttonOf(decorations(), 'Hide the findings');
+    expect(hide.getAttribute('aria-expanded')).toBe('true');
+    expect(document.getElementById(hide.getAttribute('aria-controls')!)).not.toBeNull();
+    expect(
+      [...decorations().querySelectorAll('.finding-table tbody tr')].map((row) =>
+        [...row.querySelectorAll('td')].map(text),
+      ),
+    ).toEqual([
+      [
+        'AppScan SAST',
+        'HIGH',
+        'src/main/java/com/bbh/cert/Login.java:42',
+        'SQL Injection',
+        'Use a prepared statement.',
+      ],
+      [
+        'AppScan SAST',
+        'HIGH',
+        'src/main/java/com/bbh/cert/Login.java:77',
+        'Cross-site scripting',
+        'Use a prepared statement.',
+      ],
+      [
+        'Nexus IQ',
+        '–',
+        'build.gradle',
+        'org.apache.logging.log4j:log4j-core 2.14.1',
+        'Upgrade to 2.17.1',
+      ],
+    ]);
+
+    hide.click();
+    await fixture.whenStable();
+    expect(decorations().querySelector('.finding-list')).toBeNull();
+    expect(buttonOf(decorations(), 'Show the findings').getAttribute('aria-expanded')).toBe(
+      'false',
+    );
+  });
+
+  it('says when no pull request was decorated for the pipeline yet', async () => {
+    await load();
+
+    expect(text(decorations().querySelector('.small-empty h3'))).toBe(
+      'No pull request decorations yet',
+    );
+    expect(text(decorations().querySelector('.small-empty p'))).toBe(
+      'They show here once the pipeline library comments on or opens a pull request for this pipeline.',
+    );
+    expect(decorations().querySelector('table')).toBeNull();
+  });
+
+  it('shows the decorations as loading, says why they could not be loaded and tries again', async () => {
+    fixture.detectChanges();
+    http.expectOne('/api/settings').flush(globalSettings());
+    http.expectOne('/api/pipelines/100').flush(pipeline());
+    http.expectOne('/api/monitoring/pipelines/100?range=30d').flush(pipelineMonitoring());
+    await products();
+    fixture.detectChanges();
+
+    expect(decorations().querySelector('ov-loading')).not.toBeNull();
+
+    http.expectOne(DECORATIONS).flush(null, { status: 502, statusText: 'Bad Gateway' });
+    await fixture.whenStable();
+
+    expect(text(decorations().querySelector('.banner .banner-text'))).toBe(
+      'The pull request decorations could not be loaded. The portal could not complete the request (error 502 Bad Gateway). Try again in a moment; if it keeps failing, tell the portal administrator.',
+    );
+    expect(decorations().querySelector('ov-loading')).toBeNull();
+    expect(decorations().querySelector('.small-empty')).toBeNull();
+
+    buttonOf(decorations(), 'Try again').click();
+    await settle();
+    http
+      .expectOne(DECORATIONS)
+      .flush([pullRequestDecoration({ findings: [decorationFinding()], findingsTotal: 340 })]);
+    await fixture.whenStable();
+
+    expect(decorations().querySelector('.banner')).toBeNull();
+    expect(decorationColumn('findings')).toEqual([
+      '340 findings, the first 1: 1 AppScan SAST Show the findings',
+    ]);
   });
 
   it('offers to regenerate an invalidated key and reveals the new one', async () => {
@@ -437,11 +601,15 @@ describe('PipelinePage', () => {
     http
       .expectOne('/api/monitoring/pipelines/100?range=30d')
       .flush(null, { status: 404, statusText: 'Not Found' });
+    http
+      .expectOne(DECORATIONS)
+      .flush({ detail: 'Pipeline 100 does not exist' }, { status: 404, statusText: 'Not Found' });
     await fixture.whenStable();
 
     expect(text(page().querySelector('.banner .banner-text'))).toBe(
       'The pipeline could not be loaded. Pipeline 100 does not exist',
     );
+    expect(page().querySelector('.decorations')).toBeNull();
     expect(page().querySelector('a.btn')?.getAttribute('href')).toBe('/pipelines');
     expect(text(page().querySelector('.breadcrumb'))).toBe('DevSecOps Pipelines/Pipeline');
   });

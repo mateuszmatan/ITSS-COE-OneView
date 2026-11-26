@@ -119,7 +119,7 @@ class PipelinesSpec extends OvSpecification {
         ownErrors().isEmpty()
     }
 
-    def "a row opens the page of its pipeline with its key, settings, Jenkinsfile and recent runs"() {
+    def "a row opens the page of its pipeline with its key, settings, Jenkinsfile, recent runs and pull request decorations"() {
         given:
         page.addInitScript("localStorage.setItem('oneview.department', '3')")
         recordClipboard()
@@ -144,6 +144,15 @@ class PipelinesSpec extends OvSpecification {
         assertThat(link('See every run and the delivery performance (DORA)', true)).hasAttribute('href', '/monitoring/pipelines/1')
         assertThat(link('Open in Jenkins', true)).hasAttribute('href', 'https://jenkins.bbh.com/job/DevSecOps/job/CERTSCANNER/job/gui-full/')
         assertThat(page.locator('.page-header .btn-primary')).hasText('Edit settings')
+        assertThat(page.locator('.decorations h2')).hasText('Pull request decorations')
+        assertThat(page.locator('.decorations tr.decoration td.kind'))
+                .hasText(['Pull request of the analysed branch', 'Static security pull request'] as String[])
+        assertThat(page.locator('.decorations td.pull-request > :first-child')).hasText(['Add the login page', '#39'] as String[])
+        assertThat(page.locator('.decorations td.pull-request .explain'))
+                .hasText(['feature/login → develop', 'security-static-gui → develop', 'Opened by this decoration'] as String[])
+        assertThat(link('Add the login page', true)).hasAttribute('href', 'https://bitbucket.bbh.com/projects/TA/repos/cert-scanner/pull-requests/41')
+        assertThat(page.locator('.decorations tr.decoration td.findings'))
+                .hasText(['3 findings: 1 AppScan SAST, 1 SonarQube and 1 Nexus IQ Show the findings', 'None'] as String[])
 
         when:
         button('More', true).click()
@@ -171,6 +180,19 @@ class PipelinesSpec extends OvSpecification {
         then:
         assertThat(snackBar()).containsText('Jenkinsfile copied to the clipboard')
         copiedTexts() == [GUI_FULL_KEY, "@Library('DevSecOpsJenkinsLibrary') _\n\ndevSecOpsPipeline(pipelineKey: '${GUI_FULL_KEY}')\n".toString()]
+
+        when:
+        button('Show the findings', true).click()
+
+        then:
+        assertThat(button('Hide the findings', true)).hasAttribute('aria-expanded', 'true')
+        assertThat(page.locator('.decorations .finding-table tbody tr')).hasCount(3)
+        assertThat(page.locator('.decorations .finding-table tbody tr').first().locator('td'))
+                .hasText(['AppScan SAST', 'HIGH', 'src/app/login/login.component.ts:42', 'Cross-site scripting',
+                          'Bind the value as text instead of HTML.'] as String[])
+        page.locator('.decorations .finding-table tbody tr').first().locator('td.fix')
+                .evaluate('cell => getComputedStyle(cell).whiteSpace') == 'pre-line'
+        api.requests('GET', '/api/pipelines/1/pull-request-decorations')*.params() == [[limit: '20']]
         ownErrors().isEmpty()
     }
 

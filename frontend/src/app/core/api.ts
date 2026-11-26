@@ -28,6 +28,7 @@ import {
   ProductMonitoring,
   ProductRequest,
   ProductSummary,
+  PullRequestDecoration,
   ServiceConfigImport,
   ServicePipelines,
   ServiceTemplate,
@@ -149,6 +150,13 @@ export class PipelinesApi {
     return build
       ? `/api/pipelines/${id}/runs/${build}/report/html`
       : `/api/pipelines/${id}/report/html`;
+  }
+
+  /** The decorations of pull requests the pipeline library reported for the pipeline, the newest first. */
+  pullRequestDecorations(id: number, limit = 20): Observable<PullRequestDecoration[]> {
+    return this.http.get<PullRequestDecoration[]>(`/api/pipelines/${id}/pull-request-decorations`, {
+      params: { limit },
+    });
   }
 }
 

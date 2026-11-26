@@ -33,6 +33,7 @@ class OneViewStubApi extends StubApi {
         get('/api/products/(\\d+)/config') { RecordedRequest request, List<String> ids -> fixtureOr404("product-${ids[0]}-config.yaml", "Product ${ids[0]} does not exist") }
         get('/api/pipelines/(\\d+)') { RecordedRequest request, List<String> ids -> fixtureOr404("pipeline-${ids[0]}.json", "Pipeline ${ids[0]} does not exist") }
         get('/api/pipelines/(\\d+)/config') { RecordedRequest request, List<String> ids -> fixtureOr404("pipeline-${ids[0]}-config.yaml", "Pipeline ${ids[0]} does not exist") }
+        get('/api/pipelines/(\\d+)/pull-request-decorations') { RecordedRequest request, List<String> ids -> pullRequestDecorations(ids[0], request.params()) }
         get('/api/pipelines/(\\d+)/report/html') { html(REPORT_HTML) }
         get('/api/pipelines/(\\d+)/runs/(\\d+)/report/html') { html(REPORT_HTML) }
         get('/api/pipelines') { RecordedRequest request ->
@@ -172,6 +173,20 @@ class OneViewStubApi extends StubApi {
             team.assessments = (team.assessments as List<Map>).findAll { it.id != ids[0] as long }
             StubResponse.empty()
         }
+    }
+
+    /**
+     * The decorations of pull requests the pipeline library reported for a pipeline, the newest first and as many as
+     * asked for, as the portal answers them: none for a pipeline without a fixture, 404 for a pipeline that does not exist.
+     */
+    static StubResponse pullRequestDecorations(String id, Map<String, String> params) {
+        if (!hasFixture("pipeline-${id}.json")) {
+            return problem(404, 'Not found', "Pipeline $id does not exist")
+        }
+        def name = "pipeline-${id}-pull-request-decorations.json"
+        def decorations = hasFixture(name) ? fixture(name) as List<Map> : []
+        def limit = params.limit?.isInteger() ? Math.min(Math.max(params.limit as int, 1), 100) : 20
+        json(decorations.take(limit))
     }
 
     /** The OWASP SAMM maturity of the applications in the business service or the application asked for. */
