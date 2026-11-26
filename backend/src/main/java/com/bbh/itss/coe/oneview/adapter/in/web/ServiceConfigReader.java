@@ -88,8 +88,8 @@ final class ServiceConfigReader {
             + " Liquibase service with database changes delivers its package to Nexus with database.package, and any"
             + " other Liquibase service delivers what its Deployment section sets: its image on OpenShift, nothing on"
             + " virtual machines";
-    static final String NO_LIQUIBASE_COMPILE_STEP = "not imported: the library runs asoc.liquibase only after the"
-            + " Gradle or Maven compile of the AppScan scan";
+    static final String NO_LIQUIBASE_COMPILE_STEP = "not imported: the library runs asoc.liquibase only after a"
+            + " Gradle, Android or Maven compile of the AppScan scan";
     static final String NO_LIQUIBASE_SONAR = "not imported: the library adds tools.sonar.liquibase only to the SonarQube"
             + " tasks or goals of a Gradle, Android or Maven service";
     static final String LIQUIBASE_SONAR_WITHOUT_TASKS = "not imported: the library adds tools.sonar.liquibase only to"
@@ -433,9 +433,9 @@ final class ServiceConfigReader {
      * Liquibase or .NET block, the one the library reads first is imported and a later one is noted. A .NET service,
      * C# / .NET or MSBuild, reads the block the library takes and writes it as the dotnet block, which the library
      * reads for buildTool msbuild as well. The Liquibase block of a Gradle, Android, Maven or .NET service is the
-     * Liquibase step that the library runs after the build, after the unit tests and, for Gradle and Maven, after the
-     * compile of the AppScan scan; under tools.sonar it adds to the SonarQube flags of a Gradle, Android or Maven
-     * service.
+     * Liquibase step that the library runs after the build, after the unit tests and, for Gradle, Android and Maven,
+     * after the compile of the AppScan scan; under tools.sonar it adds to the SonarQube flags of a Gradle, Android or
+     * Maven service.
      */
     private static void readCommands(ConfigInput project, BuildTool tool, List<Block> blocks, ConfigTree request) {
         for (Block block : blocks) {
@@ -495,7 +495,7 @@ final class ServiceConfigReader {
     /**
      * The request field of the Liquibase step that the library runs in the block for the service's build tool: after
      * the build and after the unit tests of a Gradle, Android, Maven or .NET service, and after the AppScan compile of
-     * a Gradle or Maven service; none for any other block or tool.
+     * a Gradle, Android or Maven service; none for any other block or tool.
      */
     private static String liquibaseStepField(Block block, BuildTool tool) {
         return switch (block.key()) {
@@ -510,10 +510,10 @@ final class ServiceConfigReader {
      * Reads a Liquibase step of a Gradle, Android, Maven or .NET service, such as build.liquibase, as
      * LiquibaseBuildRunner runs it: its commands, else its tasks, and its flags, folder, variables, label and output
      * switch. A step that is not a map, or one without commands, tasks and flags, is skipped by the library and left
-     * out with a note. An asoc.liquibase map of a Gradle or Maven service without commands, tasks and flags, also one
-     * whose values are all empty, keeps the AppScan compile from running build.liquibase, which the portal cannot do,
-     * so while build.liquibase runs and the compile is on, its note says that the compile runs build.liquibase after
-     * the import.
+     * out with a note. An asoc.liquibase map of a Gradle, Android or Maven service without commands, tasks and flags,
+     * also one whose values are all empty, keeps the AppScan compile from running build.liquibase, which the portal
+     * cannot do, so while build.liquibase runs and the compile is on, its note says that the compile runs
+     * build.liquibase after the import.
      */
     private static void readLiquibaseStep(ConfigInput project, String key, String field, ConfigTree request) {
         boolean given = project.unread(key);

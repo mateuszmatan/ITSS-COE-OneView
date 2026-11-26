@@ -1445,6 +1445,24 @@ describe('ServiceFields', () => {
       expect(form.controls.appScan.controls.compile.value).toBe(false);
       expect(notes()).not.toContain(note);
     });
+
+    it('says what the compile runs for each build tool and agent, and no longer to untick it for any of them (TODO 2.11)', async () => {
+      await render();
+      await open('AppScan SAST and DAST');
+      const help = helpOf(
+        checkboxOf(pane(), 'Compile before preparing the IRX').closest('ov-checkbox')!,
+      );
+
+      expect(help).toContain(
+        'On a Linux or macOS agent Gradle compiles a Gradle or Android service and Maven a Maven service, followed by the Liquibase step after the compile or, while that is empty, the one after the build;',
+      );
+      expect(help).toContain('A Windows agent compiles only a C# / .NET or MSBuild service.');
+      expect(help).toContain(
+        'An npm, pip, iOS or Flutter service has no compile step: its IRX is prepared from the sources.',
+      );
+      expect(help).not.toContain('Linux agents only');
+      expect(help).not.toContain('Untick');
+    });
   });
 
   describe('Liquibase steps', () => {
@@ -1518,7 +1536,7 @@ describe('ServiceFields', () => {
     it.each<[BuildTool, string[]]>([
       ['GRADLE', ['Liquibase step after the compile asoc.liquibase']],
       ['MAVEN', ['Liquibase step after the compile asoc.liquibase']],
-      ['ANDROID', []],
+      ['ANDROID', ['Liquibase step after the compile asoc.liquibase']],
       ['DOTNET', []],
       ['MSBUILD', []],
     ])('shows a %s service the step after the AppScan compile %j', async (tool, shown) => {
@@ -1528,7 +1546,7 @@ describe('ServiceFields', () => {
       expect(steps()).toEqual(shown);
       if (shown.length) {
         expect(notes()).toContain(
-          'On a Linux or macOS agent the SAST compile runs liquibase with these flags and commands after the Gradle or Maven compile. Left empty, it runs the Liquibase step of the build, if the service has one; a Windows agent runs no step.',
+          'On a Linux or macOS agent the SAST compile runs liquibase with these flags and commands after it compiles the service: with Gradle for a Gradle or Android service, with Maven for a Maven service. Left empty, it runs the Liquibase step of the build, if the service has one; a Windows agent runs no step.',
         );
         expect(text(fieldOf(pane(), 'Liquibase commands'))).toContain('asoc.liquibase.commands');
       }

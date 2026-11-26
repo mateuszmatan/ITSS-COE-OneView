@@ -243,6 +243,7 @@ class ConfigSectionsSpec extends Specification {
         where:
         tool      || key         | asoc
         GRADLE    || 'gradle'    | [gradle: [tasks: ['compile']]]
+        ANDROID   || 'gradle'    | [gradle: [tasks: ['compile']]]
         MAVEN     || 'maven'     | [maven: [goals: ['compile'], mvnPath: '/opt/maven']]
         LIQUIBASE || 'liquibase' | [liquibase: [commands: ['compile']]]
         DOTNET    || 'dotnet'    | [dotnet: [commands: ['compile']]]
@@ -299,9 +300,10 @@ class ConfigSectionsSpec extends Specification {
                 .writeTo(it, tool) }.asoc == [doCompile: false, liquibase: STEP_BLOCK]
 
         where:
-        tool   || block    | key
-        GRADLE || 'gradle' | 'tasks'
-        MAVEN  || 'maven'  | 'goals'
+        tool    || block    | key
+        GRADLE  || 'gradle' | 'tasks'
+        ANDROID || 'gradle' | 'tasks'
+        MAVEN   || 'maven'  | 'goals'
     }
 
     def "the AppScan compile of a #tool service writes no Liquibase step and refuses one, since the library runs none after it"() {
@@ -312,11 +314,10 @@ class ConfigSectionsSpec extends Specification {
         written { appScan.writeTo(it, tool) }.asoc?.liquibase == null
         reported { appScan.validate(it, tool) }.collect { [it.field, it.message] } ==
                 [['liquibaseCompileCommand.tasks', "must be empty for ${name}: the library runs a Liquibase step of the".toString()
-                        + ' scan only after the Gradle or Maven compile']]
+                        + ' scan only after a Gradle, Android or Maven compile']]
 
         where:
         tool      || name
-        ANDROID   || 'Android'
         DOTNET    || 'C# / .NET'
         MSBUILD   || 'C# / .NET Framework (MSBuild)'
         FLUTTER   || 'Flutter'
@@ -338,6 +339,7 @@ class ConfigSectionsSpec extends Specification {
         description         | tool   | step                                                                       || fields
         'commands'          | GRADLE | ToolCommand.of(['updateSQL'], [])                                          || []
         'every key'         | MAVEN  | STEP                                                                       || []
+        'only the flags'    | ANDROID | ToolCommand.of([], ['--url=offline:oracle'])                              || []
         'only the variables' | GRADLE | ToolCommand.builder().environment(['LIQUIBASE_OUTPUT_FILE=db.sql']).build() || [['liquibaseCompileCommand.tasks', 'add Liquibase commands or flags: without them the library skips the step']]
         'a Maven home'      | MAVEN  | ToolCommand.builder().flags(['--url=offline:oracle']).mavenHome('/opt/maven').build() || [['liquibaseCompileCommand.mavenHome', 'must be empty: the Liquibase step runs the liquibase command, not Maven']]
     }

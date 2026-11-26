@@ -21,7 +21,8 @@ import static org.apache.commons.lang3.StringUtils.trimToNull;
 
 /**
  * The AppScan on Cloud scans of a service: the static analysis with its compile, and the Liquibase step that the library
- * runs after the Gradle or Maven compile of the scan (asoc.liquibase, else build.liquibase), and the dynamic analysis.
+ * runs after the compile of a Gradle, Android or Maven service (asoc.liquibase, else build.liquibase), and the dynamic
+ * analysis.
  */
 @Builder
 public record AppScanSettings(String applicationId, List<String> includedDirs, List<String> excludedDirs,
@@ -93,6 +94,6 @@ public record AppScanSettings(String applicationId, List<String> includedDirs, L
         compileCommand.validateScripted(problems.at("compileCommand"), "asoc", tool);
         liquibaseCompileCommand.validateLiquibaseStep(problems.at("liquibaseCompileCommand"), tool,
                 BuildTool.liquibaseCompileStep(tool),
-                "the library runs a Liquibase step of the scan only after the Gradle or Maven compile");
+                "the library runs a Liquibase step of the scan only after a Gradle, Android or Maven compile");
     }
 }

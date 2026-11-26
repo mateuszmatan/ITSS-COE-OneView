@@ -43,11 +43,11 @@ public enum BuildTool {
 
     /**
      * Whether the AppScan compile runs a Liquibase step after the compile (asoc.liquibase, else build.liquibase): only
-     * after the Gradle or Maven compile on a Linux or macOS agent (AppScanService.generateIrx). The compile of an Android
-     * service stops before it, and the .NET compile runs none.
+     * after the Gradle or Maven compile on a Linux or macOS agent (AppScanService.generateIrx), which compiles an Android
+     * service with Gradle, as its build. The .NET compile runs none, and npm, pip, iOS and Flutter have no compile step.
      */
     public static boolean liquibaseCompileStep(BuildTool tool) {
-        return tool == GRADLE || tool == MAVEN;
+        return tool == GRADLE || tool == MAVEN || tool == ANDROID;
     }
 
     /**

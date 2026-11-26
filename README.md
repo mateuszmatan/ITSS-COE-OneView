@@ -191,8 +191,10 @@ A C# / .NET service (`buildTool: dotnet`) and an MSBuild service (`buildTool: ms
 MSBuild.exe, and chooses for a C# / .NET service between the dotnet command line, MSBuild and both from its projects
 and the agent.
 A Gradle, Android, Maven, C# / .NET or MSBuild service may run a Liquibase step after its build and after its unit
-tests, rendered as `build.liquibase` and `tests.unitTests.liquibase`, and a Gradle or Maven service one after the
-compile of its SAST scan, `asoc.liquibase`; each runs the `liquibase` command of the agent with its flags and commands.
+tests, rendered as `build.liquibase` and `tests.unitTests.liquibase`, and a Gradle, Android or Maven service one after
+the compile of its SAST scan, `asoc.liquibase`; each runs the `liquibase` command of the agent with its flags and
+commands. On a Linux or macOS agent the SAST scan compiles an Android service with Gradle, as its build, and an npm,
+pip, iOS or Flutter service not at all: its IRX is prepared from the sources.
 Every service but a .NET one renders its SonarScanner version as `tools.sonar.sonarScannerVersion`, the Jenkins tool
 `sonar-scanner-cli-<version>` of each analysis with the sonar-scanner CLI.
 
@@ -354,9 +356,6 @@ management is [docs/MANAGEMENT_OVERVIEW.md](docs/MANAGEMENT_OVERVIEW.md).
 - A new Liquibase service gets the build command `updateSQL` without flags, which fails unless flags or a
   `liquibase.properties` name the changelog and a URL, and a Nexus IQ application without a scan pattern, which the
   save refuses until a pattern is typed or the application is removed.
-- On a Linux or macOS agent the library stops the SAST compile of an Android, npm, pip, iOS or Flutter service with
-  "Build Tool is not specified in configuration", so its SAST stage fails while "Compile before preparing the IRX" is
-  ticked, as it is by default: untick it for such a service (TODO 2.11).
 - The .NET settings that choose the mode, the solution, the configuration and platform, the paths of the tools, the
   test runner and the coverage tool (`build.dotnet.mode`, `useDotnetCli`, `solution`, `configuration`, `platform`,
   `msbuildPath`, `nugetPath`, `msbuildTarget`, `useMsbuildRestore`, `tests.unitTests.dotnet.runner`, `coverageTool`,

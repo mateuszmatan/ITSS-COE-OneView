@@ -218,9 +218,10 @@ class ServiceSettingsSpec extends Specification {
         problems*.message[2] == message
 
         where:
-        tool             || message
-        GRADLE           || 'add Liquibase commands or flags: without them the library skips the step'
-        BuildTool.ANDROID || 'must be empty for Android: the library runs a Liquibase step of the scan only after the Gradle or Maven compile'
+        tool              || message
+        GRADLE            || 'add Liquibase commands or flags: without them the library skips the step'
+        BuildTool.ANDROID || 'add Liquibase commands or flags: without them the library skips the step'
+        BuildTool.DOTNET  || 'must be empty for C# / .NET: the library runs a Liquibase step of the scan only after a Gradle, Android or Maven compile'
     }
 
     def "each section reports its problems under its own name"() {

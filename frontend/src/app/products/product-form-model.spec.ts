@@ -340,7 +340,7 @@ describe('Liquibase steps and the SonarScanner version', () => {
   it.each<[BuildTool, boolean, boolean]>([
     ['GRADLE', true, true],
     ['MAVEN', true, true],
-    ['ANDROID', true, false],
+    ['ANDROID', true, true],
     ['DOTNET', true, false],
     ['MSBUILD', true, false],
     ['FLUTTER', false, false],
@@ -412,7 +412,15 @@ describe('Liquibase steps and the SonarScanner version', () => {
     const android = toServiceRequest(form);
     expect(android.build.liquibase.tasks).toEqual(['validate', 'updateSQL']);
     expect(android.unitTests.liquibase.tasks).toEqual(['status']);
-    expect(android.appScan.liquibaseCompileCommand).toEqual(NO_COMMAND);
+    expect(android.appScan.liquibaseCompileCommand).toEqual(
+      withSteps().appScan.liquibaseCompileCommand,
+    );
+
+    form.controls.build.controls.tool.setValue('DOTNET');
+    const dotnet = toServiceRequest(form);
+    expect(dotnet.build.liquibase.tasks).toEqual(['validate', 'updateSQL']);
+    expect(dotnet.unitTests.liquibase.tasks).toEqual(['status']);
+    expect(dotnet.appScan.liquibaseCompileCommand).toEqual(NO_COMMAND);
 
     form.controls.build.controls.tool.setValue('LIQUIBASE');
     const liquibase = toServiceRequest(form);

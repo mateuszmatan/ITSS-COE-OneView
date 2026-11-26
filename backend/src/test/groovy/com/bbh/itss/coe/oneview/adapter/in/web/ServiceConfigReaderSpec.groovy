@@ -487,6 +487,7 @@ class ServiceConfigReaderSpec extends Specification {
         'msbuild' | 'tests.unitTests.liquibase'
         'gradle'  | 'asoc.liquibase'
         'maven'   | 'asoc.liquibase'
+        'android' | 'asoc.liquibase'
     }
 
     def "a #tool service imports the tasks of the Liquibase step #key when it has no commands, as the library runs them"() {
@@ -504,6 +505,7 @@ class ServiceConfigReaderSpec extends Specification {
         'gradle'  | 'build.liquibase'
         'msbuild' | 'tests.unitTests.liquibase'
         'maven'   | 'asoc.liquibase'
+        'android' | 'asoc.liquibase'
     }
 
     def "a #tool service leaves out the Liquibase step #key with a note when the library would not run it: #value"() {
@@ -521,7 +523,8 @@ class ServiceConfigReaderSpec extends Specification {
         'maven'   | 'tests.unitTests.liquibase' | [env: [A: '1'], returnStdout: true]      || SKIPPED_LIQUIBASE_STEP
         'dotnet'  | 'build.liquibase'           | [label: 'Changelog']                     || SKIPPED_LIQUIBASE_STEP
         'gradle'  | 'asoc.liquibase'            | 'updateSQL'                              || 'not imported: expected a map'
-        'android' | 'asoc.liquibase'            | [commands: ['updateSQL']]                || NO_LIQUIBASE_COMPILE_STEP
+        'android' | 'asoc.liquibase'            | [label: 'Changelog']                     || SKIPPED_LIQUIBASE_STEP
+        'android' | 'asoc.liquibase'            | 'updateSQL'                              || 'not imported: expected a map'
         'dotnet'  | 'asoc.liquibase'            | [commands: ['updateSQL']]                || NO_LIQUIBASE_COMPILE_STEP
         'msbuild' | 'asoc.liquibase'            | [commands: ['updateSQL']]                || NO_LIQUIBASE_COMPILE_STEP
         'flutter' | 'build.liquibase'           | [commands: ['updateSQL']]                || 'not imported: the service builds with flutter'
@@ -545,13 +548,15 @@ class ServiceConfigReaderSpec extends Specification {
         ConfigInput.valueAt(project, 'build.liquibase') == [commands: ['update']]
 
         where:
-        tool     | value
-        'gradle' | [dir: 'db']
-        'gradle' | [commands: []]
-        'maven'  | [dir: 'db']
-        'maven'  | [commands: []]
-        'gradle' | [commands: '', label: ' ']
-        'maven'  | [commands: [], dir: 'db']
+        tool      | value
+        'gradle'  | [dir: 'db']
+        'gradle'  | [commands: []]
+        'maven'   | [dir: 'db']
+        'maven'   | [commands: []]
+        'android' | [dir: 'db']
+        'android' | [commands: []]
+        'gradle'  | [commands: '', label: ' ']
+        'maven'   | [commands: [], dir: 'db']
     }
 
     def "a #tool service keeps the earlier notes of asoc.liquibase #value next to #project"() {
@@ -570,6 +575,8 @@ class ServiceConfigReaderSpec extends Specification {
         'gradle' | [build: [liquibase: [dir: 'db']]]                                       | [commands: []] || [problem('build.liquibase', SKIPPED_LIQUIBASE_STEP)]
         'maven'  | [build: [liquibase: [commands: ['update']]]]                            | [:]            || []
         'gradle' | [build: [liquibase: [commands: ['update']]]]                            | 'updateSQL'    || [problem('asoc.liquibase', 'not imported: expected a map')]
+        'android' | [:]                                                                    | [dir: 'db']    || [problem('asoc.liquibase', SKIPPED_LIQUIBASE_STEP)]
+        'android' | [build: [liquibase: [commands: ['update']]], asoc: [doCompile: false]] | [commands: []] || []
     }
 
     def "a #tool service imports a running asoc.liquibase next to build.liquibase without a note"() {
@@ -583,7 +590,7 @@ class ServiceConfigReaderSpec extends Specification {
         service.service().build().liquibase().tasks() == ['update']
 
         where:
-        tool << ['gradle', 'maven']
+        tool << ['gradle', 'maven', 'android']
     }
 
     def "a #tool service adds tools.sonar.liquibase to the flags of its SonarQube #name, as the library does, unless a flag of the same name is set"() {

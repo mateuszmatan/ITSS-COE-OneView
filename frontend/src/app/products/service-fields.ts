@@ -215,7 +215,7 @@ const APP_SCAN_OPTIONS: Field[] = [
     help: 'The folders the static scan leaves out. They apply on Linux agents, and only while no folder is included.',
   }),
   check('compile', 'Compile before preparing the IRX', 'asoc.doCompile', 6, {
-    help: 'Linux agents only: runs the compile command first, so the scan includes the compiled classes. Untick it for an Android, npm, pip, iOS or Flutter service: the library stops the SAST compile of these build tools with an error, which fails the SAST stage.',
+    help: 'Runs the compile command first, so the scan includes the compiled classes. On a Linux or macOS agent Gradle compiles a Gradle or Android service and Maven a Maven service, followed by the Liquibase step after the compile or, while that is empty, the one after the build; a Liquibase or SQL service runs its Liquibase commands, and a C# / .NET or MSBuild service its .NET build. A Windows agent compiles only a C# / .NET or MSBuild service. An npm, pip, iOS or Flutter service has no compile step: its IRX is prepared from the sources.',
   }),
   check('sourceCodeOnly', 'Scan source code only', 'asoc.sourceCodeOnly', 6, {
     help: 'Linux agents only: prepares the scan from the source code without compiled classes.',
@@ -946,7 +946,9 @@ export class ServiceFields {
     return liquibaseStep(this.tool());
   }
 
-  /** Whether the library runs a Liquibase step after the AppScan compile of the service: Gradle and Maven. */
+  /**
+   * Whether the library runs a Liquibase step after the AppScan compile of the service: Gradle, Android and Maven.
+   */
   protected liquibaseCompileStep(): boolean {
     return liquibaseCompileStep(this.tool());
   }

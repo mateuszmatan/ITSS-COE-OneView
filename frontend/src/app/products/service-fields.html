@@ -398,8 +398,9 @@
                 </h4>
                 <p class="note span-12">
                   On a Linux or macOS agent the SAST compile runs liquibase with these flags and
-                  commands after the Gradle or Maven compile. Left empty, it runs the Liquibase step
-                  of the build, if the service has one; a Windows agent runs no step.
+                  commands after it compiles the service: with Gradle for a Gradle or Android
+                  service, with Maven for a Maven service. Left empty, it runs the Liquibase step of
+                  the build, if the service has one; a Windows agent runs no step.
                 </p>
                 <ov-tool-command-fields
                   [group]="scan.controls.liquibaseCompileCommand"

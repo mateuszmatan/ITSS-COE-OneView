@@ -67,7 +67,7 @@ const STEP_COMMANDS: Record<StepPath, string> = {
     'The commands the step passes to liquibase after the build, for example validate or updateSQL. Left empty while Flags are set, it runs validate. A failure of the step fails the build.',
   'tests.unitTests':
     'The commands the step passes to liquibase after the unit tests, for example validate or status. Left empty while Flags are set, it runs validate. A failure of the step does not stop the pipeline: the Unit tests stage turns orange and the build unstable.',
-  asoc: 'The commands the step passes to liquibase after the Gradle or Maven compile of the SAST scan, for example validate or updateSQL. Left empty while Flags are set, it runs validate. With the whole step left empty, the scan runs the Liquibase step of the build, if the service has one.',
+  asoc: 'The commands the step passes to liquibase after the SAST compile of a Gradle, Android or Maven service, for example validate or updateSQL. Left empty while Flags are set, it runs validate. With the whole step left empty, the scan runs the Liquibase step of the build, if the service has one.',
 };
 
 /**

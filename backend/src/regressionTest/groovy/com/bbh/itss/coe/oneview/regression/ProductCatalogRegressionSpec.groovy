@@ -434,6 +434,26 @@ class ProductCatalogRegressionSpec extends OneViewSpecification {
         ledger.tools.sonar.sonarScannerVersion == '5.0.1.3006'
     }
 
+    def "an Android service stores the Liquibase step after its AppScan compile, and the config renders both where the library reads them"() {
+        given:
+        def code = uniqueCode()
+        def step = command(['updateSQL'], ['--changelog-file=db/changelog.xml', '--url=offline:oracle'])
+        def android = service(name: 'mobile', build: build(tool: 'ANDROID', command: [tasks: ['clean', 'assembleRelease']]),
+                appScan: appScan(compileCommand: command(['compileReleaseSources'], []), liquibaseCompileCommand: step))
+
+        when:
+        def created = api.post('/api/products', product(code: code, name: "Product $code", services: [android]))
+        def pipeline = pipelineFor(created.json.services[0].id as long)
+        def mobile = api.get("/api/dso/config/$pipeline.activeKey.value?format=json").json.projects.mobile
+
+        then:
+        created.status == 201
+        created.json.services[0].appScan.liquibaseCompileCommand == step
+        mobile.buildTool == 'android'
+        mobile.asoc.gradle == [tasks: ['compileReleaseSources']]
+        mobile.asoc.liquibase == [commands: ['updateSQL'], flags: ['--changelog-file=db/changelog.xml', '--url=offline:oracle']]
+    }
+
     def "a Liquibase step that the library would not run is refused field by field (#rule)"() {
         given:
         def code = uniqueCode()
@@ -451,7 +471,7 @@ class ProductCatalogRegressionSpec extends OneViewSpecification {
         'Flutter runs no step'        | fullFlutterService(build: fullFlutterService().build + [liquibase: command(['validate'], [])])               || [['services[0].build.liquibase.tasks', 'must be empty for Flutter: the library runs a Liquibase step only after a Gradle, Android, Maven or .NET build']]
         'a step needs commands'       | service(unitTests: [command: command(['test'], []), liquibase: command([], []) + [label: 'Status']])         || [['services[0].unitTests.liquibase.tasks', 'add Liquibase commands or flags: without them the library skips the step']]
         'a step reads no Maven home'  | mavenService(build: mavenService().build + [liquibase: command(['validate'], []) + [mavenHome: '/opt/maven']]) || [['services[0].build.liquibase.mavenHome', 'must be empty: the Liquibase step runs the liquibase command, not Maven']]
-        'no step after .NET compiles' | service(build: build(tool: 'DOTNET', javaPath: null, command: command([], [])), appScan: appScan(liquibaseCompileCommand: command(['updateSQL'], []))) || [['services[0].appScan.liquibaseCompileCommand.tasks', 'must be empty for C# / .NET: the library runs a Liquibase step of the scan only after the Gradle or Maven compile']]
+        'no step after .NET compiles' | service(build: build(tool: 'DOTNET', javaPath: null, command: command([], [])), appScan: appScan(liquibaseCompileCommand: command(['updateSQL'], []))) || [['services[0].appScan.liquibaseCompileCommand.tasks', 'must be empty for C# / .NET: the library runs a Liquibase step of the scan only after a Gradle, Android or Maven compile']]
         'no SonarScanner for .NET'    | service(build: build(tool: 'MSBUILD', javaPath: null, command: command([], [])), sonar: [sonarScannerVersion: '5.0.1.3006']) || [['services[0].sonar.sonarScannerVersion', 'must be empty for .NET: the library analyses a .NET service with the SonarScanner for .NET, which does not read it']]
     }
 

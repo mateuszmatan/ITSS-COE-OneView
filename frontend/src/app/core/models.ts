@@ -88,11 +88,11 @@ export const liquibaseStep = (tool: BuildTool | null | undefined): boolean =>
 
 /**
  * Build tools after whose AppScan compile the library runs a Liquibase step (asoc.liquibase, else build.liquibase):
- * the Gradle and Maven compile on a Linux or macOS agent. The compile of an Android service stops before it, and the
- * .NET compile runs none.
+ * the Gradle and Maven compile on a Linux or macOS agent, which compiles an Android service with Gradle, as its build.
+ * The .NET compile runs none, and npm, pip, iOS and Flutter have no compile step.
  */
 export const liquibaseCompileStep = (tool: BuildTool | null | undefined): boolean =>
-  tool === 'GRADLE' || tool === 'MAVEN';
+  tool === 'GRADLE' || tool === 'MAVEN' || tool === 'ANDROID';
 
 /**
  * Build tools whose SonarScanner version (tools.sonar.sonarScannerVersion) the library reads: every tool but C# / .NET
