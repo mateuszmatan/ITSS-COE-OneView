@@ -6,6 +6,7 @@ import {
   ADMIN,
   ADMIN_AGILE,
   ADMIN_DEPARTMENTS,
+  ADMIN_JENKINS,
   ADMIN_PRODUCTS,
   ADMIN_QA,
   ADMIN_SETTINGS,
@@ -15,6 +16,7 @@ import {
   ONEVIEW_ADMIN,
   MONITORING,
   PIPELINES,
+  PIPELINE_WIZARD,
   QA_METRICS,
   SAMM_MATURITY,
   SELF_SERVICE,
@@ -33,6 +35,12 @@ export const routes: Routes = [
     title: PIPELINES.heading,
     data: WITH_CONTEXT,
     loadComponent: () => import('./pipelines/pipeline-list').then((m) => m.PipelineList),
+  },
+  {
+    path: 'pipelines/new',
+    title: PIPELINE_WIZARD.heading,
+    canDeactivate: [unsavedChangesGuard],
+    loadComponent: () => import('./pipeline-wizard/pipeline-wizard').then((m) => m.PipelineWizard),
   },
   {
     path: 'pipelines/:id',
@@ -135,6 +143,13 @@ export const routes: Routes = [
         title: `${ADMIN_SETTINGS.label} · ${ADMIN.heading}`,
         canDeactivate: [unsavedChangesGuard],
         loadComponent: () => import('./settings/global-settings').then((m) => m.GlobalSettingsPage),
+      },
+      {
+        path: 'jenkins',
+        title: `${ADMIN_JENKINS.label} · ${ADMIN.heading}`,
+        canDeactivate: [unsavedChangesGuard],
+        loadComponent: () =>
+          import('./settings/jenkins-automation-page').then((m) => m.JenkinsAutomationPage),
       },
       {
         path: 'qa',

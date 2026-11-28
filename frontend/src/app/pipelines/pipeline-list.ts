@@ -14,7 +14,7 @@ import {
   pipelineTypeLabel,
   pipelineTypeOrder,
 } from '../core/models';
-import { PIPELINES, SELF_SERVICE, pipelinePage } from '../core/sections';
+import { PIPELINES, PIPELINE_WIZARD, SELF_SERVICE, pipelinePage } from '../core/sections';
 import { MetricsBanner } from '../monitoring/metrics-banner';
 import { text } from '@common/shared/form-controls';
 import { Option, counted, formatRelative } from '@common/shared/formatting';
@@ -84,7 +84,8 @@ export function matches(row: PipelineHealth, filters: PipelineFilters): boolean 
           <p class="page-description">{{ section.description }}</p>
         </div>
         <div class="actions">
-          <a class="btn btn-primary" [routerLink]="selfService.path"
+          <a class="btn btn-primary" [routerLink]="wizard.path">Create a pipeline step by step</a>
+          <a class="btn btn-outline-primary" [routerLink]="selfService.path"
             >Set up pipelines in Self-service</a
           >
         </div>
@@ -190,6 +191,7 @@ export class PipelineList {
 
   protected readonly section = PIPELINES;
   protected readonly selfService = SELF_SERVICE;
+  protected readonly wizard = PIPELINE_WIZARD;
   protected readonly pipelineLink = pipelinePage;
   protected readonly keyMeaning = KEY_MEANING;
 

@@ -244,8 +244,15 @@ describe('PipelineList', () => {
     expect(gridCell(first, 'service').querySelector('a')?.getAttribute('href')).toBe(
       '/pipelines/100',
     );
-    expect(text(page().querySelector('.page-header a'))).toBe('Set up pipelines in Self-service');
-    expect(page().querySelector('.page-header a')?.getAttribute('href')).toBe('/self-service');
+    expect(
+      [...page().querySelectorAll('.page-header a')].map((link) => [
+        text(link),
+        link.getAttribute('href'),
+      ]),
+    ).toEqual([
+      ['Create a pipeline step by step', '/pipelines/new'],
+      ['Set up pipelines in Self-service', '/self-service'],
+    ]);
 
     const navigate = vi.spyOn(TestBed.inject(Router), 'navigate').mockResolvedValue(true);
     gridCell(third, 'type').click();

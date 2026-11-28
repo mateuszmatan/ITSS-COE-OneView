@@ -15,6 +15,9 @@ import com.bbh.itss.coe.oneview.application.monitoring.port.out.PipelineRunsPort
 import com.bbh.itss.coe.oneview.application.bitbucket.port.in.PullRequestDecorationsUseCase
 import com.bbh.itss.coe.oneview.application.bitbucket.port.out.PullRequestDecorationPort
 import com.bbh.itss.coe.oneview.application.discovery.port.out.BitbucketRepositoryPort
+import com.bbh.itss.coe.oneview.application.jenkins.port.out.GenericUserSecretPort
+import com.bbh.itss.coe.oneview.application.jenkins.port.out.JenkinsAutomationRepositoryPort
+import com.bbh.itss.coe.oneview.application.jenkins.port.out.JenkinsPort
 import com.bbh.itss.coe.oneview.application.pipeline.port.in.PipelinesUseCase
 import com.bbh.itss.coe.oneview.application.pipeline.port.out.PipelineRepositoryPort
 import com.bbh.itss.coe.oneview.application.report.port.out.PipelineReportPort
@@ -79,6 +82,9 @@ class UseCaseConfigurationSpec extends Specification {
     PullRequestDecorationPort decorations = Mock()
     QualityRepositoryPort quality = Mock()
     AgileRepositoryPort agile = Mock()
+    JenkinsAutomationRepositoryPort jenkinsAutomation = Mock()
+    GenericUserSecretPort secrets = Mock()
+    JenkinsPort jenkins = Mock()
 
     def runner = new ApplicationContextRunner()
             .withConfiguration(AutoConfigurations.of(AopAutoConfiguration, TransactionAutoConfiguration))
@@ -99,6 +105,9 @@ class UseCaseConfigurationSpec extends Specification {
             .withBean(PullRequestDecorationPort, { decorations } as Supplier<PullRequestDecorationPort>)
             .withBean(QualityRepositoryPort, { quality } as Supplier<QualityRepositoryPort>)
             .withBean(AgileRepositoryPort, { agile } as Supplier<AgileRepositoryPort>)
+            .withBean(JenkinsAutomationRepositoryPort, { jenkinsAutomation } as Supplier<JenkinsAutomationRepositoryPort>)
+            .withBean(GenericUserSecretPort, { secrets } as Supplier<GenericUserSecretPort>)
+            .withBean(JenkinsPort, { jenkins } as Supplier<JenkinsPort>)
             .withBean(KeyGenerator, { { -> 'key' } as KeyGenerator } as Supplier<KeyGenerator>)
             .withBean(Clock, { systemUTC() } as Supplier<Clock>)
 
@@ -111,7 +120,8 @@ class UseCaseConfigurationSpec extends Specification {
                                          'monitoringTargetsService', 'serviceTemplateService', 'actionLogService',
                                          'pipelineReportService', 'sammMaturityService', 'inspectRepositoryService',
                                          'pullRequestDecorationService', 'qualityManagementService',
-                                         'agileAssessmentService'] as Set
+                                         'agileAssessmentService', 'jenkinsAutomationService',
+                                         'guidedPipelineSetupService'] as Set
             useCases.values().each { useCase ->
                 assert isAopProxy(useCase)
                 assert (useCase as Advised).advisors*.advice.any { it instanceof TransactionInterceptor }

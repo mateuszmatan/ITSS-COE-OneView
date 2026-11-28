@@ -76,6 +76,37 @@ class OneViewStubApi extends StubApi {
         }
         installQuality()
         installAgile()
+        installPipelineSetup()
+    }
+
+    /** The guided set-up of a pipeline: the generic user of the Admin page, the two reads and the Jenkins job OneView creates. */
+    void installPipelineSetup() {
+        def automation = fixture('jenkins-automation.json') as Map
+        get('/api/jenkins-automation') { json(automation) }
+        on('PUT', '/api/jenkins-automation') { RecordedRequest request ->
+            def sent = request.json() as Map
+            if (sent.version != automation.version) {
+                return problem(409, 'Conflict', 'The Jenkins automation was changed by someone else')
+            }
+            automation.putAll(sent.subMap(['genericUser', 'oisHost', 'pollSchedule', 'libraryRepositoryUrl', 'libraryVersion', 'libraryCredentialsId']))
+            automation.putAll(version: nextVersion(automation.version), updatedAt: now())
+            json(automation)
+        }
+        on('POST', '/api/jenkins-automation/check') { RecordedRequest request ->
+            json([ok: true, message: "Jenkins at ${request.json().jenkinsUrl} accepted ${automation.genericUser}".toString()])
+        }
+        on('POST', '/api/pipeline-setup/sources') { json(fixture('pipeline-setup-sources.json')) }
+        on('POST', '/api/pipeline-setup/jenkins-job') { json(fixture('pipeline-setup-jenkins-job.json')) }
+        on('POST', '/api/pipelines/(\\d+)/jenkins-job') { RecordedRequest request, List<String> ids ->
+            def sent = request.json() as Map
+            def path = [sent.folder, sent.name].findAll().join('/')
+            json([pipelineId    : ids[0] as int, jobPath: path, kind: sent.kind,
+                  jobUrl        : "${sent.jenkinsUrl}/job/${path.split('/').join('/job/')}/".toString(),
+                  trigger       : "Jenkins polls branch ${sent.branch} of the repository on the schedule ${automation.pollSchedule} and builds when it changed.".toString(),
+                  jenkinsfilePath: sent.scriptPath ?: 'Jenkinsfile',
+                  jenkinsfile   : "@Library('DevSecOpsJenkinsLibrary') _\n\ndevSecOpsSecurityPipeline(pipelineKey: 'the-key')\n",
+                  libraryAttached: false], 201)
+        }
     }
 
     /** The QM Metric Tool: the BBH targets and the applications, saved as the portal saves them. */

@@ -110,12 +110,13 @@ class PullRequestDecorationMigrationSpec extends MigrationSpecification {
         'at the position of another finding'   | true
     }
 
-    def "052 is the last changeset of the changelog, so that it runs after every earlier one"() {
+    def "052 runs after every earlier changeset, as three changesets in their order"() {
         when:
         liquibase.update('')
 
         then: 'one statement each, so that a statement that fails leaves nothing of its changeset applied'
-        jdbc.queryForList('SELECT ID FROM DATABASECHANGELOG ORDER BY ORDEREXECUTED', String).takeRight(3) ==
+        jdbc.queryForList('SELECT ID FROM DATABASECHANGELOG ORDER BY ORDEREXECUTED', String)
+                .dropWhile { !it.startsWith('052') }.take(3) ==
                 ['052-pr-decoration', '052-pr-decoration-pipeline-index', '052-pr-decoration-finding']
     }
 

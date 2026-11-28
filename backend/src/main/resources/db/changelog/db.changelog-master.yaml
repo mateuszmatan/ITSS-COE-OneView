@@ -77,3 +77,6 @@ databaseChangeLog:
   - include:
       file: oracle/052-pull-request-decorations.sql
       relativeToChangelogFile: true
+  - include:
+      file: oracle/053-jenkins-automation.sql
+      relativeToChangelogFile: true

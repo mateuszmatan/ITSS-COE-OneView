@@ -47,6 +47,11 @@ logging:
 oneview:
   gui:
     pages: pipelines, self-service, monitoring, samm, qa, agile, history, admin, products, settings
+  ois:
+    ssl-bundle: ${OIS_SSL_BUNDLE:ois}
+    api-version: ${OIS_API_VERSION:v4}
+  sources:
+    local-directories: false
   influx:
     url: ${INFLUX_URL:}
     org: ${INFLUX_ORG:DevSecOps}
@@ -72,6 +77,9 @@ spring:
   jpa:
     hibernate:
       ddl-auto: none
+oneview:
+  sources:
+    local-directories: true
 management:
   endpoint:
     health:

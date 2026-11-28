@@ -2,13 +2,21 @@ package com.bbh.itss.coe.oneview.adapter.out.bitbucket;
 
 import com.bbh.itss.coe.oneview.application.discovery.port.out.BitbucketRepositoryPort;
 import com.bbh.itss.coe.oneview.domain.discovery.RepoFileTree;
+import com.bbh.itss.coe.oneview.domain.bitbucket.RepositoryAddress;
+import com.bbh.itss.coe.oneview.domain.jenkins.GenericLogin;
+import com.bbh.itss.coe.oneview.domain.shared.InvalidRequestException;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.client.SimpleClientHttpRequestFactory;
 import org.springframework.stereotype.Component;
 import org.springframework.web.client.RestClient;
+import org.springframework.web.client.RestClientException;
+import org.springframework.web.client.RestClientResponseException;
 import tools.jackson.databind.json.JsonMapper;
 
 import java.io.File;
+import java.io.IOException;
+import java.io.UncheckedIOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.ArrayList;
@@ -22,6 +30,7 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
+import static java.nio.charset.StandardCharsets.UTF_8;
 import static java.time.Duration.ofSeconds;
 
 @Component
@@ -31,10 +40,22 @@ public class BitbucketHttpRepositoryAdapter implements BitbucketRepositoryPort {
     private static final Pattern SERVER_BROWSE_RE = Pattern.compile("^(https?://.+?)/(?:projects|users)/([^/]+)/repos/([^/?#]+).*$");
     private static final Pattern CLOUD_RE = Pattern.compile("^https?://(?:[^@/]+@)?(?:api\\.)?bitbucket\\.org/(?:2\\.0/repositories/)?([^/]+)/([^/]+?)(?:\\.git)?(?:/.*)?$");
 
+    static final String NOT_A_REPOSITORY = "must be the address of the repository in Bitbucket, as the browser"
+            + " shows it (https://bitbucket/projects/KEY/repos/name) or as Git clones it over http"
+            + " (https://bitbucket/scm/key/name.git)";
+    /** The files whose contents tell the stack of a repository and how its pipeline starts. */
+    private static final List<String> SOURCE_FILES = List.of("Jenkinsfile", "pom.xml", "build.gradle",
+            "build.gradle.kts", "settings.gradle", "settings.gradle.kts", "gradle/wrapper/gradle-wrapper.properties",
+            "package.json", "frontend/package.json", "client/package.json", "ui/package.json", "web/package.json",
+            "sonar-project.properties", "pubspec.yaml", "requirements.txt", "pyproject.toml");
+
     private final RestClient client;
     private final JsonMapper jsonMapper;
+    private final boolean localSources;
 
-    public BitbucketHttpRepositoryAdapter(RestClient.Builder builder, JsonMapper jsonMapper) {
+    public BitbucketHttpRepositoryAdapter(RestClient.Builder builder, JsonMapper jsonMapper,
+                                          @Value("${oneview.sources.local-directories:false}") boolean localSources) {
+        this.localSources = localSources;
         SimpleClientHttpRequestFactory requestFactory = new SimpleClientHttpRequestFactory();
         requestFactory.setConnectTimeout(ofSeconds(4));
         requestFactory.setReadTimeout(ofSeconds(10));
@@ -83,6 +104,111 @@ public class BitbucketHttpRepositoryAdapter implements BitbucketRepositoryPort {
         }
 
         return fallbackMockTree(repositoryUrl);
+    }
+
+    @Override
+    public RepoFileTree readSources(String repositoryUrl, String branch, GenericLogin login) {
+        if (localSources && (repositoryUrl.startsWith("file://") || repositoryUrl.startsWith("/"))) {
+            Path directory = Path.of(repositoryUrl.replaceFirst("^file://", ""));
+            if (Files.isDirectory(directory)) {
+                return fromLocalDirectory(directory);
+            }
+        }
+        RepositoryAddress repository = RepositoryAddress.parse(repositoryUrl)
+                .orElseThrow(() -> InvalidRequestException.of("repositoryUrl", NOT_A_REPOSITORY));
+        try {
+            return repository.cloud() ? readFromCloud(repository, branch, login)
+                    : readFromServer(repository, branch, login);
+        } catch (RestClientResponseException e) {
+            throw new UncheckedIOException(refused(e.getStatusCode().value(), branch, login), new IOException(e));
+        } catch (RestClientException e) {
+            throw new UncheckedIOException("Bitbucket could not be reached to read " + repositoryUrl
+                    + ". Skip the detection and enter the settings yourself, or try again later.",
+                    new IOException(e));
+        }
+    }
+
+    private static String refused(int status, String branch, GenericLogin login) {
+        String who = login == null ? "an anonymous reader" : "the generic user " + login.user();
+        return switch (status) {
+            case 401, 403 -> "Bitbucket refused " + who + " (HTTP " + status + "): the repository needs a user that"
+                    + " may read it. Skip the detection and enter the settings yourself.";
+            case 404 -> "Bitbucket has no such repository, or no branch " + branch + " in it, for " + who
+                    + " (HTTP 404). Check the address and the branch.";
+            default -> "Bitbucket answered HTTP " + status + ". Skip the detection and enter the settings yourself,"
+                    + " or try again later.";
+        };
+    }
+
+    /** Lists every file of the branch, at most 5000, and reads the files that tell the stack and the pipeline. */
+    @SuppressWarnings("unchecked")
+    private RepoFileTree readFromServer(RepositoryAddress repository, String branch, GenericLogin login) {
+        String api = repository.baseUrl() + "/rest/api/1.0/projects/{project}/repos/{slug}";
+        Set<String> files = new HashSet<>();
+        Integer start = 0;
+        for (int page = 0; start != null && page < 5; page++) {
+            Map<String, Object> listing = get(login, Map.class, api + "/files?at={branch}&start={start}&limit=1000",
+                    repository.project(), repository.slug(), branch, start);
+            if (listing == null) {
+                break;
+            }
+            ((List<Object>) listing.getOrDefault("values", List.of())).forEach(file -> files.add(String.valueOf(file)));
+            start = Boolean.TRUE.equals(listing.get("isLastPage")) ? null
+                    : listing.get("nextPageStart") instanceof Number next ? (Integer) next.intValue() : null;
+        }
+        Map<String, String> contents = new ConcurrentHashMap<>();
+        for (String file : SOURCE_FILES) {
+            if (files.contains(file)) {
+                String raw = get(login, String.class, api + "/raw/" + file + "?at={branch}", repository.project(),
+                        repository.slug(), branch);
+                if (raw != null) {
+                    contents.put(file, raw);
+                }
+            }
+        }
+        return new MapRepoFileTree(files, folders(files), contents);
+    }
+
+    @SuppressWarnings("unchecked")
+    private RepoFileTree readFromCloud(RepositoryAddress repository, String branch, GenericLogin login) {
+        String api = "https://api.bitbucket.org/2.0/repositories/{workspace}/{slug}/src/{branch}/";
+        Set<String> files = new HashSet<>();
+        Set<String> folders = new HashSet<>();
+        Map<String, Object> listing = get(login, Map.class, api + "?pagelen=100", repository.project(),
+                repository.slug(), branch);
+        if (listing != null) {
+            for (Map<String, Object> entry : (List<Map<String, Object>>) listing.getOrDefault("values", List.of())) {
+                ("commit_directory".equals(entry.get("type")) ? folders : files).add(String.valueOf(entry.get("path")));
+            }
+        }
+        Map<String, String> contents = new ConcurrentHashMap<>();
+        for (String file : SOURCE_FILES) {
+            if (files.contains(file)) {
+                String raw = get(login, String.class, api + file, repository.project(), repository.slug(), branch);
+                if (raw != null) {
+                    contents.put(file, raw);
+                }
+            }
+        }
+        return new MapRepoFileTree(files, folders, contents);
+    }
+
+    private <T> T get(GenericLogin login, Class<T> type, String uri, Object... variables) {
+        return client.get().uri(uri, variables).headers(headers -> {
+            if (login != null) {
+                headers.setBasicAuth(login.user(), login.secret(), UTF_8);
+            }
+        }).retrieve().body(type);
+    }
+
+    private static Set<String> folders(Set<String> files) {
+        Set<String> folders = new HashSet<>();
+        for (String file : files) {
+            for (int slash = file.indexOf('/'); slash > 0; slash = file.indexOf('/', slash + 1)) {
+                folders.add(file.substring(0, slash));
+            }
+        }
+        return folders;
     }
 
     private RepoFileTree fetchFromServer(String baseUrl, String projectKey, String repoSlug, String branch) {
@@ -196,7 +322,8 @@ public class BitbucketHttpRepositoryAdapter implements BitbucketRepositoryPort {
                     dirs.add(relative);
                 } else if (Files.isRegularFile(p)) {
                     files.add(relative);
-                    if (relative.endsWith("pom.xml") || relative.endsWith("build.gradle")
+                    if (relative.equals("Jenkinsfile") || relative.endsWith("settings.gradle")
+                            || relative.endsWith("settings.gradle.kts") || relative.endsWith("pom.xml") || relative.endsWith("build.gradle")
                             || relative.endsWith("build.gradle.kts") || relative.endsWith("package.json")
                             || relative.endsWith("gradle-wrapper.properties") || relative.endsWith("pubspec.yaml")
                             || relative.endsWith("requirements.txt") || relative.endsWith("pyproject.toml")) {

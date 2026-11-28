@@ -1,0 +1,124 @@
+<!doctype html><html><head><meta charset="utf-8"><style>
+:root{--navy:#0c2340;--navy2:#1d3a63;--surface:#f4f5f7;--card:#fff;--border:#c9d0db;--muted:#5b6475;--text:#1b1f24;--blue:#0d5bd7;--amber:#9a5b00;--amberbg:#fbf1e1;--green:#1b7a3a;--greenbg:#e7f3eb;--infobg:#e3e8f0}
+*{box-sizing:border-box}body{margin:0;background:var(--surface);font-family:Inter,Arial,sans-serif;color:var(--text)}
+#c{position:relative;width:1840px;height:1190px;background:var(--surface);overflow:hidden}
+.hdr{position:absolute;left:0;top:0;width:100%;height:76px;background:var(--navy);color:#fff;display:flex;align-items:center;padding:0 40px;gap:18px}
+.hdr b{font-family:"Liberation Serif",Georgia,serif;font-size:24px;letter-spacing:.3px}.hdr span{font-size:20px;font-family:"Liberation Serif",Georgia,serif}.hdr i{margin-left:auto;font-style:normal;font-size:13px;opacity:.75}
+.lab{position:absolute;font-size:12px;font-weight:700;letter-spacing:1.2px;text-transform:uppercase;color:var(--muted)}
+.b{position:absolute;background:var(--card);border:1px solid var(--border);border-top:3px solid var(--navy);padding:10px 14px;font-size:13px;line-height:1.4}
+.b h3{margin:0 0 4px;font-family:"Liberation Serif",Georgia,serif;font-weight:400;font-size:18px;color:var(--navy)}
+.b .t{display:inline-block;font-size:11px;font-weight:600;color:var(--navy);background:var(--infobg);padding:1px 7px;margin:2px 4px 2px 0;border-radius:2px}
+.b ul{margin:6px 0 0;padding-left:16px}.b li{margin:1px 0}.b p{margin:4px 0 0;color:var(--muted)}
+.b code,.leg code{font-family:"DejaVu Sans Mono",monospace;font-size:11.5px;background:#eef1f5;padding:0 3px}
+.box{position:absolute;border:1px solid var(--navy);background:#fbfcfd}
+.box>.cap{background:var(--navy);color:#fff;padding:9px 16px;font-family:"Liberation Serif",Georgia,serif;font-size:19px;display:flex;gap:14px;align-items:baseline}.box>.cap small{font-family:Inter,Arial,sans-serif;font-size:12px;opacity:.8}
+.ext{border-top-color:var(--navy2);background:#fff}
+.dom{border-top-color:var(--green)}
+.al{position:absolute;font-size:12px;line-height:1.3;text-align:center;color:var(--text)}.al code{font-family:"DejaVu Sans Mono",monospace;font-size:11px}
+.n{position:absolute;width:24px;height:24px;border-radius:50%;background:var(--blue);color:#fff;font-size:12.5px;font-weight:700;display:flex;align-items:center;justify-content:center;border:2px solid #fff}
+.n.w{background:var(--amber)}.n.s{background:var(--green)}
+.band{position:absolute;left:0;width:100%;background:#e9edf3;border-top:1px solid var(--border);border-bottom:1px solid var(--border)}
+.leg{position:absolute;font-size:13px;line-height:1.45}.leg div{display:flex;gap:10px;margin:0 0 7px}.leg .n{position:static;flex:none}
+.key{position:absolute;font-size:12.5px;line-height:1.5;background:#fff;border:1px solid var(--border);padding:12px 16px}.key h4{margin:0 0 6px;font-size:12px;letter-spacing:1.1px;text-transform:uppercase;color:var(--muted)}.key div{display:flex;align-items:center;gap:10px;margin:5px 0}.key svg{flex:none}
+svg.a{position:absolute;left:0;top:0}
+</style></head><body><div id="c">
+<div class="hdr"><b>BBH</b><span>ITSS COE OneView</span><span style="opacity:.6">|</span><span>Guided pipeline set-up: architecture and data flow</span><i>DevSecOps team, ITSS COE</i></div>
+
+<div class="lab" style="left:40px;top:98px">People and browser</div>
+<div class="lab" style="left:430px;top:98px">OneView</div>
+<div class="lab" style="left:1500px;top:98px">Systems OneView calls</div>
+
+<div class="b" style="left:40px;top:130px;width:310px;height:88px"><h3>Manager or developer</h3>Sets up a pipeline without knowing Jenkins or the library</div>
+<div class="b" style="left:40px;top:268px;width:310px;height:422px"><h3>OneView web application</h3><span class="t">Angular 21</span><span class="t">TypeScript</span><span class="t">BBH design tokens</span>
+<p style="color:var(--text);margin-top:10px"><b>Create a pipeline step by step</b></p><ul><li>1 Basics: product, team, service, pipeline</li><li>2 Sources: Bitbucket address, detection</li><li>3 Existing build: read only</li><li>4 Jenkins job: OneView creates it, or the user does</li><li>5 Review, then the result with the Jenkinsfile</li></ul>
+<p>Steps 2, 3 and the automatic job can each be skipped.</p>
+<p style="color:var(--text);margin-top:12px"><b>Admin, Jenkins automation</b></p><ul><li>generic user, OIS host, OIS API key</li><li>schedule of the change trigger</li><li>connection check</li></ul></div>
+
+<div class="box" style="left:430px;top:130px;width:800px;height:560px"><div class="cap">OneView backend <small>Spring Boot 4 · Java 21 · MVC + hexagonal architecture (ports and adapters)</small></div></div>
+<div class="b" style="left:450px;top:190px;width:232px;height:480px"><h3>Inbound adapters</h3><span class="t">Spring MVC</span><span class="t">REST, JSON</span><span class="t">Bean Validation</span>
+<ul><li><code>PipelineSetupController</code><br>read sources, read job, create job</li><li><code>JenkinsAutomationController</code><br>settings, connection check</li><li><code>ProductController</code>, <code>PipelineController</code><br>product, service, pipeline, key</li><li><code>DsoConfigController</code><br>configuration by pipeline key</li></ul><p>Every change is written to the Action history.</p></div>
+<div class="b" style="left:702px;top:190px;width:228px;height:250px"><h3>Application: use cases</h3><span class="t">in ports</span><span class="t">out ports</span><span class="t">transactions</span>
+<ul><li><code>GuidedPipelineSetupService</code><br>inspect sources, read a job, create the job</li><li><code>JenkinsAutomationService</code><br>settings and check</li><li>product and pipeline services</li></ul></div>
+<div class="b dom" style="left:702px;top:460px;width:228px;height:210px"><h3>Domain</h3><span class="t">plain Java, no framework</span>
+<ul><li><code>RepoStackDetector</code></li><li><code>JenkinsfileFacts</code></li><li><code>JenkinsJobSpec</code></li><li><code>JenkinsAutomationSettings</code></li><li><code>Pipeline</code> with its key</li></ul></div>
+<div class="b" style="left:950px;top:190px;width:260px;height:105px"><h3>Bitbucket adapter</h3><span class="t">Spring RestClient</span><span class="t">Basic auth</span><p>file list and build files of a branch</p></div>
+<div class="b" style="left:950px;top:305px;width:260px;height:115px"><h3>Jenkins adapter</h3><span class="t">Spring RestClient</span><span class="t">config.xml</span><span class="t">CSRF crumb</span><p>reads a job; creates one new job</p></div>
+<div class="b" style="left:950px;top:430px;width:260px;height:115px"><h3>OIS adapter</h3><span class="t">java.net.http</span><span class="t">mutual TLS</span><p>client certificate from the SSL bundle <code>ois</code> of the deployment</p></div>
+<div class="b" style="left:950px;top:555px;width:260px;height:115px"><h3>Persistence adapter</h3><span class="t">Spring Data JPA</span><span class="t">Liquibase</span><p>products, pipelines, keys, automation settings; never the secret</p></div>
+
+<div class="b ext" style="left:1500px;top:190px;width:300px;height:105px"><h3>Bitbucket</h3><span class="t">REST API 1.0</span><p>sources of the application</p></div>
+<div class="b ext" style="left:1500px;top:305px;width:300px;height:115px"><h3>Jenkins</h3><span class="t">REST API</span><span class="t">Pipeline</span><span class="t">Multibranch Pipeline</span><p>the existing build and the new job</p></div>
+<div class="b ext" style="left:1500px;top:430px;width:300px;height:115px"><h3>OIS on the QC environment</h3><span class="t">A2A credential retrieval</span><p>secret of the generic user, as the DevSecOps library fetches its own</p></div>
+<div class="b ext" style="left:1500px;top:555px;width:300px;height:115px"><h3>OneView database</h3><span class="t">Oracle</span><span class="t">H2 locally</span><p>schema versioned by Liquibase changesets</p></div>
+
+<div class="al" style="left:1218px;top:205px;width:274px"><code>GET …/files</code>, <code>…/raw/&lt;file&gt;</code><br>read only, as the generic user</div>
+<div class="al" style="left:1218px;top:310px;width:274px"><code>GET …/config.xml</code>, <code>…/api/json</code> read only</div>
+<div class="al" style="left:1218px;top:376px;width:274px;color:var(--amber);font-weight:600"><code>POST …/createItem</code> the only change</div>
+<div class="al" style="left:1218px;top:448px;width:274px;color:var(--green)"><code>GET /service/a2a/v4/Credentials</code><br>client certificate + API key, per request</div>
+<div class="al" style="left:1218px;top:582px;width:274px">JDBC</div>
+<div class="al" style="left:352px;top:398px;width:76px">HTTPS<br>JSON</div>
+
+<div class="band" style="top:722px;height:196px"></div>
+<div class="lab" style="left:40px;top:738px">After the set-up: every change of the sources starts the pipeline</div>
+<div class="b" style="left:40px;top:770px;width:250px;height:128px"><h3>Team of the service</h3>commits the two-line Jenkinsfile OneView shows, then works as usual</div>
+<div class="b ext" style="left:410px;top:770px;width:250px;height:128px"><h3>Bitbucket repository</h3><span class="t">Git</span><p><code>Jenkinsfile</code> with <code>@Library</code> and the pipeline key</p></div>
+<div class="b ext" style="left:780px;top:770px;width:280px;height:128px"><h3>Jenkins job created by OneView</h3><span class="t">Poll SCM <code>H/5 * * * *</code></span><span class="t">or branch scan</span><p>Pipeline script from SCM; parameters and retention of the old job</p></div>
+<div class="b ext" style="left:1180px;top:770px;width:270px;height:128px"><h3>DevSecOps library</h3><span class="t">DSOEnhanced</span><span class="t">Groovy shared library</span><p>runs the stages of the pipeline type</p></div>
+<div class="b" style="left:1570px;top:770px;width:230px;height:128px"><h3>OneView</h3><span class="t">ONEVIEW_URL</span><p>configuration by pipeline key; run report and monitoring</p></div>
+<div class="al" style="left:292px;top:800px;width:116px"><code>git push</code></div>
+<div class="al" style="left:662px;top:800px;width:116px">change found</div>
+<div class="al" style="left:1062px;top:800px;width:116px">loads</div>
+<div class="al" style="left:1452px;top:793px;width:116px">config,<br>report</div>
+
+<div class="leg" style="left:40px;top:946px;width:640px">
+<div><span class="n">1</span><span>The user gives the basics: business service, product, team, service and the kind of pipeline.</span></div>
+<div><span class="n">2</span><span>OneView reads the sources of the repository and detects what they show: build tool, Java version, where the service runs, the Jenkinsfile. The user completes the rest.</span></div>
+<div><span class="n">3</span><span>OneView reads the existing Jenkins job and one build and lists what it read: repository, branch, parameters, retention, triggers. Nothing is changed.</span></div>
+<div><span class="n s">4</span><span>For each call to Bitbucket or Jenkins, OneView fetches the secret of the generic user from OIS with its certificate. The secret is never stored or logged.</span></div>
+<div><span class="n">5</span><span>OneView saves the product, the service and the pipeline and issues the pipeline key.</span></div>
+</div>
+<div class="leg" style="left:720px;top:946px;width:640px">
+<div><span class="n w">6</span><span>OneView creates the missing folders and the Pipeline or Multibranch Pipeline job: repository, Jenkinsfile path, the parameters of the old job and the trigger on changes. It never changes or removes an existing job.</span></div>
+<div><span class="n">7</span><span>The team commits the Jenkinsfile that OneView shows after the last step.</span></div>
+<div><span class="n">8</span><span>Jenkins finds the change (Poll SCM, or the branch scan of a Multibranch job) and starts the build.</span></div>
+<div><span class="n">9</span><span>The Jenkinsfile loads the DevSecOps library, which runs the pipeline.</span></div>
+<div><span class="n">10</span><span>The library reads its configuration from OneView by the pipeline key and sends the report of the run back.</span></div>
+</div>
+<div class="key" style="left:1400px;top:946px;width:400px"><h4>Lines</h4>
+<div><svg width="60" height="10"><line x1="0" y1="5" x2="52" y2="5" stroke="#0c2340" stroke-width="2"/><path d="M52 1 L60 5 L52 9Z" fill="#0c2340"/></svg>call that only reads, or inside OneView</div>
+<div><svg width="60" height="10"><line x1="0" y1="5" x2="52" y2="5" stroke="#9a5b00" stroke-width="3.5"/><path d="M52 0 L60 5 L52 10Z" fill="#9a5b00"/></svg>the only change OneView makes outside itself</div>
+<div><svg width="60" height="10"><line x1="0" y1="5" x2="52" y2="5" stroke="#1b7a3a" stroke-width="2" stroke-dasharray="6 4"/><path d="M52 1 L60 5 L52 9Z" fill="#1b7a3a"/></svg>secret of the generic user, mutual TLS</div>
+<h4 style="margin-top:12px">Without the generic user</h4><span>Steps 2 and 3 read anonymously or are skipped, step 6 is left to the user: OneView then shows the Jenkinsfile and the settings of the job.</span></div>
+
+<svg class="a" width="1840" height="1190" xmlns="http://www.w3.org/2000/svg"><defs>
+<marker id="m" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0 0L10 5L0 10z" fill="#0c2340"/></marker>
+<marker id="mw" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="5" markerHeight="5" orient="auto"><path d="M0 0L10 5L0 10z" fill="#9a5b00"/></marker>
+<marker id="ms" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0 0L10 5L0 10z" fill="#1b7a3a"/></marker></defs>
+<g stroke="#0c2340" stroke-width="2" fill="none">
+<line x1="195" y1="218" x2="195" y2="266" marker-end="url(#m)"/>
+<line x1="352" y1="440" x2="448" y2="440" marker-end="url(#m)" marker-start="url(#m)"/>
+<line x1="682" y1="330" x2="700" y2="330" marker-end="url(#m)"/>
+<line x1="930" y1="330" x2="948" y2="330" marker-end="url(#m)"/>
+<line x1="816" y1="440" x2="816" y2="458" marker-end="url(#m)"/>
+<line x1="1210" y1="250" x2="1498" y2="250" marker-end="url(#m)"/>
+<line x1="1210" y1="340" x2="1498" y2="340" marker-end="url(#m)"/>
+<line x1="1210" y1="625" x2="1498" y2="625" marker-end="url(#m)"/>
+<line x1="290" y1="834" x2="408" y2="834" marker-end="url(#m)"/>
+<line x1="660" y1="834" x2="778" y2="834" marker-end="url(#m)"/>
+<line x1="1060" y1="834" x2="1178" y2="834" marker-end="url(#m)"/>
+<line x1="1450" y1="834" x2="1568" y2="834" marker-end="url(#m)" marker-start="url(#m)"/>
+</g>
+<line x1="1210" y1="402" x2="1496" y2="402" stroke="#9a5b00" stroke-width="3.5" marker-end="url(#mw)"/>
+<line x1="1210" y1="500" x2="1498" y2="500" stroke="#1b7a3a" stroke-width="2" stroke-dasharray="7 5" marker-end="url(#ms)"/>
+</svg>
+<span class="n" style="left:205px;top:230px">1</span>
+<span class="n" style="left:1222px;top:238px">2</span>
+<span class="n" style="left:1222px;top:328px">3</span>
+<span class="n w" style="left:1222px;top:390px">6</span>
+<span class="n s" style="left:1222px;top:488px">4</span>
+<span class="n" style="left:1222px;top:613px">5</span>
+<span class="n" style="left:338px;top:846px">7</span>
+<span class="n" style="left:708px;top:846px">8</span>
+<span class="n" style="left:1108px;top:846px">9</span>
+<span class="n" style="left:1498px;top:846px">10</span>
+</div></body></html>

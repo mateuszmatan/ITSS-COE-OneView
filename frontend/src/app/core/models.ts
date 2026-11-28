@@ -1246,3 +1246,128 @@ export interface AgileProfileRequest {
   coach: string | null;
   version: number | null;
 }
+
+export type JobKind = 'PIPELINE' | 'MULTIBRANCH' | 'OTHER';
+export type JobParameterType = 'STRING' | 'TEXT' | 'BOOLEAN' | 'CHOICE' | 'PASSWORD';
+
+export interface JobParameter {
+  type: JobParameterType;
+  name: string;
+  defaultValue: string | null;
+  description: string | null;
+  choices: string[];
+}
+
+export interface JobTrigger {
+  kind: 'SCM_POLLING' | 'TIMER' | 'BRANCH_SCAN' | 'OTHER';
+  name: string;
+  schedule: string | null;
+}
+
+/** What a Jenkinsfile says about its pipeline, as far as its text shows it. */
+export interface JenkinsfileFacts {
+  libraries: string[];
+  entryPoint: string | null;
+  pipelineType: PipelineType | null;
+  hasPipelineKey: boolean;
+  agentLabels: string[];
+  serviceNames: string[];
+  triggers: JobTrigger[];
+  parameters: string[];
+}
+
+/** What OneView detected in the sources of a repository, without changing anything. */
+export interface SourceInspection {
+  stack: DiscoveredStack;
+  branch: string;
+  jenkinsfilePath: string | null;
+  jenkinsfile: JenkinsfileFacts | null;
+  readAsGenericUser: boolean;
+}
+
+/** What OneView read from an existing Jenkins job and one of its builds, without changing anything. */
+export interface JenkinsJobSnapshot {
+  jenkinsUrl: string;
+  jobPath: string;
+  jobUrl: string;
+  kind: JobKind;
+  description: string | null;
+  repositoryUrl: string | null;
+  branch: string | null;
+  credentialsId: string | null;
+  scriptPath: string | null;
+  agentLabel: string | null;
+  parameters: JobParameter[];
+  retention: { daysToKeep: number | null; buildsToKeep: number | null } | null;
+  concurrentBuildsDisabled: boolean;
+  triggers: JobTrigger[];
+  libraries: string[];
+  inlineScript: JenkinsfileFacts | null;
+  lastBuild: {
+    number: number;
+    result: string;
+    parameters: Record<string, string>;
+    branch: string | null;
+    repositoryUrl: string | null;
+  } | null;
+  notes: string[];
+}
+
+export interface CreateJenkinsJobRequest {
+  jenkinsUrl: string;
+  folder: string | null;
+  name: string;
+  kind: JobKind;
+  repositoryUrl: string;
+  branch: string | null;
+  scriptPath: string | null;
+  credentialsId: string | null;
+  description: string | null;
+  parameters: JobParameter[];
+  daysToKeep: number | null;
+  buildsToKeep: number | null;
+  concurrentBuildsDisabled: boolean;
+  timerSchedule: string | null;
+}
+
+export interface CreatedJenkinsJob {
+  pipelineId: number;
+  jobUrl: string;
+  jobPath: string;
+  kind: JobKind;
+  trigger: string;
+  jenkinsfilePath: string;
+  jenkinsfile: string;
+  libraryAttached: boolean;
+}
+
+/** How OneView acts in Jenkins and Bitbucket as a generic user. The OIS API key is never sent back. */
+export interface JenkinsAutomation {
+  version: number;
+  updatedAt: string | null;
+  genericUser: string | null;
+  oisHost: string | null;
+  oisApiKeySet: boolean;
+  pollSchedule: string;
+  libraryRepositoryUrl: string | null;
+  libraryVersion: string;
+  libraryCredentialsId: string | null;
+  ready: boolean;
+  missing: string[];
+}
+
+export interface JenkinsAutomationRequest {
+  version: number;
+  genericUser: string | null;
+  oisHost: string | null;
+  oisApiKey: string | null;
+  pollSchedule: string;
+  libraryRepositoryUrl: string | null;
+  libraryVersion: string;
+  libraryCredentialsId: string | null;
+}
+
+export interface ConnectionCheck {
+  ok: boolean;
+  message: string;
+}

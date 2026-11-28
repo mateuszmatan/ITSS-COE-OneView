@@ -39,6 +39,13 @@ import {
   SammApplicationScore,
   SammDepartmentScore,
   SammOrganizationOverview,
+  ConnectionCheck,
+  CreateJenkinsJobRequest,
+  CreatedJenkinsJob,
+  JenkinsAutomation,
+  JenkinsAutomationRequest,
+  JenkinsJobSnapshot,
+  SourceInspection,
 } from './models';
 
 function typeParam(pipelineType?: PipelineType): HttpParams | undefined {
@@ -322,5 +329,46 @@ export class AgileApi {
 
   deleteAssessment(id: number): Observable<void> {
     return this.http.delete<void>(`/api/agile/assessments/${id}`);
+  }
+}
+
+/** What the guided set-up of a pipeline does outside OneView: the two reads change nothing anywhere. */
+@Injectable({ providedIn: 'root' })
+export class PipelineSetupApi {
+  private readonly http = inject(HttpClient);
+
+  inspectSources(repositoryUrl: string, branch: string | null): Observable<SourceInspection> {
+    return this.http.post<SourceInspection>('/api/pipeline-setup/sources', {
+      repositoryUrl,
+      branch,
+    });
+  }
+
+  readJenkinsJob(jobUrl: string): Observable<JenkinsJobSnapshot> {
+    return this.http.post<JenkinsJobSnapshot>('/api/pipeline-setup/jenkins-job', { jobUrl });
+  }
+
+  createJenkinsJob(
+    pipelineId: number,
+    request: CreateJenkinsJobRequest,
+  ): Observable<CreatedJenkinsJob> {
+    return this.http.post<CreatedJenkinsJob>(`/api/pipelines/${pipelineId}/jenkins-job`, request);
+  }
+}
+
+@Injectable({ providedIn: 'root' })
+export class JenkinsAutomationApi {
+  private readonly http = inject(HttpClient);
+
+  get(): Observable<JenkinsAutomation> {
+    return this.http.get<JenkinsAutomation>('/api/jenkins-automation');
+  }
+
+  update(request: JenkinsAutomationRequest): Observable<JenkinsAutomation> {
+    return this.http.put<JenkinsAutomation>('/api/jenkins-automation', request);
+  }
+
+  check(jenkinsUrl: string): Observable<ConnectionCheck> {
+    return this.http.post<ConnectionCheck>('/api/jenkins-automation/check', { jenkinsUrl });
   }
 }

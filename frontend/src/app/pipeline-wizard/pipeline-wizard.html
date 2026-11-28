@@ -1,0 +1,614 @@
+<div class="page wizard">
+  <header class="page-header">
+    <div>
+      <h1>{{ section.heading }}</h1>
+      <p class="page-description">{{ section.description }}</p>
+    </div>
+  </header>
+
+  <ol class="step-bar" aria-label="Steps">
+    @for (label of steps; track label; let index = $index) {
+      <li [class.done]="index < step()" [class.current]="index === step()">
+        <button
+          type="button"
+          [disabled]="!canRevisit(index)"
+          [attr.aria-current]="index === step() ? 'step' : null"
+          (click)="goTo(index)"
+        >
+          <span class="number">{{ index + 1 }}</span>
+          <span class="step-label">{{ label }}</span>
+        </button>
+      </li>
+    }
+  </ol>
+
+  <section class="card step">
+    @switch (step()) {
+      @case (0) {
+        <h2>What do you want to set up?</h2>
+        <p class="lead">
+          Start with the basics: whose product it is, the service the pipeline is for, and the kind
+          of pipeline. OneView finds out as much of the rest as it can in the next steps.
+        </p>
+        <p class="required-note">Fields marked * are required.</p>
+        <form class="fields" [formGroup]="basics" novalidate>
+          <ov-form-field help="The business service the product belongs to.">
+            <ov-label>Business Service</ov-label>
+            <select ovInput formControlName="departmentId" required>
+              @for (department of departments(); track department.id) {
+                <option [ngValue]="department.id">{{ department.name }}</option>
+              }
+            </select>
+            <ov-error>{{ errorText(basics.controls.departmentId) }}</ov-error>
+          </ov-form-field>
+        </form>
+        <ov-choice-tiles
+          label="Product"
+          [options]="modes"
+          [value]="mode()"
+          (valueChange)="chooseMode($event!)"
+        />
+        <form class="fields" [formGroup]="basics" novalidate>
+          @if (mode() === 'new') {
+            <ov-form-field help="The full name of the product as OneView shows it.">
+              <ov-label>Product name</ov-label>
+              <input
+                ovInput
+                formControlName="productName"
+                placeholder="CertScanner"
+                autocomplete="off"
+                required
+              />
+              <ov-hint>OneView makes its short product code from the name</ov-hint>
+              <ov-error>{{
+                checked() && !basics.controls.productName.value.trim()
+                  ? 'Give the name of the product'
+                  : errorText(basics.controls.productName)
+              }}</ov-error>
+            </ov-form-field>
+            <ov-form-field help="The team that looks after the product.">
+              <ov-label>Team</ov-label>
+              <input ovInput formControlName="ownerTeam" placeholder="Technology Architecture" />
+              <ov-error>{{ errorText(basics.controls.ownerTeam) }}</ov-error>
+            </ov-form-field>
+            <ov-form-field help="Where the DevSecOps team can reach the owners of the product.">
+              <ov-label>Contact e-mail</ov-label>
+              <input
+                ovInput
+                type="email"
+                formControlName="contactEmail"
+                placeholder="team@bbh.com"
+              />
+              <ov-error>{{ errorText(basics.controls.contactEmail) }}</ov-error>
+            </ov-form-field>
+          } @else {
+            <ov-form-field help="The product the new service and its pipeline are added to.">
+              <ov-label>Product</ov-label>
+              <select ovInput formControlName="productId" required>
+                @for (product of choosable(); track product.id) {
+                  <option [ngValue]="product.id">{{ product.name }} ({{ product.code }})</option>
+                }
+              </select>
+              <ov-hint>{{ choosable().length }} in this business service</ov-hint>
+            </ov-form-field>
+          }
+          <ov-form-field
+            help="One buildable part of the product, usually one repository: an application, an API or a user interface."
+          >
+            <ov-label>Service name</ov-label>
+            <input
+              ovInput
+              formControlName="serviceName"
+              placeholder="certscanner-api"
+              autocomplete="off"
+              required
+            />
+            <ov-hint>The part of the product this pipeline builds and checks</ov-hint>
+            <ov-error>{{ errorText(basics.controls.serviceName) }}</ov-error>
+          </ov-form-field>
+        </form>
+        @if (checked() && mode() === 'existing' && !existing.hasValue()) {
+          <p class="choice-error">Choose the product to continue</p>
+        }
+        @if (serviceTaken()) {
+          <p class="choice-error">
+            This product already has a service with this name. Give the new service another name, or
+            add a pipeline to the existing service in {{ selfService.label }}.
+          </p>
+        }
+        <h3 class="sub">Which pipeline?</h3>
+        <ov-choice-tiles label="Pipeline" [options]="pipelines" [(value)]="pipeline" />
+        @if (!pipeline()) {
+          <p class="hint">Not sure? Start with Security. You can add another pipeline later.</p>
+        }
+        @if (checked() && !pipeline()) {
+          <p class="choice-error">Choose a pipeline to continue</p>
+        }
+      }
+
+      @case (1) {
+        <h2>Where are the sources?</h2>
+        <p class="lead">
+          Give the Bitbucket repository of the service. OneView reads its files, never changes them,
+          and fills in what they show. You complete only what the sources cannot tell.
+        </p>
+        <form class="fields" [formGroup]="sources" novalidate>
+          <ov-form-field
+            class="wide"
+            help="The address of the repository as the browser shows it or as Git clones it over http."
+          >
+            <ov-label>Bitbucket repository</ov-label>
+            <input
+              ovInput
+              formControlName="repositoryUrl"
+              placeholder="https://bitbucket.bbh.com/projects/CERT/repos/certscanner-api"
+              autocomplete="off"
+            />
+            <ov-error>{{ errorText(sources.controls.repositoryUrl) }}</ov-error>
+          </ov-form-field>
+          <ov-form-field help="The branch OneView reads and the Jenkins job builds.">
+            <ov-label>Branch</ov-label>
+            <input ovInput formControlName="branch" placeholder="main" />
+          </ov-form-field>
+        </form>
+        <div class="read-actions">
+          <button
+            type="button"
+            class="btn btn-primary"
+            [disabled]="inspecting()"
+            (click)="detect()"
+          >
+            {{ inspection() ? 'Read the sources again' : 'Read the sources' }}
+          </button>
+          <span class="muted"
+            >Optional. Without it, enter the settings below yourself and continue.</span
+          >
+        </div>
+        @if (inspecting()) {
+          <ov-loading />
+        }
+        @if (inspectError(); as error) {
+          <div class="banner danger" role="alert">
+            <div class="banner-text">
+              <strong>The sources were not read.</strong> {{ error }} You can still continue: enter
+              the settings below yourself.
+            </div>
+          </div>
+        }
+        @if (inspection(); as read) {
+          <div class="findings" data-testid="source-findings">
+            <h3>
+              What OneView found in branch {{ read.branch }}
+              <span class="tag new">Read only</span>
+            </h3>
+            <table class="finding-table">
+              <thead>
+                <tr>
+                  <th scope="col">Setting</th>
+                  <th scope="col">Found</th>
+                  <th scope="col">From</th>
+                </tr>
+              </thead>
+              <tbody>
+                @for (finding of sourceFindings(); track $index) {
+                  <tr>
+                    <th scope="row">{{ finding.label }}</th>
+                    <td>{{ finding.value }}</td>
+                    <td class="muted">{{ finding.source }}</td>
+                  </tr>
+                }
+              </tbody>
+            </table>
+            @if (!read.jenkinsfilePath) {
+              <p class="hint">
+                The repository has no Jenkinsfile yet. OneView gives you one at the end; it is two
+                lines.
+              </p>
+            }
+          </div>
+          @if (databaseOnly()) {
+            <div class="banner" role="alert">
+              <div class="banner-text">
+                This repository holds database changes only. Such a service needs its databases,
+                which this guided set-up does not ask for: set it up in
+                <a [routerLink]="selfService.path">{{ selfService.label }}</a
+                >.
+              </div>
+            </div>
+          }
+        }
+        <h3 class="sub">Complete what the sources cannot tell</h3>
+        <ul class="needed">
+          @for (item of stillNeeded(); track item) {
+            <li>{{ item }}</li>
+          }
+        </ul>
+        <form class="fields" [formGroup]="sources" novalidate>
+          <ov-form-field help="What builds the service. OneView sets it when it reads the sources.">
+            <ov-label>Build tool</ov-label>
+            <select ovInput formControlName="tool">
+              @for (tool of tools; track tool.value) {
+                <option [ngValue]="tool.value">{{ tool.label }}</option>
+              }
+            </select>
+            @if (inspection()) {
+              <ov-hint>Set from the sources; change it if it is not right</ov-hint>
+            }
+          </ov-form-field>
+          <ov-form-field
+            help="The ID of the application in HCL AppScan on Cloud that the scans of this service report to. The DevSecOps team provides it."
+          >
+            <ov-label>AppScan application ID</ov-label>
+            <input ovInput formControlName="appScanId" autocomplete="off" required />
+            <ov-error>{{ errorText(sources.controls.appScanId) }}</ov-error>
+          </ov-form-field>
+          <ov-form-field
+            help="The labels of the Jenkins agents the pipeline may run on, separated by commas."
+          >
+            <ov-label>Jenkins agents</ov-label>
+            <input ovInput formControlName="agents" placeholder="linux-agent" required />
+            <ov-error>{{ errorText(sources.controls.agents) }}</ov-error>
+          </ov-form-field>
+          @if (pipeline() === 'NEXUS_IQ') {
+            <ov-form-field help="The application in Nexus IQ that the service is scanned as.">
+              <ov-label>Nexus IQ application</ov-label>
+              <input ovInput formControlName="nexusIqApplication" autocomplete="off" required />
+              <ov-error>{{
+                checked() && !sources.controls.nexusIqApplication.value.trim()
+                  ? 'Give the Nexus IQ application'
+                  : ''
+              }}</ov-error>
+            </ov-form-field>
+          }
+        </form>
+        @if (
+          checked() && pipeline() === 'NEXUS_IQ' && !sources.controls.repositoryUrl.value.trim()
+        ) {
+          <p class="choice-error">
+            The OSA pipeline opens its pull requests in the repository: give its address above.
+          </p>
+        }
+        @if (deploys()) {
+          <ov-choice-tiles label="Where the service runs" [options]="targets" [(value)]="target" />
+          @if (target() === 'OPENSHIFT') {
+            <form class="fields" [formGroup]="sources" novalidate>
+              <ov-form-field help="The OpenShift project the service runs in, without -build.">
+                <ov-label>OpenShift project</ov-label>
+                <input ovInput formControlName="openShiftProject" autocomplete="off" required />
+                <ov-error>{{
+                  checked() && !sources.controls.openShiftProject.value.trim()
+                    ? 'Give the OpenShift project'
+                    : ''
+                }}</ov-error>
+              </ov-form-field>
+            </form>
+          }
+        }
+      }
+
+      @case (2) {
+        <h2>Is there a Jenkins build already?</h2>
+        <p class="lead">
+          If the service is built in Jenkins today, give the address of that job or of one of its
+          builds. OneView reads its settings and lists them here. It changes nothing in Jenkins.
+          Without such a build, just continue.
+        </p>
+        <div class="fields">
+          <ov-form-field
+            class="wide"
+            help="Copy it from the address bar of the browser while the job or one of its builds is open."
+          >
+            <ov-label>Existing Jenkins job or build</ov-label>
+            <input
+              ovInput
+              [formControl]="jobUrl"
+              placeholder="https://jenkins.bbh.com/job/CERT/job/certscanner-api/42/"
+              autocomplete="off"
+            />
+            <ov-error>{{ errorText(jobUrl) }}</ov-error>
+          </ov-form-field>
+        </div>
+        <div class="read-actions">
+          <button
+            type="button"
+            class="btn btn-primary"
+            [disabled]="reading() || !jobUrl.value.trim()"
+            (click)="readJob()"
+          >
+            {{ existingJob() ? 'Read the build again' : 'Read the build' }}
+          </button>
+          @if (existingJob()) {
+            <button type="button" class="btn btn-link" (click)="forgetJob()">
+              Do not use this build
+            </button>
+          } @else {
+            <span class="muted">Optional. Press {{ nextLabel() }} to skip it.</span>
+          }
+        </div>
+        @if (reading()) {
+          <ov-loading />
+        }
+        @if (readError(); as error) {
+          <div class="banner danger" role="alert">
+            <div class="banner-text">
+              <strong>The build was not read.</strong> {{ error }} You can still continue without
+              it.
+            </div>
+          </div>
+        }
+        @if (existingJob(); as read) {
+          <div class="findings" data-testid="job-findings">
+            <h3>
+              What OneView read from {{ read.jobPath }}
+              <span class="tag new">Read only, nothing was changed</span>
+            </h3>
+            <table class="finding-table">
+              <thead>
+                <tr>
+                  <th scope="col">Setting</th>
+                  <th scope="col">Read</th>
+                  <th scope="col">From</th>
+                </tr>
+              </thead>
+              <tbody>
+                @for (finding of jobFindings(); track $index) {
+                  <tr>
+                    <th scope="row">{{ finding.label }}</th>
+                    <td>{{ finding.value }}</td>
+                    <td class="muted">{{ finding.source }}</td>
+                  </tr>
+                }
+              </tbody>
+            </table>
+            @for (note of read.notes; track note) {
+              <p class="hint">{{ note }}</p>
+            }
+            @if (!read.lastBuild) {
+              <p class="hint">The job has no build OneView could read.</p>
+            }
+          </div>
+        }
+      }
+
+      @case (3) {
+        <h2>Who creates the Jenkins job?</h2>
+        <p class="lead">
+          The new pipeline needs a Jenkins job of its own. OneView can create it for you, set up so
+          that every change of the sources starts a build. The existing job stays as it is.
+        </p>
+        <ov-choice-tiles
+          label="Jenkins job"
+          [options]="jobModes()"
+          [value]="jobMode()"
+          (valueChange)="chosenJobMode.set($event!)"
+        />
+        @if (!canAutomate()) {
+          <div class="banner info" role="status">
+            <div class="banner-text">
+              OneView cannot create the job yet: {{ missing() }} still
+              {{ automation()?.missing?.length === 1 ? 'has' : 'have' }} to be set under
+              <a [routerLink]="adminJenkins.path">Admin, {{ adminJenkins.label }}</a
+              >. You can continue and create the job yourself.
+            </div>
+          </div>
+        }
+        @if (jobMode() === 'auto') {
+          <form class="fields" [formGroup]="job" novalidate>
+            <ov-form-field help="The Jenkins in which OneView creates the job.">
+              <ov-label>Jenkins address</ov-label>
+              <input
+                ovInput
+                formControlName="jenkinsUrl"
+                placeholder="https://jenkins.bbh.com"
+                required
+              />
+              <ov-error>{{
+                checked() && !job.controls.jenkinsUrl.value.trim()
+                  ? 'Give the address of Jenkins'
+                  : errorText(job.controls.jenkinsUrl)
+              }}</ov-error>
+            </ov-form-field>
+            <ov-form-field
+              help="The folder in Jenkins for the job, with / between folders. OneView creates the folders that Jenkins does not have yet; leave it empty for the top of Jenkins."
+            >
+              <ov-label>Folder</ov-label>
+              <input ovInput formControlName="folder" placeholder="DevSecOps/CERT" />
+              <ov-hint>Created when Jenkins does not have it yet</ov-hint>
+            </ov-form-field>
+            <ov-form-field help="The name of the new job. OneView never changes an existing job.">
+              <ov-label>Job name</ov-label>
+              <input ovInput formControlName="name" required />
+              <ov-error>{{
+                checked() && !job.controls.name.value.trim()
+                  ? 'Give the name of the job'
+                  : errorText(job.controls.name)
+              }}</ov-error>
+            </ov-form-field>
+            <ov-form-field help="The branch a Pipeline job builds and watches for changes.">
+              <ov-label>Branch</ov-label>
+              <input ovInput formControlName="branch" placeholder="main" />
+            </ov-form-field>
+            <ov-form-field help="Where the Jenkinsfile is in the repository.">
+              <ov-label>Jenkinsfile</ov-label>
+              <input ovInput formControlName="scriptPath" placeholder="Jenkinsfile" />
+            </ov-form-field>
+            <ov-form-field
+              help="The ID of the credential in Jenkins with which the job checks out the repository."
+            >
+              <ov-label>Jenkins credential for the repository</ov-label>
+              <input ovInput formControlName="credentialsId" />
+              <ov-hint>{{
+                existingJob()?.credentialsId
+                  ? 'Taken from the existing job'
+                  : 'From the service template; empty for a public repository'
+              }}</ov-hint>
+            </ov-form-field>
+          </form>
+          <ov-choice-tiles label="Kind of job" [options]="jobKinds" [(value)]="jobKind" />
+          @if (checked() && !sources.controls.repositoryUrl.value.trim()) {
+            <p class="choice-error">
+              The job checks out the repository: go back to Sources and give its address.
+            </p>
+          }
+          @if (carried().length) {
+            <p class="hint">
+              From the existing job, the new job takes over: {{ carried().join(', ') }}.
+            </p>
+          }
+        } @else {
+          <p class="hint">
+            After the last step OneView shows the Jenkinsfile and the settings for the job, to
+            create it yourself or to hand to your Jenkins administrator.
+          </p>
+        }
+      }
+
+      @case (4) {
+        <h2>Is everything right?</h2>
+        <p class="lead">
+          Nothing is saved or created until you press {{ nextLabel() }}. Use Back or the numbered
+          steps above to change an answer.
+        </p>
+        <dl class="rows review">
+          @for (line of review(); track line.label) {
+            <dt>{{ line.label }}</dt>
+            <dd>{{ line.value }}</dd>
+          }
+        </dl>
+        @if (saving()) {
+          <ov-loading />
+        }
+        @if (saveError(); as error) {
+          <div class="banner danger" role="alert">
+            <div class="banner-text">
+              <strong>Nothing was saved.</strong> {{ error }}
+              @if (saveProblems().length) {
+                <ul>
+                  @for (problem of saveProblems(); track problem) {
+                    <li>{{ problem }}</li>
+                  }
+                </ul>
+              }
+            </div>
+          </div>
+        }
+      }
+
+      @default {
+        @if (done(); as result) {
+          <h2>The pipeline is set up</h2>
+          <div class="banner success" role="status">
+            <div class="banner-text">
+              {{ result.product.name }} now has the {{ pipelineName() }} pipeline of
+              {{ basics.controls.serviceName.value }} in OneView.
+            </div>
+          </div>
+          @if (result.job; as created) {
+            <div class="banner success" role="status" data-testid="job-created">
+              <div class="banner-text">
+                OneView created the Jenkins job
+                <a [href]="created.jobUrl" target="_blank" rel="noopener">{{ created.jobPath }}</a
+                >. {{ created.trigger }}
+              </div>
+            </div>
+          }
+          @if (result.jobError; as error) {
+            <div class="banner danger" role="alert">
+              <div class="banner-text">
+                <strong>The Jenkins job was not created.</strong> {{ error }} The pipeline itself is
+                saved; try the job again or create it yourself with the settings below.
+              </div>
+              <button
+                type="button"
+                class="btn btn-primary"
+                [disabled]="saving()"
+                (click)="retryJob()"
+              >
+                Try again
+              </button>
+            </div>
+          }
+          <h3 class="sub">What is left to do</h3>
+          <ol class="next-steps">
+            <li>
+              <h3>
+                Commit this Jenkinsfile to the repository{{
+                  result.job ? ' as ' + result.job.jenkinsfilePath : ''
+                }}
+              </h3>
+              <p>
+                It loads the DevSecOps library and starts the pipeline with its key.
+                @if (result.job) {
+                  The commit is a change of the sources, so it starts the first build by itself.
+                }
+              </p>
+              @if (jenkinsfile(); as file) {
+                <div class="jenkinsfile">
+                  <div class="jenkinsfile-head">
+                    <strong>Jenkinsfile</strong>
+                    <button
+                      type="button"
+                      class="btn btn-link"
+                      aria-label="Copy the Jenkinsfile"
+                      [cdkCopyToClipboard]="file"
+                      (cdkCopyToClipboardCopied)="copied()"
+                    >
+                      Copy
+                    </button>
+                  </div>
+                  <pre class="code-block">{{ file }}</pre>
+                </div>
+              }
+            </li>
+            @if (!result.job) {
+              <li>
+                <h3>Create the Jenkins job</h3>
+                <p>
+                  A Pipeline job that takes its script from the repository (Pipeline script from
+                  SCM), branch {{ job.controls.branch.value || 'main' }}, script path
+                  {{ job.controls.scriptPath.value || 'Jenkinsfile' }}, with Poll SCM or a Bitbucket
+                  webhook as its build trigger so that a change of the sources starts it.
+                </p>
+              </li>
+            }
+            <li>
+              <h3>Follow the results</h3>
+              <p>
+                @if (result.pipeline; as created) {
+                  <a [routerLink]="pipelinePage(created.id)">The page of the pipeline</a> shows its
+                  key and its runs;
+                }
+                <a [routerLink]="monitoringProduct(result.product.id)">Pipeline Monitoring</a>
+                shows whether each run passed.
+              </p>
+            </li>
+          </ol>
+        }
+      }
+    }
+
+    <div class="step-actions">
+      @if (done()) {
+        <span class="spacer"></span>
+        <button type="button" class="btn btn-outline-primary" (click)="restart()">
+          Create another pipeline
+        </button>
+      } @else {
+        @if (step() > 0) {
+          <button
+            type="button"
+            class="btn btn-outline-primary"
+            [disabled]="saving()"
+            (click)="back()"
+          >
+            Back
+          </button>
+        }
+        <span class="spacer"></span>
+        <button type="button" class="btn btn-primary" [disabled]="saving()" (click)="next()">
+          {{ nextLabel() }}
+        </button>
+      }
+    </div>
+  </section>
+</div>

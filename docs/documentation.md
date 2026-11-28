@@ -30,6 +30,7 @@ The guide is written in `docs/documentation.md`. The page `docs/documentation.ht
 - [22. Field reference: from the portal to devsecops_config.yaml](#22-field-reference-from-the-portal-to-devsecops_configyaml)
 - [23. Database and environments](#23-database-and-environments)
 - [24. Troubleshooting](#24-troubleshooting)
+- [25. Create a pipeline step by step](#25-create-a-pipeline-step-by-step)
 
 ## 1. What the portal does
 
@@ -210,6 +211,8 @@ A service is saved with its product. The admin editor saves with "Add product" o
 ## 4. Add a service in the Self-service wizard
 
 The Self-service wizard is the easiest way to set up the pipelines of a product. It has five steps: Product, Pipeline, Services, Review and Next steps.
+
+To set up one pipeline of one service, and to let OneView read the sources and create the Jenkins job for you, use [Create a pipeline step by step](#25-create-a-pipeline-step-by-step) instead.
 
 ### Before you start
 
@@ -1107,7 +1110,7 @@ devSecOpsPipeline(projectNames: 'gateway', agentNames: ['linux-agent'])
 
 ### Jenkins jobs
 
-- Each pipeline needs a Jenkins Pipeline job that reads the Jenkinsfile from the repository (Pipeline script from SCM).
+- Each pipeline needs a Jenkins Pipeline job that reads the Jenkinsfile from the repository (Pipeline script from SCM). [Create a pipeline step by step](#25-create-a-pipeline-step-by-step) creates this job for you once an administrator has set up the Jenkins automation.
 - The service template names the job, for example `DevSecOps/{CODE}/{service}-{type}` gives `DevSecOps/PAYHUB/gateway-full`.
 - While the service template names a job, the pipelines that one save starts for the services of a repository share one job and one Jenkinsfile with `pipelineKeys`. A new pipeline joins a job only when two or more pipelines of its type, repository and Jenkins agents run in it already. See [chapter 8](#8-shared-version-catalogs-and-the-combined-jenkinsfile).
 - Jenkins needs the global environment variable `ONEVIEW_URL`, for example `https://oneview.apps.bbh.com`. A Jenkins administrator sets it once under Manage Jenkins, System, Global properties, Environment variables. It is written as `https://<host>[:<port>][/<path>]`, without a user, password, query or spaces; a slash at its end is left out.
@@ -2567,3 +2570,78 @@ The InfluxDB of the portal is not set, or the pipeline has not run yet. Set it i
 ### The AppScan key of a product disappeared after the upgrade
 
 Changeset 031 moved the key to the services. A product without services lost it. Enter the key on the first service of the product.
+
+## 25. Create a pipeline step by step
+
+Pipelines, **Create a pipeline step by step** leads you through the set-up of one pipeline of one service. You give the basics; OneView reads the sources in Bitbucket, reads the Jenkins build the service may have today and creates the new Jenkins job, so that every change of the sources starts the pipeline. Each of these three can be skipped: you then enter the settings yourself, and OneView shows what to create in Jenkins.
+
+OneView only reads in Bitbucket, and only reads an existing Jenkins job. The one thing it creates outside itself is the new Jenkins job, with the folders it is in when Jenkins does not have them yet. It never changes or removes a job that exists.
+
+![Architecture and data flow of the guided pipeline set-up](images/pipeline-setup-architecture.png)
+
+### The five steps
+
+| Step | What you do | What OneView does |
+|------|-------------|-------------------|
+| 1. Basics | Choose the business service, a new product (name, team, contact e-mail) or a product of the portal, name the service and choose the pipeline: SAST, OSA, Security or Full. | Checks that the product does not have a service of this name yet. |
+| 2. Sources | Give the address of the Bitbucket repository, as the browser shows it or as Git clones it over http, and the branch (`main` when empty). Press **Read the sources**. Complete what the sources cannot tell: the AppScan application ID, the Jenkins agents, the OpenShift project of a service on OpenShift, the Nexus IQ application of the OSA pipeline. | Lists every file of the branch and reads the build files and the Jenkinsfile. It shows each setting it found with where it found it (build tool, Java and Gradle version, build and test tasks, virtual machines or OpenShift, the SonarQube defaults, and from the Jenkinsfile the shared libraries, the pipeline it starts, the Jenkins agents and the services it names) and fills the fields in. |
+| 3. Existing build | Give the address of the Jenkins job the service is built with today, or of one of its builds, and press **Read the build**. Without such a build, continue. | Reads the configuration of the job and the build (the last build when the address names none) and lists what it read: kind of job, repository, branch, credential, Jenkinsfile path, how long builds are kept, triggers, every build parameter with its default, and the values the build ran with. A password parameter is named without its value. |
+| 4. Jenkins job | Choose **OneView creates the Jenkins job** or **I create the Jenkins job myself**. For the first, check the Jenkins address, the folder, the job name, the branch, the Jenkinsfile path and the Jenkins credential for the repository, and choose a Pipeline or a Multibranch Pipeline job. | Proposes the folder `DevSecOps/<product code>` and the job name `<service>-<pipeline>`, and takes the Jenkins address, the branch, the Jenkinsfile path and the credential from the existing job when one was read. |
+| 5. Review | Check the summary and press **Create the pipeline**. | Saves the product, the service and the pipeline with its key, as the Self-service wizard does. Then it creates the Jenkins job and notes its address on the pipeline. |
+
+After the last step OneView shows what is left to do: commit the Jenkinsfile it shows, two lines that load the DevSecOps library and start the pipeline with its key, to the repository. The commit is a change of the sources, so it starts the first build.
+
+A repository of database changes (Liquibase, SQL and PL/SQL) is set up in the [Self-service wizard](#add-a-liquibase-service-in-the-wizard), which has the fields of a database service.
+
+### The Jenkins job OneView creates
+
+- A **Pipeline** job takes its script from the repository (Pipeline script from SCM, branch and Jenkinsfile path as given) and has the trigger **Poll SCM** with the schedule of the Jenkins automation, `H/5 * * * *` by default: every five minutes Jenkins asks the repository whether the branch changed, and builds when it did.
+- A **Multibranch Pipeline** job builds every branch of the repository that has the Jenkinsfile. It scans the branches at the interval of the minutes of the same schedule. With the Git repository of the library set in the Jenkins automation, the job carries the DevSecOps library itself, under the name the Jenkinsfile loads; otherwise it uses the library registered in Jenkins, as a Pipeline job always does.
+- From the existing job the new job takes over: the build parameters (text, multi-line text, checkbox, choice and password parameters; a password parameter without a default value), how long builds are kept, "Do not allow concurrent builds", the schedule of "Build periodically" and the description. A parameter of another kind is named in the list of step 3, to be added by hand.
+- The build steps of a job that is not a Pipeline job are not carried over: the new job takes its steps from the Jenkinsfile.
+- When Jenkins already has a job of that name in that folder, OneView creates nothing and says so; choose another name or folder.
+- When the pipeline was saved and only the job failed, the result page says why and offers **Try again**; the pipeline is not created a second time.
+- The creation of the job is recorded in the Action history as "Created the Jenkins job" with its address.
+
+A Bitbucket webhook is not set up by OneView: polling works on every Jenkins without a plugin. A Jenkins with a Bitbucket webhook plugin can add the webhook trigger to the job afterwards; the job OneView created keeps working.
+
+### Creating the Jenkins job yourself
+
+With **I create the Jenkins job myself**, or while the Jenkins automation is not set up, OneView saves the pipeline and shows the Jenkinsfile and the settings of the job: a Pipeline job that takes its script from the repository, the branch, the Jenkinsfile path, and Poll SCM or a Bitbucket webhook as its build trigger. Create it yourself or hand the page to your Jenkins administrator.
+
+### Admin, Jenkins automation
+
+An administrator sets up once how OneView acts in Jenkins and Bitbucket by itself:
+
+| Field | Meaning |
+|-------|---------|
+| Generic user | The technical account OneView signs in with to Jenkins and Bitbucket. Empty turns the automation off and removes the OIS API key. |
+| OIS host | The host of OIS that OneView asks for the secret of the generic user, for example the OIS of the QC environment. A host name, with `:port` when OIS does not listen on 443. |
+| OIS API key | The application-to-application (A2A) API key that OIS issued for the secret of the generic user. It is stored, never shown again and never sent back to the browser; leave the field empty to keep the stored key. |
+| Looks for changes | The Jenkins schedule on which a job OneView creates looks for changes, `H/5 * * * *` by default. |
+| Library repository, version, Jenkins credential | Optional: the Git repository of the DevSecOps library, its branch or tag (`main` by default) and the Jenkins credential to check it out, for Multibranch Pipeline jobs that carry the library themselves. |
+
+The secret of the generic user is not a field and is stored nowhere. For every call to Bitbucket or Jenkins, OneView fetches it from OIS the way the DevSecOps library fetches its proxy password: `GET https://<OIS host>/service/a2a/v4/Credentials?type=Password` with the header `Authorization: A2A <API key>`, signing in with the client certificate of OneView. The certificate belongs to the deployment of OneView, not to the Admin page: see [the README](../README.md#guided-pipeline-set-up).
+
+**Check the connection** fetches the secret from OIS and signs in to the Jenkins whose address you give. It changes nothing and says which of the two failed.
+
+What the generic user needs:
+
+- in Jenkins: Overall/Read, Job/Read and Job/ExtendedRead (or Job/Configure) to read the configuration of existing jobs, and Job/Create in the folders where OneView creates jobs;
+- in Bitbucket: read access to the repositories whose sources OneView reads.
+
+While the generic user, the OIS host or the OIS API key is missing, OneView reads public repositories and jobs anonymously, step 4 offers only **I create the Jenkins job myself** and names what is missing.
+
+### When a step does not work
+
+| Message | Meaning and what to do |
+|---------|------------------------|
+| "Bitbucket refused the generic user ... (HTTP 401)" or "an anonymous reader" | The repository needs a user that may read it. Give the generic user read access, or enter the settings of step 2 yourself. |
+| "Bitbucket has no such repository, or no branch ... in it" | Check the address and the branch. |
+| "must be the address of the repository in Bitbucket" | Give the address as the browser shows it (`https://bitbucket/projects/KEY/repos/name`) or as Git clones it over http (`https://bitbucket/scm/key/name.git`). |
+| "Jenkins refused the generic user ... (HTTP 403)" | Reading the configuration of a job needs Job/ExtendedRead or Job/Configure, creating a job or a folder needs Job/Create. |
+| "Jenkins has nothing at ..." | Check the address of the job; a job inside a folder has `/job/<folder>/job/<name>/` in its address. |
+| "Jenkins already has ..." | OneView never changes an existing job. Choose another name or folder. |
+| "OIS at ... did not give the secret of the generic user (HTTP 401 or 403)" | The API key is wrong, or the certificate of OneView is not registered for it in OIS. |
+| "OneView has no OIS certificate" | The deployment of OneView has no SSL bundle `ois`; see the README. |
+| "OneView cannot act in Jenkins by itself yet" | An administrator has to complete Admin, Jenkins automation. Until then, create the job yourself. |

@@ -27,6 +27,7 @@ class GuiSmokeSpec extends OvSpecification {
 
     static final Map<String, String> ADMIN_TABS = ['Business Services'       : '/admin/departments', Products: '/admin/products',
                                                    'Service template'        : '/admin/template', 'Library defaults': '/admin/settings',
+                                                   'Jenkins automation'      : '/admin/jenkins',
                                                    'Applications and targets': '/admin/qa', 'Teams and assessments': '/admin/agile']
 
     static final String REGENERATED_KEY = '3f9d2c4e-8a1b-4c7d-9e2f-5b6a7c8d1e04'

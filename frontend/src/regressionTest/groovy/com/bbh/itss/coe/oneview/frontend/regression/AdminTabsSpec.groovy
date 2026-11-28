@@ -9,6 +9,7 @@ class AdminTabsSpec extends OvSpecification {
 
     static final Map<String, String> TABS = ['Business Services'       : '/admin/departments', Products: '/admin/products',
                                              'Service template'        : '/admin/template', 'Library defaults': '/admin/settings',
+                                             'Jenkins automation'      : '/admin/jenkins',
                                              'Applications and targets': '/admin/qa', 'Teams and assessments': '/admin/agile']
 
     static final List<String> GROUPS = ['Catalog', 'DevSecOps', 'QM Metric Tool', 'Agile Assessment & Adoption']

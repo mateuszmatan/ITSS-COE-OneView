@@ -9,6 +9,10 @@ import {
   Department,
   DoraSummary,
   GlobalSettings,
+  CreatedJenkinsJob,
+  JenkinsAutomation,
+  JenkinsJobSnapshot,
+  SourceInspection,
   MonitoringOverview,
   MonitoringStatus,
   Pipeline,
@@ -998,4 +1002,123 @@ export function notInAgile(overrides: Partial<AgileApplication> = {}): AgileAppl
     assessments: [],
     ...overrides,
   });
+}
+
+export function jenkinsAutomation(overrides: Partial<JenkinsAutomation> = {}): JenkinsAutomation {
+  return {
+    version: 2,
+    updatedAt: '2026-11-28T09:00:00Z',
+    genericUser: 'svc-oneview',
+    oisHost: 'ois-qc.bbh.com',
+    oisApiKeySet: true,
+    pollSchedule: 'H/5 * * * *',
+    libraryRepositoryUrl: null,
+    libraryVersion: 'main',
+    libraryCredentialsId: null,
+    ready: true,
+    missing: [],
+    ...overrides,
+  };
+}
+
+export function noJenkinsAutomation(): JenkinsAutomation {
+  return jenkinsAutomation({
+    version: 0,
+    updatedAt: null,
+    genericUser: null,
+    oisHost: null,
+    oisApiKeySet: false,
+    ready: false,
+    missing: ['the generic user', 'the OIS host', 'the OIS API key'],
+  });
+}
+
+export function sourceInspection(overrides: Partial<SourceInspection> = {}): SourceInspection {
+  return {
+    stack: {
+      buildTool: 'MAVEN',
+      primaryLanguage: 'JAVA',
+      framework: null,
+      deployTarget: 'OPENSHIFT',
+      javaVersion: '21',
+      gradleVersion: null,
+      nodeBuildEnabled: false,
+      nodeVersion: null,
+      testRunner: null,
+      unitTestTasks: 'test',
+      buildTasks: 'clean verify',
+      liquibaseDetected: false,
+      dockerDetected: true,
+      detectedMarkers: ['pom.xml'],
+      summaryMessage: 'Discovered stack: MAVEN (JAVA)',
+      resolvedParameters: [
+        { field: 'buildTool', value: 'MAVEN', reason: 'pom.xml found' },
+        { field: 'build.javaVersion', value: '21', reason: 'read from the build files' },
+        { field: 'deployTarget', value: 'OPENSHIFT', reason: 'openshift folder found' },
+      ],
+    },
+    branch: 'develop',
+    jenkinsfilePath: 'Jenkinsfile',
+    jenkinsfile: {
+      libraries: ['DevSecOpsJenkinsLibrary'],
+      entryPoint: 'devSecOpsPipeline',
+      pipelineType: 'FULL',
+      hasPipelineKey: false,
+      agentLabels: ['maven-jdk21'],
+      serviceNames: ['payments-api'],
+      triggers: [],
+      parameters: [],
+    },
+    readAsGenericUser: true,
+    ...overrides,
+  };
+}
+
+export function jenkinsJob(overrides: Partial<JenkinsJobSnapshot> = {}): JenkinsJobSnapshot {
+  return {
+    jenkinsUrl: 'https://jenkins-old.bbh.com',
+    jobPath: 'legacy/payments',
+    jobUrl: 'https://jenkins-old.bbh.com/job/legacy/job/payments/',
+    kind: 'PIPELINE',
+    description: 'Payments build',
+    repositoryUrl: 'https://bitbucket.bbh.com/scm/pay/payments-api.git',
+    branch: 'release',
+    credentialsId: 'bb-reader',
+    scriptPath: 'ci/Jenkinsfile',
+    agentLabel: null,
+    parameters: [
+      { type: 'STRING', name: 'TARGET', defaultValue: 'rd', description: null, choices: [] },
+      { type: 'PASSWORD', name: 'TOKEN', defaultValue: null, description: null, choices: [] },
+    ],
+    retention: { daysToKeep: 30, buildsToKeep: null },
+    concurrentBuildsDisabled: true,
+    triggers: [{ kind: 'TIMER', name: 'Build periodically', schedule: 'H 2 * * *' }],
+    libraries: [],
+    inlineScript: null,
+    lastBuild: {
+      number: 42,
+      result: 'SUCCESS',
+      parameters: { TARGET: 'qc' },
+      branch: 'release',
+      repositoryUrl: null,
+    },
+    notes: [],
+    ...overrides,
+  };
+}
+
+export function createdJenkinsJob(overrides: Partial<CreatedJenkinsJob> = {}): CreatedJenkinsJob {
+  return {
+    pipelineId: 100,
+    jobUrl: 'https://jenkins.bbh.com/job/DevSecOps/job/PAY/job/payments-api-security/',
+    jobPath: 'DevSecOps/PAY/payments-api-security',
+    kind: 'PIPELINE',
+    trigger:
+      'Jenkins polls branch release of the repository on the schedule H/5 * * * * and builds when it changed.',
+    jenkinsfilePath: 'ci/Jenkinsfile',
+    jenkinsfile:
+      "@Library('DevSecOpsJenkinsLibrary') _\n\ndevSecOpsSecurityPipeline(pipelineKey: 'the-key')\n",
+    libraryAttached: false,
+    ...overrides,
+  };
 }

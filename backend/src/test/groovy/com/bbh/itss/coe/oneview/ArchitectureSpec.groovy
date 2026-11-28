@@ -39,7 +39,8 @@ class ArchitectureSpec extends Specification {
     static final String PERSISTENCE = 'com.bbh.itss.coe.oneview.adapter.out.persistence..'
     static final String ADAPTER = 'com.bbh.itss.coe.oneview.adapter..'
     static final String CONFIG = 'com.bbh.itss.coe.oneview.config..'
-    static final String[] HTTP_ADAPTERS = ['com.bbh.itss.coe.oneview.adapter.out.influx..', 'com.bbh.itss.coe.oneview.adapter.out.bitbucket..']
+    static final String[] HTTP_ADAPTERS = ['com.bbh.itss.coe.oneview.adapter.out.influx..', 'com.bbh.itss.coe.oneview.adapter.out.bitbucket..',
+                                           'com.bbh.itss.coe.oneview.adapter.out.jenkins..', 'com.bbh.itss.coe.oneview.adapter.out.ois..']
     static final String[] FRAMEWORKS = ['jakarta..', 'org.springframework..', 'org.hibernate..', 'tools.jackson..',
                                         'com.fasterxml..', 'org.slf4j..']
     static final String[] HELPERS = ['org.apache.commons.lang3..', 'org.apache.commons.collections4..', 'lombok..']

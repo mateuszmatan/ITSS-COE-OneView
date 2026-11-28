@@ -203,7 +203,7 @@ describes Liquibase services with and without database changes.
 
 ## Screenshots
 
-`screenshots/v1` to `screenshots/v21` hold screenshots of the GUI across versions. `v1` to `v18` show the portal under its working name, DevSecOps Management Portal; `v19` to `v21` show it as ITSS COE OneView.
+`screenshots/v1` to `screenshots/v22` hold screenshots of the GUI across versions. `v1` to `v18` show the portal under its working name, DevSecOps Management Portal; `v19` to `v22` show it as ITSS COE OneView.
 - `v7` shows the departments.
 - `v8` shows the demo integrations with the charts of Product Management and Pipeline Monitoring.
 - `v10` shows the Self-service wizard and the Admin tabs of DevSecOps Management.
@@ -245,3 +245,15 @@ describes Liquibase services with and without database changes.
   - `11-admin-record-an-assessment.png`: the window that records an assessment of Orders, with the day of today and the agile coach of the team filled in and a level to choose in every dimension. The browser shows the day in its own format.
   - `12-action-history-of-the-business-service.png`: OneView Action History with Custody chosen: the products created, two of them refused at first because the Library defaults allowed no database yet, the applications and teams set up, and the assessments recorded. The columns Details and Status go on to the right of the picture.
   - `13-main-landing-page-narrow-window.png`: the Main Landing Page with Custody chosen in a window 800 pixels wide: the menu on the left is a row under the header, the bar puts its summary under the two choices, and the cards wrap; nothing scrolls sideways.
+- `v22` shows the guided set-up of a pipeline, Pipelines, Create a pipeline step by step, and Admin, Jenkins automation. The pictures were taken from OneView on a fresh H2 database with the product Trade Archive (`api/create-product.sh`), at a width of 1440 pixels and twice the resolution; each shows the whole page. Bitbucket, Jenkins and OIS are the stand-ins of `tools/wizard-stubs.py` on `localhost`, so the addresses, the repository, the job and its build 42 are made up; OneView fetched the secret of the generic user `svc-oneview` from the OIS stand-in over mutual TLS.
+  - `01-pipelines-with-the-guided-set-up.png`: Pipelines with the button Create a pipeline step by step next to Set up pipelines in Self-service.
+  - `02-guided-set-up-step-1-basics.png`: step 1 for the new product CertScanner of Corporate Technology, the service `certscanner-api` and the Security pipeline.
+  - `03-guided-set-up-step-2-sources-read-from-bitbucket.png`: step 2 after Read the sources: every setting OneView found in the branch with where it found it, the settings of the Jenkinsfile among them, the list of what the sources cannot tell, and the fields filled in (Gradle, the agent of the Jenkinsfile, OpenShift).
+  - `04-guided-set-up-step-3-existing-jenkins-build.png`: step 3 after Read the build: the configuration of the existing job and build 42, read only, with its three build parameters and the values the build ran with.
+  - `05-guided-set-up-step-4-jenkins-job.png`: step 4 with OneView creates the Jenkins job: the folder and the job name OneView proposes, the credential taken from the existing job, Pipeline or Multibranch Pipeline, and what the new job takes over.
+  - `06-guided-set-up-step-5-review.png`: the review before anything is saved.
+  - `07-guided-set-up-pipeline-and-jenkins-job-created.png`: the result: the pipeline is saved, the Jenkins job is created with its trigger, and the Jenkinsfile with the key is ready to copy.
+  - `08-admin-jenkins-automation.png`: Admin, Jenkins automation with the generic user, the OIS host, the stored OIS API key that is not shown, and a connection check that passed.
+  - `09-guided-set-up-sources-entered-by-hand.png`: step 2 without reading the sources, for the new product Ledger Reports and a SAST pipeline, after the generic user was removed.
+  - `10-guided-set-up-jenkins-job-left-to-the-user.png`: step 4 without the generic user: OneView says what an administrator has to set and leaves the job to the user.
+  - `11-guided-set-up-pipeline-created-job-by-hand.png`: the result without a job: the Jenkinsfile and the settings of the Jenkins job to create by hand.

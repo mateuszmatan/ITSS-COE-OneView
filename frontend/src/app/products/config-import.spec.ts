@@ -378,7 +378,7 @@ describe('the import into a service form', () => {
             command: { ...stored.build.command, tasks: ['msbuild', 'Orders.sln', '/t:Build'] },
           },
           nexusDelivery: {
-            ...stored.nexusDelivery,
+            ...stored.nexusDelivery!,
             nugetSource: 'https://tools.bbh.com/nexus/repository/nuget-hosted/',
           },
         },

@@ -9,6 +9,7 @@ import { MonitoringOverview } from './monitoring/monitoring-overview';
 import { PipelineMonitoringPage } from './monitoring/pipeline-monitoring';
 import { ProductMonitoringPage } from './monitoring/product-monitoring';
 import { PipelineList } from './pipelines/pipeline-list';
+import { PipelineWizard } from './pipeline-wizard/pipeline-wizard';
 import { PipelinePage } from './pipelines/pipeline-page';
 import { ProductDetail } from './products/product-detail';
 import { ProductEditor } from './products/product-editor';
@@ -16,6 +17,7 @@ import { ProductList } from './products/product-list';
 import { SelfService } from './self-service/self-service';
 import { ActionHistoryPage } from './history/action-history';
 import { GlobalSettingsPage } from './settings/global-settings';
+import { JenkinsAutomationPage } from './settings/jenkins-automation-page';
 import { ServiceTemplatePage } from './settings/service-template-page';
 import { SammOverviewPage } from './samm/samm-overview';
 import { QaOverviewPage } from './qa/qa-overview';
@@ -51,6 +53,7 @@ describe('routes', () => {
     expect(Object.fromEntries(pages)).toEqual({
       '': LandingPage,
       pipelines: PipelineList,
+      'pipelines/new': PipelineWizard,
       'pipelines/:id': PipelinePage,
       'self-service': SelfService,
       monitoring: MonitoringOverview,
@@ -68,6 +71,7 @@ describe('routes', () => {
       'admin/products': ProductList,
       'admin/template': ServiceTemplatePage,
       'admin/settings': GlobalSettingsPage,
+      'admin/jenkins': JenkinsAutomationPage,
       'admin/qa': QaAdmin,
       'admin/agile': AgileAdmin,
     });
@@ -102,11 +106,13 @@ describe('routes', () => {
         .filter(([, route]) => route.canDeactivate)
         .map(([path]) => path),
     ).toEqual([
+      'pipelines/new',
       'self-service',
       'admin/products/new',
       'admin/products/:id/edit',
       'admin/template',
       'admin/settings',
+      'admin/jenkins',
       'admin/qa',
     ]);
   });

@@ -237,6 +237,54 @@ record it.
 - `GET /api/pipelines/{id}/pull-request-decorations?limit=<n>`: the newest decorations of a pipeline with their findings (20 by default, at most 100), shown on the pipeline page in **Pull request decorations**.
 - `/api/samm/*`: evaluates OWASP SAMM v2.0 software assurance maturity across 5 business functions and 11 practices, generating department overviews, distribution tiers, and per-pipeline scorecards.
 
+## Guided pipeline set-up
+
+Pipelines, **Create a pipeline step by step** (`/pipelines/new`, `frontend/src/app/pipeline-wizard`) sets up one
+pipeline in five steps: basics, sources, existing build, Jenkins job, review. OneView reads the sources in Bitbucket
+and an existing Jenkins job, both read only, and creates the new Jenkins job with a trigger on every change of the
+sources. Reading and creating can each be skipped. Chapter 25 of the [guide](docs/documentation.md#25-create-a-pipeline-step-by-step)
+describes it for users and administrators.
+
+![Architecture and data flow of the guided pipeline set-up](docs/images/pipeline-setup-architecture.png)
+
+The picture is rendered from `docs/images/pipeline-setup-architecture.html` (open it in a browser at 1840 pixels
+and take a screenshot of the page to render it again).
+
+| Call | What it does |
+|------|--------------|
+| `POST /api/pipeline-setup/sources` `{repositoryUrl, branch}` | lists the files of the branch (`/rest/api/1.0/projects/<key>/repos/<slug>/files`, at most 5000) and reads the build files and the Jenkinsfile (`/raw/<file>`); answers the detected stack and what the Jenkinsfile says. Changes nothing |
+| `POST /api/pipeline-setup/jenkins-job` `{jobUrl}` | reads `config.xml` of the job and `api/json` of the build the address names, else of the last build. Changes nothing |
+| `POST /api/pipelines/{id}/jenkins-job` | creates the missing folders and the Pipeline or Multibranch Pipeline job (`createItem` with the CSRF crumb) as the generic user and notes its address on the pipeline; 409 when the job exists or the automation is not set up |
+| `GET`, `PUT /api/jenkins-automation` | the settings of Admin, Jenkins automation (table `DSO_JENKINS_AUTOMATION`, changeset 053); the OIS API key is write only |
+| `POST /api/jenkins-automation/check` `{jenkinsUrl}` | fetches the secret from OIS and signs in to Jenkins (`whoAmI`); answers `{ok, message}` |
+
+The secret of the generic user is never stored: `OisA2aSecretAdapter` fetches it for every request from
+`https://<OIS host>/service/a2a/<version>/Credentials?type=Password` with the header `Authorization: A2A <API key>`
+and the client certificate of OneView. The certificate is the Spring SSL bundle `ois` of the deployment:
+
+| Variable | Meaning |
+|----------|---------|
+| `SPRING_SSL_BUNDLE_PEM_OIS_KEYSTORE_CERTIFICATE`, `SPRING_SSL_BUNDLE_PEM_OIS_KEYSTORE_PRIVATE_KEY` | the certificate registered in OIS for OneView and its key, as `file:/path.pem` (a JKS or PKCS12 store works with `spring.ssl.bundle.jks.ois.*`) |
+| `SPRING_SSL_BUNDLE_PEM_OIS_TRUSTSTORE_CERTIFICATE` | the CA of the OIS server certificate, when the JDK does not trust it already |
+| `OIS_SSL_BUNDLE`, `OIS_API_VERSION` | another name of the bundle (`ois`) or version of the A2A interface (`v4`) |
+
+The property `oneview.sources.local-directories` lets step 2 read a folder of the machine OneView runs on instead of
+a Bitbucket address. It is on only in the profile `local`.
+
+Without the bundle everything else works, and the connection check says that the certificate is missing.
+
+`tools/wizard-stubs.py` starts stand-ins for Bitbucket, Jenkins and OIS on a developer machine (Python 3, no
+packages), to try the whole flow without the real systems:
+
+```bash
+python3 tools/wizard-stubs.py --port 8099 \
+    --ois-cert ois-server.pem --ois-key ois-server.key --ois-client-ca oneview.pem   # OIS on port 8100, mutual TLS
+```
+
+Its help lists the addresses. In Admin, Jenkins automation enter the generic user `svc-oneview`, the OIS host
+`localhost:8100` and the OIS API key `stub-a2a-api-key`. The stand-ins
+answer like the real systems only as far as OneView calls them; see [Known gaps](#known-gaps).
+
 ## Architecture
 
 The service is hexagonal with MVC at its edge, and the ArchUnit rules of `ArchitectureSpec` keep the layers apart
@@ -248,14 +296,15 @@ The service is hexagonal with MVC at its edge, and the ArchUnit rules of `Archit
   in the action history by `ActionRecorder`.
 - `application/<feature>`: use cases (`@UseCase`, transactional) behind the ports in `port/in` and `port/out`.
 - `domain/<feature>`: the business rules, with no framework.
-- `adapter/out/{persistence,influx,grafana,bitbucket,key}`: JPA on H2 or Oracle, InfluxDB Flux queries, Grafana
-  links, Bitbucket calls, key generation.
+- `adapter/out/{persistence,influx,grafana,bitbucket,jenkins,ois,key}`: JPA on H2 or Oracle, InfluxDB Flux queries,
+  Grafana links, Bitbucket calls, the Jenkins REST API and its `config.xml`, the secret of the generic user from OIS,
+  key generation.
 
 A feature is one package name in every layer, and every feature belongs to an area:
 
 | Area | Features (`domain/<feature>`, `application/<feature>`) | GUI (`frontend/src/app`) |
 |------|---------------------------------------------------------|--------------------------|
-| DevSecOps | `catalog`, `pipeline`, `dsoconfig`, `settings`, `monitoring`, `samm`, `report`, `discovery`, `bitbucket` | `pipelines`, `self-service`, `monitoring`, `samm`, `products`, `departments`, `settings` |
+| DevSecOps | `catalog`, `pipeline`, `dsoconfig`, `settings`, `monitoring`, `samm`, `report`, `discovery`, `bitbucket`, `jenkins` | `pipelines`, `pipeline-wizard`, `self-service`, `monitoring`, `samm`, `products`, `departments`, `settings` |
 | QM Metric Tool | `qa` | `qa` |
 | Agile Assessment & Adoption | `agile` | `agile` |
 | shared by the areas | `actionlog`, `user`, `shared` | `history`, `core`, `shared`, and `frontend/src/common` |
@@ -366,6 +415,12 @@ with who, what, when and the result, and shown under Action history.
 The prioritised list of open work for the portal and the library is [TODO.md](TODO.md); the overview for senior
 management is [docs/MANAGEMENT_OVERVIEW.md](docs/MANAGEMENT_OVERVIEW.md).
 
+- The guided pipeline set-up was tried against the stand-ins of `tools/wizard-stubs.py` only, not against the BBH
+  Bitbucket, Jenkins and OIS. To confirm on the BBH systems: that Jenkins accepts the `config.xml` OneView posts for
+  a Pipeline and for a Multibranch Pipeline job with the plugin versions installed there, the version of the OIS A2A
+  interface (`v4`, `ONEVIEW_OIS_API_VERSION`), and the permissions of the generic user. OneView does not commit the
+  Jenkinsfile to the repository and does not set up a Bitbucket webhook: the team commits the Jenkinsfile, and the
+  job looks for changes by polling. The OIS API key is stored in the database as it is.
 - The portal has no sign-in yet, so every action is recorded as the default administrator. BBH single sign-on and
   roles come later; until then the portal must stay inside the test network.
 - A new Liquibase service gets the build command `updateSQL` without flags, which fails unless flags or a

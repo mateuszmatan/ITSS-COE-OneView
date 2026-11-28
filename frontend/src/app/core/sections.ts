@@ -8,6 +8,14 @@ export const PIPELINES: OneViewSection = {
     'Every automated build, test and security pipeline of the business service or application chosen above. Open one to see its key, its Jenkinsfile and its latest runs.',
 };
 
+export const PIPELINE_WIZARD: OneViewSection = {
+  path: '/pipelines/new',
+  label: 'Create pipeline',
+  heading: 'Create a DevSecOps pipeline',
+  description:
+    'OneView leads you through it: the basics, the Bitbucket repository whose sources it reads for you, the Jenkins build you may already have, and the Jenkins job it creates for you so that every change of the sources starts the pipeline.',
+};
+
 export const SELF_SERVICE: OneViewSection = {
   path: '/self-service',
   label: 'Self-service',
@@ -128,6 +136,11 @@ export const ADMIN_SETTINGS: OneViewTab = {
   label: 'Library defaults',
   group: DEVSECOPS.label,
 };
+export const ADMIN_JENKINS: OneViewTab = {
+  path: '/admin/jenkins',
+  label: 'Jenkins automation',
+  group: DEVSECOPS.label,
+};
 export const ADMIN_QA: OneViewTab = {
   path: '/admin/qa',
   label: 'Applications and targets',
@@ -141,7 +154,15 @@ export const ADMIN_AGILE: OneViewTab = {
 
 export const ONEVIEW_ADMIN: AdminArea = {
   section: ADMIN,
-  tabs: [ADMIN_DEPARTMENTS, ADMIN_PRODUCTS, ADMIN_TEMPLATE, ADMIN_SETTINGS, ADMIN_QA, ADMIN_AGILE],
+  tabs: [
+    ADMIN_DEPARTMENTS,
+    ADMIN_PRODUCTS,
+    ADMIN_TEMPLATE,
+    ADMIN_SETTINGS,
+    ADMIN_JENKINS,
+    ADMIN_QA,
+    ADMIN_AGILE,
+  ],
 };
 
 export function adminProduct(id: number | string, ...rest: string[]): (string | number)[] {
