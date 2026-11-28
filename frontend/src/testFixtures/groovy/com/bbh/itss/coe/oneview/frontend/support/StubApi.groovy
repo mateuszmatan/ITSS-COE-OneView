@@ -38,7 +38,8 @@ abstract class StubApi {
     abstract void install()
 
     void installDepartments(Map blank) {
-        departments = new CopyOnWriteArrayList<Map>(fixture('departments.json') as List<Map>)
+        // Plain maps: the lazily parsed ones are not safe when two requests read them at once.
+        departments = new CopyOnWriteArrayList<Map>((fixture('departments.json') as List<Map>).collect { new LinkedHashMap(it) })
         get('/api/departments') { departments.sort(false) { (it.name as String).toLowerCase() } }
         on('POST', '/api/departments') { RecordedRequest request ->
             def added = [id: (departments*.id.max() as int) + 1, name: request.json().name, version: 0, productCount: 0] + blank

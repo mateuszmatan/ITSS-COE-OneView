@@ -76,7 +76,7 @@ class PipelineWizardSpec extends OvSpecification {
         with(api.requests('POST', '/api/pipelines/(\\d+)/jenkins-job').last().json() as Map) {
             jenkinsUrl == 'https://jenkins.bbh.com'
             kind == 'PIPELINE'
-            repositoryUrl == REPOSITORY
+            repositoryUrl == PipelineWizardSpec.REPOSITORY
             branch == 'release'
             scriptPath == 'ci/Jenkinsfile'
             credentialsId == 'bb-reader'
